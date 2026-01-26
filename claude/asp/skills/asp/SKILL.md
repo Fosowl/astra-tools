@@ -34,9 +34,22 @@ asp params universes/baseline.yaml           # Output CWL parameters to stdout
 
 ### Analysis Structure
 An ASP analysis (`asp.yaml`) contains:
-- **analysis**: name, problem statement, inputs, outputs
+- **analysis**: name, problem statement, success criteria, inputs, outputs
 - **decisions**: choices that define the analysis methodology
 - **insights**: scientific knowledge from papers or prior analyses
+
+### Success Criteria
+Define concrete, verifiable conditions for success:
+```yaml
+analysis:
+  problem: |
+    Build a classifier for the Iris dataset...
+  success_criteria:
+    - "Achieve >95% classification accuracy on held-out test set"
+    - "Model size under 10MB for mobile deployment"
+    - "Prediction time under 100ms per sample"
+```
+These criteria are used by `/asp:verify` to determine if the analysis succeeded.
 
 ### Universes
 A universe is a complete set of decisions - one option per decision point.
@@ -68,6 +81,8 @@ asp init my-analysis -n "Analysis Name" -p "Problem statement"
 ```
 
 2. Edit `asp.yaml` to define:
+   - Problem statement (what you're trying to achieve)
+   - **Success criteria** (concrete conditions for success)
    - Inputs (data sources, literature)
    - Outputs (metrics, figures, reports)
    - Decisions (methodology choices)
@@ -75,6 +90,8 @@ asp init my-analysis -n "Analysis Name" -p "Problem statement"
 3. Add insights from relevant papers to support decisions
 
 4. Validate with `asp validate asp.yaml`
+
+**Tip:** Use `/asp:start` to interactively define your analysis with guidance.
 
 ## Extracting Insights from Papers
 
