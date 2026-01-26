@@ -78,12 +78,7 @@ def main() -> None:
 @click.argument("directory", type=click.Path(path_type=Path), default=".")
 @click.option("--no-git", is_flag=True, help="Don't initialize git repository")
 @click.option("--no-venv", is_flag=True, help="Don't create Python virtual environment")
-@click.option(
-    "--local",
-    is_flag=True,
-    help="Copy Claude skills locally instead of using marketplace (useful for development)",
-)
-def init(directory: Path, no_git: bool, no_venv: bool, local: bool) -> None:
+def init(directory: Path, no_git: bool, no_venv: bool) -> None:
     """Create a new ASP analysis project.
 
     Creates the project scaffolding for an ASP analysis with Claude Code
@@ -95,7 +90,6 @@ def init(directory: Path, no_git: bool, no_venv: bool, local: bool) -> None:
         asp init my-analysis
         asp init my-analysis --no-git    # Without git initialization
         asp init my-analysis --no-venv   # Without virtual environment
-        asp init my-analysis --local     # Copy skills locally for development
     """
     # Create project directory
     if directory != Path("."):
@@ -133,11 +127,8 @@ __pycache__/
     # Create boilerplate asp.yaml
     _create_boilerplate_asp_yaml(directory)
 
-    # Create Claude Code settings (either marketplace or local)
-    if local:
-        _create_local_claude_settings(directory)
-    else:
-        _create_claude_settings(directory)
+    # Create Claude Code settings with local skills
+    _create_claude_settings(directory)
 
     # Create virtual environment
     venv_created = _create_venv(directory, no_venv)
@@ -151,17 +142,10 @@ __pycache__/
     if venv_created:
         includes += ", .venv/"
     console.print(f"[dim]  Includes: {includes}[/dim]")
-    if local:
-        console.print("[dim]  Mode: local (skills copied into project)[/dim]")
-    else:
-        console.print("[dim]  Mode: marketplace (skills fetched from GitHub)[/dim]")
 
     console.print("\n[bold]Next steps:[/bold]")
     console.print(f"  1. [cyan]cd {directory}[/cyan]")
-    if local:
-        console.print("  2. Run [cyan]claude[/cyan] to launch Claude Code (skills are local)")
-    else:
-        console.print("  2. Run [cyan]claude[/cyan] to launch Claude Code (plugin auto-installs)")
+    console.print("  2. Run [cyan]claude[/cyan] to launch Claude Code")
     console.print("  3. Edit [cyan]asp.yaml[/cyan] to define inputs, outputs, and decisions")
     console.print("  4. Run [cyan]asp validate asp.yaml[/cyan] to check your spec")
 
@@ -263,37 +247,6 @@ See [ASP documentation](https://github.com/LightconeResearch/ASP) for more infor
     (directory / "README.md").write_text(readme)
 
 
-def _create_claude_settings(directory: Path) -> None:
-    """Create Claude Code settings to auto-install ASP plugin."""
-    claude_dir = directory / ".claude"
-    claude_dir.mkdir(parents=True, exist_ok=True)
-
-    settings = {
-        "permissions": {
-            "allow": [
-                "Bash(asp:*)",
-                "Bash(python:*)",
-                "Bash(cwltool:*)",
-                "Edit",
-                "WebSearch",
-                "WebFetch",
-            ],
-        },
-        "extraKnownMarketplaces": {
-            "asp": {
-                "source": {
-                    "source": "github",
-                    "repo": "LightconeResearch/ASP",
-                }
-            }
-        },
-        "enabledPlugins": {"asp@asp": True},
-    }
-
-    settings_file = claude_dir / "settings.json"
-    settings_file.write_text(json.dumps(settings, indent=2) + "\n")
-
-
 def _get_plugin_source_dir() -> Path | None:
     """Find the ASP plugin source directory.
 
@@ -319,11 +272,11 @@ def _get_plugin_source_dir() -> Path | None:
     return None
 
 
-def _create_local_claude_settings(directory: Path) -> None:
-    """Create Claude Code settings with skills copied locally.
+def _create_claude_settings(directory: Path) -> None:
+    """Create Claude Code settings with ASP skills and agents.
 
-    Instead of using the marketplace, this copies the plugin files directly
-    into the project's .claude/ directory for local development.
+    Copies the plugin files (scripts, skills, agents) into the project's
+    .claude/ directory for local use.
     """
     claude_dir = directory / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
@@ -333,9 +286,8 @@ def _create_local_claude_settings(directory: Path) -> None:
     if plugin_source is None:
         console.print(
             "[yellow]Warning:[/yellow] Could not find ASP plugin source files. "
-            "Falling back to marketplace mode."
+            "Claude Code skills will not be available."
         )
-        _create_claude_settings(directory)
         return
 
     # Copy scripts
@@ -356,6 +308,14 @@ def _create_local_claude_settings(directory: Path) -> None:
         if skills_dst.exists():
             shutil.rmtree(skills_dst)
         shutil.copytree(skills_src, skills_dst)
+
+    # Copy agents (for sub-agent spawning)
+    agents_src = plugin_source / "agents"
+    agents_dst = claude_dir / "agents"
+    if agents_src.exists():
+        if agents_dst.exists():
+            shutil.rmtree(agents_dst)
+        shutil.copytree(agents_src, agents_dst)
 
     # Create settings.json with hooks configured directly (no marketplace)
     settings = {
