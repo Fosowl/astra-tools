@@ -178,6 +178,11 @@ class AnalysisContent(BaseModel):
     problem: str = Field(
         description="Problem statement describing what the analysis aims to achieve"
     )
+    success_criteria: list[str] | None = Field(
+        default=None,
+        description="Concrete criteria for determining if the analysis succeeded. "
+        "Each criterion should be specific and verifiable.",
+    )
     inputs: list[Input] = Field(description="List of inputs for the analysis")
     outputs: list[Output] = Field(description="List of expected outputs")
 

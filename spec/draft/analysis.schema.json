@@ -59,6 +59,22 @@
           "title": "Problem",
           "type": "string"
         },
+        "success_criteria": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Concrete criteria for determining if the analysis succeeded. Each criterion should be specific and verifiable.",
+          "title": "Success Criteria"
+        },
         "inputs": {
           "description": "List of inputs for the analysis",
           "items": {
