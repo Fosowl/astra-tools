@@ -35,7 +35,7 @@ flowchart LR
 
 **Multiverse**: The space of all valid decision combinations. Its purpose is transparency and traceability, not exhaustive search. Document the path taken, the paths not taken, and optionally check robustness.
 
-**Phases**: Decompose complex analyses into inline stages — each with its own problem statement, inputs, outputs, and decisions — that you work through incrementally.
+**Phases**: All decisions live under phases. Single-stage analyses use a `main` phase. Complex analyses decompose into multiple phases — each with its own problem statement, decisions, and optional artefacts.
 
 **Evidence-based decisions**: Link decisions to supporting evidence from previous analyses or literature.
 
@@ -132,40 +132,42 @@ analysis:
       type: figure
       formats: [png]
 
-decisions:
-  scaling:
-    label: "Feature Scaling"
-    type: method
-    importance: 2
-    default: standard
-    options:
-      none:
-        label: "No Scaling"
-      standard:
-        label: "StandardScaler"
-      minmax:
-        label: "MinMaxScaler"
-        incompatible_with: ["model.svm"]
+phases:
+  main:
+    decisions:
+      scaling:
+        label: "Feature Scaling"
+        type: method
+        importance: 2
+        default: standard
+        options:
+          none:
+            label: "No Scaling"
+          standard:
+            label: "StandardScaler"
+          minmax:
+            label: "MinMaxScaler"
+            incompatible_with: ["model.svm"]
 
-  model:
-    label: "Classification Model"
-    type: method
-    importance: 1
-    default: random_forest
-    options:
-      svm:
-        label: "Support Vector Machine"
-      random_forest:
-        label: "Random Forest"
-      logistic:
-        label: "Logistic Regression"
+      model:
+        label: "Classification Model"
+        type: method
+        importance: 1
+        default: random_forest
+        options:
+          svm:
+            label: "Support Vector Machine"
+          random_forest:
+            label: "Random Forest"
+          logistic:
+            label: "Logistic Regression"
 ```
 
 See [examples/iris/](examples/iris/) for a complete working example.
 
 ## Phases
 
-Complex analyses have intermediate stages — building mocks, training models, validating results — each with their own decisions. Phases let you decompose an analysis into scoped stages defined inline within a single `asp.yaml`:
+Complex analyses have intermediate stages — building mocks, training models, validating results — each with their own decisions. Phases let you decompose an analysis into scoped stages defined inline within a single `asp.yaml`. Single-stage analyses use a `main` phase; all decisions live under phases.
 
 ```yaml
 version: "1.0"
@@ -183,20 +185,12 @@ analysis:
     - id: posterior_contours
       type: figure
       formats: [png]
-      from: validate.posterior_plot       # drawn from a phase output
 
 phases:
   build_mocks:
     problem: "Generate realistic mock catalogs matching survey properties."
     success_criteria:
       - "Mock catalog matches observed magnitude distribution"
-    inputs:
-      - id: survey_catalog
-        from: inputs.survey_catalog       # wire parent input
-    outputs:
-      - id: mock_catalog
-        type: data
-        formats: [fits]
     decisions:
       noise_model:
         label: "Noise Model"
@@ -205,17 +199,13 @@ phases:
         options:
           homoscedastic: { label: "Homoscedastic" }
           heteroscedastic: { label: "Heteroscedastic" }
+    artefacts:
+      - id: mock_catalog
+        type: data
+        description: "Simulated catalog matching survey properties"
 
   train_network:
     problem: "Train SBI neural network on mock catalog."
-    inputs:
-      - id: mock_catalog
-        from: build_mocks.mock_catalog    # wire from sibling output
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
-      - id: trained_model
-        type: model
     decisions:
       architecture:
         label: "Network Architecture"
@@ -227,26 +217,19 @@ phases:
 
   validate:
     problem: "Validate trained model against observed data."
-    inputs:
-      - id: trained_model
-        from: train_network.trained_model
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
+    artefacts:
       - id: posterior_plot
         type: figure
-        formats: [png]
+        description: "Posterior contour plots"
 ```
 
-Each phase has its own problem statement, inputs, outputs, and decisions. The parent wires inputs between phases — the DAG is implicit from the wiring.
+Each phase has its own problem statement, decisions, and optional artefacts. The agent determines execution order and data flow between phases.
 
-**Nested universe selections**: The universe file selects options for each phase's decisions:
+**Universe selections by phase**: The universe file selects options for each phase's decisions:
 
 ```yaml
 # universes/baseline.yaml
 id: baseline
-decisions:
-  reporting_style: publication
 phases:
   build_mocks:
     noise_model: heteroscedastic

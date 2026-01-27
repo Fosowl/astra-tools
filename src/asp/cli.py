@@ -105,10 +105,7 @@ def init(directory: Path, no_git: bool, no_venv: bool) -> None:
     subdirs = [
         "universes",
         "workflows",
-        "steps/io",
-        "steps/preprocessing",
-        "steps/models",
-        "steps/evaluation",
+        "steps",
         "results",
     ]
     for subdir in subdirs:

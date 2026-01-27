@@ -99,12 +99,14 @@ agentic-science-protocol/
 
 ### Key Concepts
 
-- **Analysis**: Defines problem statement, inputs, outputs, and decisions
+- **Analysis**: Defines problem statement, inputs, outputs, and phases
+- **Phase**: A scoped stage with its own problem, decisions, and optional artefacts. Single-stage analyses use a `main` phase. All decisions live under phases.
 - **Decision**: A choice point with multiple options (e.g., "which scaling method?")
-- **Universe**: One complete set of decisions (one option per decision)
+- **Artefact**: A typed output produced by a phase (figure, table, data, report)
+- **Universe**: One complete set of decisions organized by phase
 - **Multiverse**: The space of all valid decision combinations
 - **Insight**: Scientific knowledge from papers or prior analyses, with precise evidence
-- **Constraints**: `incompatible_with` and `requires` relationships between decision options
+- **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within a phase)
 
 ## Development Commands
 
@@ -199,20 +201,22 @@ defaults = get_default_universe(data)
 ```
 
 ### 4. Constraint Validation
-Constraints are validated in `semantic.py`:
+Constraints are validated in `semantic.py`, scoped within each phase:
 - `incompatible_with`: Lists of "decision.option" pairs that cannot coexist
 - `requires`: Lists of "decision.option" pairs that must be selected together
-- Universe validation checks these constraints
+- Universe validation checks these constraints per phase
 
 ### 5. Evidence-Based Decisions
 Decisions can reference insights as evidence:
 ```yaml
-decisions:
-  scaling:
-    options:
-      standard:
-        evidence:
-          - insight: compute_scaling  # References insights.compute_scaling
+phases:
+  main:
+    decisions:
+      scaling:
+        options:
+          standard:
+            evidence:
+              - insight: compute_scaling  # References insights.compute_scaling
 ```
 
 ## Testing Philosophy

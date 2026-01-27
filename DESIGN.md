@@ -92,9 +92,9 @@ A `report` type output is special: it should address the problem statement and s
 
 ### 4. Decisions
 
-The choices that fully specify the analysis. Each decision has:
+All decisions live under phases (see [Phases](#phases)). Each decision has:
 
-- **id**: Unique identifier for the decision
+- **id**: Unique identifier for the decision (unique within its phase)
 - **label**: Human-readable name
 - **type**: Category (`data`, `method`, `parameter`)
 - **importance**: 1 (critical) to 5 (implementation detail)
@@ -103,66 +103,71 @@ The choices that fully specify the analysis. Each decision has:
 - **default**: (optional) The default option for baseline universes
 
 Options can have:
-- **constraints**: `incompatible_with`, `requires`
+- **constraints**: `incompatible_with`, `requires` (scoped to the same phase)
 - **evidence**: References to inputs that support this choice
 - **value**: Configuration parameters
 
 ### 5. Constraints
 
-Options can declare constraints on other options:
+Options can declare constraints on other options within the same phase:
 
 ```yaml
-decisions:
-  scaling:
-    options:
-      minmax:
-        label: "MinMaxScaler"
-        incompatible_with: ["model.svm"]  # Can't use with SVM
+phases:
+  main:
+    decisions:
+      scaling:
+        options:
+          minmax:
+            label: "MinMaxScaler"
+            incompatible_with: ["model.svm"]  # Can't use with SVM
 
-  feature_selection:
-    options:
-      pca:
-        label: "PCA"
-        requires: ["scaling.standard"]  # PCA needs standardized data
+      feature_selection:
+        options:
+          pca:
+            label: "PCA"
+            requires: ["scaling.standard"]  # PCA needs standardized data
 ```
 
 **Constraint types:**
 - `incompatible_with`: List of `decision.option` pairs that cannot be selected together
 - `requires`: List of `decision.option` pairs that must also be selected
 
-Constraints are validated when creating universes. Invalid combinations are rejected.
+Constraints are scoped within a phase and validated when creating universes. Invalid combinations are rejected.
 
 ### Universe
 
-A **universe** is a complete set of decisions: one option selected for each decision point. The set of all valid universes (respecting constraints) is the **multiverse**.
+A **universe** is a complete set of decisions organized by phase: one option selected for each decision point. The set of all valid universes (respecting constraints) is the **multiverse**.
 
 ```yaml
 # universes/baseline.yaml
 id: baseline
 description: "Default configuration using standard practices"
 
-decisions:
-  scaling: standard
-  model: random_forest
-  test_size: split_20
-  random_seed: seed_42
+phases:
+  main:
+    scaling: standard
+    model: random_forest
+    test_size: split_20
+    random_seed: seed_42
 ```
 
 ## Phases
 
-Real scientific analyses involve intermediate stages — building mocks, training models, validating results — each with their own inputs, outputs, and decisions. Phases let you decompose a large analysis into scoped stages defined inline within a single `asp.yaml`.
+All decisions live under phases. Single-stage analyses use a `main` phase. Multi-stage analyses decompose work into multiple phases, each with its own problem statement, decisions, and optional artefacts.
 
 ### Design Principles
 
-1. **Inline definition.** Phases are defined directly within the parent `asp.yaml` — no separate files or directories. Each phase has its own problem statement, success criteria, inputs, outputs, and decisions.
+1. **All decisions under phases.** There is no top-level `decisions:` key. Even simple analyses place decisions under `phases.main.decisions`. This provides a uniform structure.
 
-2. **Wired inputs.** Phase inputs declare where their data comes from using `from` references — either parent inputs (`inputs.<id>`) or sibling phase outputs (`<phase_id>.<output_id>`).
+2. **Inline definition.** Phases are defined directly within the parent `asp.yaml` — no separate files or directories. Each phase has its own problem statement, success criteria, decisions, and optional artefacts.
 
-3. **Scoped decisions.** Each phase has its own decisions that are independent from other phases. Decision IDs only need to be unique within their phase — two phases can both have a `method` decision.
+3. **Scoped decisions.** Each phase has its own decisions that are independent from other phases. Decision IDs only need to be unique within their phase — two phases can both have a `method` decision. Constraints are also scoped within a phase.
 
-4. **Nested universe selections.** The universe file includes a `phases` section that maps each phase's decisions to selected options, rather than selecting sub-universe files.
+4. **Universe selections by phase.** The universe file maps each phase's decisions to selected options under a `phases:` key.
 
-5. **Implicit ordering from data flow.** No explicit ordering field. The DAG is derived from how phases wire outputs to inputs. Cycles are detected and rejected during validation.
+5. **Artefacts.** Phases can declare typed artefacts they produce (figure, table, data, report). Artefact IDs must be unique within a phase.
+
+6. **Agent-determined ordering.** No explicit ordering or wiring. The agent determines execution order and data flow between phases based on the problem statements.
 
 ### Analysis Structure with Phases
 
@@ -184,35 +189,15 @@ analysis:
     - id: posterior_contours
       type: figure
       formats: [png]
-      from: validate.posterior_plot       # drawn from a phase output
     - id: parameter_constraints
       type: table
       formats: [csv]
-      from: validate.constraints_table
-
-decisions:
-  reporting_style:
-    label: "Reporting Style"
-    type: parameter
-    default: publication
-    options:
-      publication:
-        label: "Publication quality"
-      exploratory:
-        label: "Quick exploratory"
 
 phases:
   build_mocks:
     problem: "Generate realistic mock catalogs matching survey properties."
     success_criteria:
       - "Mock catalog matches observed magnitude distribution"
-    inputs:
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
-      - id: mock_catalog
-        type: data
-        formats: [fits]
     decisions:
       noise_model:
         label: "Noise Model"
@@ -223,17 +208,13 @@ phases:
             label: "Homoscedastic"
           heteroscedastic:
             label: "Heteroscedastic"
+    artefacts:
+      - id: mock_catalog
+        type: data
+        description: "Simulated catalog matching survey properties"
 
   train_network:
     problem: "Train SBI neural network on mock catalog."
-    inputs:
-      - id: mock_catalog
-        from: build_mocks.mock_catalog
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
-      - id: trained_model
-        type: model
     decisions:
       architecture:
         label: "Network Architecture"
@@ -247,31 +228,23 @@ phases:
 
   validate:
     problem: "Validate trained model against observed data."
-    inputs:
-      - id: trained_model
-        from: train_network.trained_model
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
+    artefacts:
       - id: posterior_plot
         type: figure
-        formats: [png]
+        description: "Posterior contour plots"
       - id: constraints_table
         type: table
-        formats: [csv]
+        description: "Parameter constraint summary"
 ```
 
 ### Universe with Phase Decisions
 
-The universe file includes a `phases` section that selects options for each phase's decisions:
+The universe file selects options for each phase's decisions under a `phases:` key:
 
 ```yaml
 # universes/baseline.yaml
 id: baseline
 description: "Standard pipeline configuration"
-
-decisions:
-  reporting_style: publication
 
 phases:
   build_mocks:
@@ -281,31 +254,6 @@ phases:
 ```
 
 Phase decisions are validated against the analysis — the universe must select a valid option for every decision in every phase.
-
-### Input Wiring References
-
-Phase inputs use the `from` field to declare where their data comes from:
-
-| Reference Format | Meaning | Example |
-|-----------------|---------|---------|
-| `inputs.<id>` | Parent analysis input | `inputs.survey_catalog` |
-| `<phase_id>.<output_id>` | Sibling phase output | `build_mocks.mock_catalog` |
-
-The wiring implicitly defines a DAG — phases that consume another's output must run after it. Cycles are detected and rejected during validation. Since phases are inline, output IDs are also validated — referencing a nonexistent output in a valid phase is an error.
-
-### Output Forwarding
-
-Parent outputs can be drawn from phase outputs using the `from` field:
-
-```yaml
-outputs:
-  - id: posterior_contours
-    type: figure
-    formats: [png]
-    from: validate.posterior_plot    # "phase_id.output_id"
-```
-
-This declares that the parent's `posterior_contours` output comes from the `validate` phase's `posterior_plot` output. Both the phase ID and the output ID are validated.
 
 ## What This Model Does NOT Include
 
@@ -332,16 +280,18 @@ The generated workflow should be versioned (in git) but is not part of the ASP s
 Decisions can reference inputs as evidence:
 
 ```yaml
-decisions:
-  scaling:
-    options:
-      minmax:
-        label: "Min-Max Scaling"
-        evidence:
-          - ref: inputs.scaling_study
-            finding: "Showed 5% accuracy improvement on similar data"
-          - ref: inputs.smith_2023
-            finding: "Recommended for tree-based models"
+phases:
+  main:
+    decisions:
+      scaling:
+        options:
+          minmax:
+            label: "Min-Max Scaling"
+            evidence:
+              - ref: inputs.scaling_study
+                finding: "Showed 5% accuracy improvement on similar data"
+              - ref: inputs.smith_2023
+                finding: "Recommended for tree-based models"
 ```
 
 This creates a traceable chain from evidence → decision → output.
@@ -421,72 +371,74 @@ analysis:
       type: report
       description: "Summary of classifier performance and suitability for the application"
 
-decisions:
-  scaling:
-    label: "Feature Scaling"
-    type: method
-    importance: 2
-    rationale: "Scaling affects distance-based algorithms like SVM"
-    default: standard
-    options:
-      none:
-        label: "No Scaling"
-        description: "Use raw feature values"
-      standard:
-        label: "StandardScaler"
-        description: "Z-score normalization (mean=0, std=1)"
-      minmax:
-        label: "MinMaxScaler"
-        description: "Scale to [0, 1] range"
-        evidence:
-          - ref: inputs.preprocessing_study
-            finding: "Showed 3% improvement for tree models"
-        incompatible_with: ["model.svm"]
+phases:
+  main:
+    decisions:
+      scaling:
+        label: "Feature Scaling"
+        type: method
+        importance: 2
+        rationale: "Scaling affects distance-based algorithms like SVM"
+        default: standard
+        options:
+          none:
+            label: "No Scaling"
+            description: "Use raw feature values"
+          standard:
+            label: "StandardScaler"
+            description: "Z-score normalization (mean=0, std=1)"
+          minmax:
+            label: "MinMaxScaler"
+            description: "Scale to [0, 1] range"
+            evidence:
+              - ref: inputs.preprocessing_study
+                finding: "Showed 3% improvement for tree models"
+            incompatible_with: ["model.svm"]
 
-  model:
-    label: "Classification Model"
-    type: method
-    importance: 1
-    rationale: "Core algorithmic choice affecting accuracy and interpretability"
-    default: random_forest
-    options:
-      svm:
-        label: "Support Vector Machine"
-        description: "Maximum margin classifier"
-      random_forest:
-        label: "Random Forest"
-        description: "Ensemble of decision trees"
-      logistic:
-        label: "Logistic Regression"
-        description: "Linear classifier with probabilistic output"
+      model:
+        label: "Classification Model"
+        type: method
+        importance: 1
+        rationale: "Core algorithmic choice affecting accuracy and interpretability"
+        default: random_forest
+        options:
+          svm:
+            label: "Support Vector Machine"
+            description: "Maximum margin classifier"
+          random_forest:
+            label: "Random Forest"
+            description: "Ensemble of decision trees"
+          logistic:
+            label: "Logistic Regression"
+            description: "Linear classifier with probabilistic output"
 
-  test_size:
-    label: "Test Set Proportion"
-    type: parameter
-    importance: 3
-    rationale: "Trade-off between training data and evaluation reliability"
-    default: small
-    options:
-      small:
-        label: "20%"
-        value: 0.2
-      medium:
-        label: "30%"
-        value: 0.3
+      test_size:
+        label: "Test Set Proportion"
+        type: parameter
+        importance: 3
+        rationale: "Trade-off between training data and evaluation reliability"
+        default: small
+        options:
+          small:
+            label: "20%"
+            value: 0.2
+          medium:
+            label: "30%"
+            value: 0.3
 
-  random_seed:
-    label: "Random Seed"
-    type: parameter
-    importance: 4
-    rationale: "For reproducibility and stability testing"
-    default: seed_42
-    options:
-      seed_42:
-        label: "42"
-        value: 42
-      seed_123:
-        label: "123"
-        value: 123
+      random_seed:
+        label: "Random Seed"
+        type: parameter
+        importance: 4
+        rationale: "For reproducibility and stability testing"
+        default: seed_42
+        options:
+          seed_42:
+            label: "42"
+            value: 42
+          seed_123:
+            label: "123"
+            value: 123
 ```
 
 ## Execution Model
@@ -594,17 +546,19 @@ Decisions have different impacts on workflow configuration:
 
 Analysis decision:
 ```yaml
-decisions:
-  scaling:
-    options:
-      standard:
-        label: "StandardScaler"
-        value:
-          method: "standard"
-      minmax:
-        label: "MinMaxScaler"
-        value:
-          method: "minmax"
+phases:
+  main:
+    decisions:
+      scaling:
+        options:
+          standard:
+            label: "StandardScaler"
+            value:
+              method: "standard"
+          minmax:
+            label: "MinMaxScaler"
+            value:
+              method: "minmax"
 ```
 
 CWL step (parameterized):
@@ -639,15 +593,16 @@ random_state: 42
 
 ### Universe to Parameters Mapping
 
-A universe file specifies decision selections:
+A universe file specifies decision selections by phase:
 
 ```yaml
 # universes/baseline.yaml
-decisions:
-  scaling: standard
-  model: random_forest
-  test_size: split_20
-  random_seed: seed_42
+phases:
+  main:
+    scaling: standard
+    model: random_forest
+    test_size: split_20
+    random_seed: seed_42
 ```
 
 The system extracts `value` fields from selected options to generate workflow parameters:
@@ -657,10 +612,10 @@ The system extracts `value` fields from selected options to generate workflow pa
 # From universe: baseline
 # Generated at: 2025-01-15T10:00:00Z
 
-scaling_method: "standard"      # from decisions.scaling.options.standard.value.method
-model_type: "random_forest"     # from decisions.model (option id)
-test_size: 0.2                  # from decisions.test_size.options.split_20.value
-random_state: 42                # from decisions.random_seed.options.seed_42.value
+scaling_method: "standard"      # from phases.main.scaling -> options.standard.value.method
+model_type: "random_forest"     # from phases.main.model (option id)
+test_size: 0.2                  # from phases.main.test_size -> options.split_20.value
+random_state: 42                # from phases.main.random_seed -> options.seed_42.value
 ```
 
 This mapping can be:
@@ -1120,21 +1075,29 @@ analysis:
       primary: boolean            # Main output for comparison
       description: string
 
-decisions:                        # Required: Map of decisions
-  decision_id:
-    label: string                 # Human-readable name
-    type: data|method|parameter
-    importance: 1-5               # 1=critical, 5=implementation detail
-    rationale: string             # Why this decision exists
-    default: option_id            # Default option for baseline
-    options:
-      option_id:
+phases:                           # Required: Map of phases
+  phase_id:
+    problem: string               # Problem statement (optional for 'main')
+    success_criteria: [string]    # Optional: criteria for phase success
+    decisions:                    # Map of decisions for this phase
+      decision_id:
         label: string             # Human-readable name
+        type: data|method|parameter
+        importance: 1-5           # 1=critical, 5=implementation detail
+        rationale: string         # Why this decision exists
+        default: option_id        # Default option for baseline
+        options:
+          option_id:
+            label: string         # Human-readable name
+            description: string
+            value: any            # Configuration value
+            evidence: [object]    # Supporting evidence
+            incompatible_with: [string]  # "decision.option" pairs (same phase)
+            requires: [string]    # "decision.option" pairs (same phase)
+    artefacts:                    # Optional: typed outputs from this phase
+      - id: string
+        type: figure|table|data|report
         description: string
-        value: any                # Configuration value
-        evidence: [object]        # Supporting evidence
-        incompatible_with: [string]  # "decision.option" pairs
-        requires: [string]        # "decision.option" pairs
 ```
 
 ### Universe Schema (universes/*.yaml)
@@ -1145,10 +1108,11 @@ $schema: "https://asp-spec.org/v1/universe.schema.json"
 id: string                        # Unique identifier
 description: string               # What this universe represents
 
-decisions:                        # Map of decision_id -> option_id
-  scaling: standard
-  model: random_forest
-  test_size: split_20
+phases:                           # Map of phase_id -> decision selections
+  main:
+    scaling: standard
+    model: random_forest
+    test_size: split_20
 ```
 
 ### Execution Schema (executions/*.yaml)
