@@ -132,11 +132,29 @@ def create_universe_from_defaults(
     Returns:
         A universe dict with the default decisions selected.
     """
-    return {
+    universe: dict[str, Any] = {
         "id": universe_id,
         "description": description or "Default configuration using standard practices",
         "decisions": get_default_universe(data),
     }
+
+    # Collect per-phase decision defaults
+    phases = data.get("phases", {})
+    if phases:
+        phase_defaults: dict[str, dict[str, str]] = {}
+        for phase_id, phase in phases.items():
+            phase_decisions = phase.get("decisions", {})
+            defaults: dict[str, str] = {}
+            for decision_id, decision in phase_decisions.items():
+                default = decision.get("default")
+                if default is not None:
+                    defaults[decision_id] = default
+            if defaults:
+                phase_defaults[phase_id] = defaults
+        if phase_defaults:
+            universe["phases"] = phase_defaults
+
+    return universe
 
 
 def get_input_ids(data: dict[str, Any]) -> set[str]:

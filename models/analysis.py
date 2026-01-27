@@ -91,8 +91,8 @@ class Output(BaseModel):
     from_: str | None = Field(
         default=None,
         alias="from",
-        description="Reference to a sub-analysis output in 'sub_analysis_id.output_id' format. "
-        "When present, this output is drawn from the referenced sub-analysis.",
+        description="Reference to a phase output in 'phase_id.output_id' format. "
+        "When present, this output is drawn from the referenced phase.",
     )
 
 
@@ -170,19 +170,45 @@ class Decision(BaseModel):
         return self
 
 
-class SubAnalysisRef(BaseModel):
-    """A reference to a sub-analysis within a parent analysis."""
+class PhaseInput(BaseModel):
+    """An input to a phase, wired from parent inputs or sibling phase outputs."""
 
     model_config = ConfigDict(extra="forbid")
 
-    path: str = Field(
-        description="Relative path to the sub-analysis directory containing asp.yaml"
+    id: str = Field(
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="Unique identifier for the phase input",
     )
-    inputs: dict[str, str] | None = Field(
+    from_: str = Field(
+        alias="from",
+        description="Wiring reference: 'inputs.<id>' for parent inputs or "
+        "'<phase_id>.<output_id>' for sibling phase outputs.",
+    )
+    description: str | None = Field(default=None, description="Description of the phase input")
+
+
+class Phase(BaseModel):
+    """An inline phase within an analysis — a scoped stage with its own problem,
+    inputs, outputs, and decisions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    problem: str = Field(description="Problem statement for this phase")
+    success_criteria: list[str] | None = Field(
         default=None,
-        description="Map of sub-analysis input ID to source reference. "
-        "References use 'inputs.<id>' for parent inputs or '<sub_analysis_id>.<output_id>' "
-        "for sibling sub-analysis outputs.",
+        description="Concrete criteria for determining if this phase succeeded.",
+    )
+    inputs: list[PhaseInput] = Field(
+        default_factory=list,
+        description="List of phase inputs wired from parent inputs or sibling phase outputs",
+    )
+    outputs: list[Output] = Field(
+        default_factory=list,
+        description="List of expected outputs from this phase",
+    )
+    decisions: dict[str, Decision] = Field(
+        default_factory=dict,
+        description="Map of decision IDs to decision specifications scoped to this phase",
     )
 
 
@@ -232,10 +258,10 @@ class Analysis(BaseModel):
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
     )
-    sub_analyses: dict[str, SubAnalysisRef] = Field(
+    phases: dict[str, Phase] = Field(
         default_factory=dict,
-        description="Map of sub-analysis IDs to sub-analysis references. "
-        "Each sub-analysis is a full ASP analysis with its own decisions and universes.",
+        description="Map of phase IDs to inline phase definitions. "
+        "Each phase has its own problem, inputs, outputs, and decisions.",
     )
 
     @classmethod

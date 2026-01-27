@@ -4,7 +4,8 @@ description: "Standard pipeline configuration"
 decisions:
   reporting_style: publication
 
-sub_analyses:
-  build_mocks: baseline
-  train_network: baseline
-  validate: baseline
+phases:
+  build_mocks:
+    noise_model: heteroscedastic
+  train_network:
+    architecture: maf

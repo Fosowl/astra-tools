@@ -133,40 +133,121 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
             for ref in requires:
                 errors.extend(_validate_constraint_ref(ref, decisions, option_path))
 
-    # Validate sub-analyses
-    sub_analyses = data.get("sub_analyses", {})
-    if sub_analyses:
-        errors.extend(
-            _validate_sub_analyses(sub_analyses, input_ids, output_ids, outputs)
-        )
+    # Validate phases
+    phases = data.get("phases", {})
+    if phases:
+        errors.extend(_validate_phases(phases, input_ids, outputs, insights))
 
     return errors
 
 
-def _validate_sub_analyses(
-    sub_analyses: dict[str, Any],
+def _validate_phases(
+    phases: dict[str, Any],
     parent_input_ids: set[str],
-    parent_output_ids: set[str],
     parent_outputs: list[dict[str, Any]],
+    insights: dict[str, Any],
 ) -> list[SemanticError]:
-    """Validate sub-analysis references and wiring."""
+    """Validate phase definitions, wiring, decisions, and DAG structure."""
     errors: list[SemanticError] = []
 
-    # Collect all sub-analysis IDs and their declared output IDs (for sibling references)
-    sub_analysis_ids = set(sub_analyses.keys())
+    phase_ids = set(phases.keys())
 
-    # Validate each sub-analysis reference
-    for sub_id, sub_ref in sub_analyses.items():
-        sub_path = f"sub_analyses.{sub_id}"
+    # Collect output IDs per phase for validating sibling output refs
+    phase_output_ids: dict[str, set[str]] = {}
+    for phase_id, phase in phases.items():
+        phase_outputs = phase.get("outputs") or []
+        phase_output_ids[phase_id] = {
+            out.get("id") for out in phase_outputs if out.get("id")
+        }
+
+    for phase_id, phase in phases.items():
+        phase_path = f"phases.{phase_id}"
+
+        # Validate no duplicate input IDs within phase
+        phase_input_ids: set[str] = set()
+        for inp in phase.get("inputs") or []:
+            inp_id = inp.get("id")
+            if inp_id in phase_input_ids:
+                errors.append(
+                    SemanticError(
+                        "DUPLICATE_INPUT",
+                        f"Duplicate input ID in phase: {inp_id}",
+                        f"{phase_path}.inputs.{inp_id}",
+                    )
+                )
+            if inp_id:
+                phase_input_ids.add(inp_id)
+
+        # Validate no duplicate output IDs within phase
+        seen_output_ids: set[str] = set()
+        for out in phase.get("outputs") or []:
+            out_id = out.get("id")
+            if out_id in seen_output_ids:
+                errors.append(
+                    SemanticError(
+                        "DUPLICATE_OUTPUT",
+                        f"Duplicate output ID in phase: {out_id}",
+                        f"{phase_path}.outputs.{out_id}",
+                    )
+                )
+            if out_id:
+                seen_output_ids.add(out_id)
 
         # Validate input wiring references
-        input_wiring = sub_ref.get("inputs") or {}
-        for input_id, source_ref in input_wiring.items():
+        for inp in phase.get("inputs") or []:
+            from_ref = inp.get("from")
+            if not from_ref:
+                continue
             errors.extend(
-                _validate_wiring_ref(
-                    source_ref, parent_input_ids, sub_analysis_ids, sub_id, sub_path
+                _validate_phase_wiring_ref(
+                    from_ref, parent_input_ids, phase_ids, phase_output_ids,
+                    phase_id, phase_path,
                 )
             )
+
+        # Validate phase decisions
+        phase_decisions = phase.get("decisions") or {}
+        for decision_id, decision in phase_decisions.items():
+            decision_path = f"{phase_path}.decisions.{decision_id}"
+            options = decision.get("options", {})
+
+            # Check default option exists
+            default = decision.get("default")
+            if default is not None and default not in options:
+                errors.append(
+                    SemanticError(
+                        "INVALID_DEFAULT",
+                        f"Default option '{default}' not found in options",
+                        decision_path,
+                    )
+                )
+
+            # Validate options
+            for option_id, option in options.items():
+                option_path = f"{decision_path}.options.{option_id}"
+
+                # Check evidence insight refs → top-level insights
+                evidence_list = option.get("evidence") or []
+                for i, evidence in enumerate(evidence_list):
+                    insight_ref = evidence.get("insight")
+                    if insight_ref and insight_ref not in insights:
+                        errors.append(
+                            SemanticError(
+                                "INVALID_INSIGHT_REF",
+                                f"Evidence insight '{insight_ref}' not found in insights",
+                                f"{option_path}.evidence[{i}]",
+                            )
+                        )
+
+                # Check constraints (scoped to this phase's decisions)
+                for ref in option.get("incompatible_with") or []:
+                    errors.extend(
+                        _validate_constraint_ref(ref, phase_decisions, option_path)
+                    )
+                for ref in option.get("requires") or []:
+                    errors.extend(
+                        _validate_constraint_ref(ref, phase_decisions, option_path)
+                    )
 
     # Validate 'from' references on parent outputs
     for out in parent_outputs:
@@ -179,33 +260,45 @@ def _validate_sub_analyses(
                     SemanticError(
                         "INVALID_FROM_FORMAT",
                         f"Output 'from' value '{from_ref}' should be "
-                        f"in 'sub_analysis_id.output_id' format",
+                        f"in 'phase_id.output_id' format",
                         f"outputs.{out_id}",
                     )
                 )
-            elif parts[0] not in sub_analysis_ids:
-                errors.append(
-                    SemanticError(
-                        "INVALID_FROM_REF",
-                        f"Output 'from' references unknown sub-analysis '{parts[0]}'",
-                        f"outputs.{out_id}",
+            else:
+                ref_phase_id, ref_output_id = parts
+                if ref_phase_id not in phase_ids:
+                    errors.append(
+                        SemanticError(
+                            "INVALID_FROM_REF",
+                            f"Output 'from' references unknown phase '{ref_phase_id}'",
+                            f"outputs.{out_id}",
+                        )
                     )
-                )
+                elif ref_output_id not in phase_output_ids.get(ref_phase_id, set()):
+                    errors.append(
+                        SemanticError(
+                            "INVALID_FROM_OUTPUT_REF",
+                            f"Output 'from' references unknown output "
+                            f"'{ref_output_id}' in phase '{ref_phase_id}'",
+                            f"outputs.{out_id}",
+                        )
+                    )
 
-    # Check for cycles in the sub-analysis DAG
-    errors.extend(_validate_sub_analysis_dag(sub_analyses))
+    # Check for cycles in the phase DAG
+    errors.extend(_validate_phase_dag(phases))
 
     return errors
 
 
-def _validate_wiring_ref(
+def _validate_phase_wiring_ref(
     ref: str,
     parent_input_ids: set[str],
-    sub_analysis_ids: set[str],
-    current_sub_id: str,
-    sub_path: str,
+    phase_ids: set[str],
+    phase_output_ids: dict[str, set[str]],
+    current_phase_id: str,
+    phase_path: str,
 ) -> list[SemanticError]:
-    """Validate a single input wiring reference."""
+    """Validate a single phase input wiring reference."""
     errors: list[SemanticError] = []
 
     if ref.startswith("inputs."):
@@ -216,81 +309,89 @@ def _validate_wiring_ref(
                 SemanticError(
                     "INVALID_WIRING_REF",
                     f"Wiring ref '{ref}' points to non-existent parent input '{input_id}'",
-                    sub_path,
+                    phase_path,
                 )
             )
     else:
-        # Reference to a sibling sub-analysis output: "sub_id.output_id"
+        # Reference to a sibling phase output: "phase_id.output_id"
         parts = ref.split(".")
         if len(parts) != 2:
             errors.append(
                 SemanticError(
                     "INVALID_WIRING_FORMAT",
                     f"Wiring ref '{ref}' should be 'inputs.<id>' "
-                    f"or '<sub_analysis_id>.<output_id>'",
-                    sub_path,
+                    f"or '<phase_id>.<output_id>'",
+                    phase_path,
                 )
             )
         else:
-            sibling_id = parts[0]
-            if sibling_id == current_sub_id:
+            sibling_id, output_id = parts
+            if sibling_id == current_phase_id:
                 errors.append(
                     SemanticError(
                         "SELF_REFERENCE",
-                        f"Sub-analysis '{current_sub_id}' cannot reference its own outputs",
-                        sub_path,
+                        f"Phase '{current_phase_id}' cannot reference its own outputs",
+                        phase_path,
                     )
                 )
-            elif sibling_id not in sub_analysis_ids:
+            elif sibling_id not in phase_ids:
                 errors.append(
                     SemanticError(
                         "INVALID_WIRING_REF",
-                        f"Wiring ref '{ref}' points to non-existent sub-analysis '{sibling_id}'",
-                        sub_path,
+                        f"Wiring ref '{ref}' points to non-existent phase '{sibling_id}'",
+                        phase_path,
+                    )
+                )
+            elif output_id not in phase_output_ids.get(sibling_id, set()):
+                errors.append(
+                    SemanticError(
+                        "INVALID_WIRING_OUTPUT_REF",
+                        f"Wiring ref '{ref}' points to non-existent output "
+                        f"'{output_id}' in phase '{sibling_id}'",
+                        phase_path,
                     )
                 )
 
     return errors
 
 
-def _validate_sub_analysis_dag(
-    sub_analyses: dict[str, Any],
+def _validate_phase_dag(
+    phases: dict[str, Any],
 ) -> list[SemanticError]:
-    """Validate that sub-analysis wiring forms a DAG (no cycles)."""
+    """Validate that phase wiring forms a DAG (no cycles)."""
     errors: list[SemanticError] = []
 
-    # Build adjacency list from wiring references
-    # An edge from A -> B means B depends on A (B uses A's output)
-    dependencies: dict[str, set[str]] = {sub_id: set() for sub_id in sub_analyses}
+    # Build dependency graph from input wiring
+    dependencies: dict[str, set[str]] = {phase_id: set() for phase_id in phases}
 
-    for sub_id, sub_ref in sub_analyses.items():
-        input_wiring = sub_ref.get("inputs") or {}
-        for source_ref in input_wiring.values():
-            if not source_ref.startswith("inputs."):
-                parts = source_ref.split(".")
-                if len(parts) == 2 and parts[0] in sub_analyses:
-                    dependencies[sub_id].add(parts[0])
+    for phase_id, phase in phases.items():
+        for inp in phase.get("inputs") or []:
+            from_ref = inp.get("from", "")
+            if not from_ref.startswith("inputs."):
+                parts = from_ref.split(".")
+                if len(parts) == 2 and parts[0] in phases:
+                    dependencies[phase_id].add(parts[0])
 
-    # Detect cycles using topological sort (Kahn's algorithm)
-    in_degree = {sub_id: len(deps) for sub_id, deps in dependencies.items()}
-    queue = [sub_id for sub_id, deg in in_degree.items() if deg == 0]
+    # Detect cycles using Kahn's algorithm
+    in_degree = {phase_id: len(deps) for phase_id, deps in dependencies.items()}
+    queue = [phase_id for phase_id, deg in in_degree.items() if deg == 0]
     visited = 0
 
     while queue:
         node = queue.pop(0)
         visited += 1
-        for sub_id, deps in dependencies.items():
+        for phase_id, deps in dependencies.items():
             if node in deps:
-                in_degree[sub_id] -= 1
-                if in_degree[sub_id] == 0:
-                    queue.append(sub_id)
+                in_degree[phase_id] -= 1
+                if in_degree[phase_id] == 0:
+                    queue.append(phase_id)
 
-    if visited != len(sub_analyses):
+    if visited != len(phases):
         errors.append(
             SemanticError(
                 "CYCLE_DETECTED",
-                "Sub-analysis wiring contains a cycle",
-                "sub_analyses",
+                "Phase wiring contains a cycle",
+                "phases",
             )
         )
 
@@ -395,29 +496,75 @@ def validate_universe(
     # Check constraints
     errors.extend(_validate_universe_constraints(universe_data, analysis_data))
 
-    # Check sub-analysis universe references
-    universe_sub_analyses = universe_data.get("sub_analyses", {})
-    analysis_sub_analyses = analysis_data.get("sub_analyses", {})
+    # Check phase decision selections
+    universe_phases = universe_data.get("phases", {})
+    analysis_phases = analysis_data.get("phases", {})
 
-    for sub_id in universe_sub_analyses:
-        if sub_id not in analysis_sub_analyses:
+    for phase_id in universe_phases:
+        if phase_id not in analysis_phases:
             errors.append(
                 SemanticError(
-                    "UNKNOWN_SUB_ANALYSIS",
-                    f"Universe references unknown sub-analysis: {sub_id}",
-                    f"sub_analyses.{sub_id}",
+                    "UNKNOWN_PHASE",
+                    f"Universe references unknown phase: {phase_id}",
+                    f"phases.{phase_id}",
                 )
             )
+            continue
 
-    for sub_id in analysis_sub_analyses:
-        if sub_id not in universe_sub_analyses and analysis_sub_analyses:
-            errors.append(
-                SemanticError(
-                    "MISSING_SUB_ANALYSIS_UNIVERSE",
-                    f"Universe missing sub-analysis universe selection: {sub_id}",
-                    f"sub_analyses.{sub_id}",
+        # Validate decision selections within this phase
+        phase_decisions = analysis_phases[phase_id].get("decisions", {})
+        phase_selections = universe_phases[phase_id]
+
+        for decision_id, option_id in phase_selections.items():
+            if decision_id not in phase_decisions:
+                errors.append(
+                    SemanticError(
+                        "UNKNOWN_DECISION",
+                        f"Universe references unknown decision '{decision_id}' "
+                        f"in phase '{phase_id}'",
+                        f"phases.{phase_id}.{decision_id}",
+                    )
                 )
+                continue
+
+            options = phase_decisions[decision_id].get("options", {})
+            if option_id not in options:
+                errors.append(
+                    SemanticError(
+                        "UNKNOWN_OPTION",
+                        f"Universe selects unknown option '{option_id}' for "
+                        f"decision '{decision_id}' in phase '{phase_id}'",
+                        f"phases.{phase_id}.{decision_id}",
+                    )
+                )
+
+    # Check all phase decisions are covered
+    for phase_id, phase in analysis_phases.items():
+        phase_decisions = phase.get("decisions", {})
+        if not phase_decisions:
+            continue
+        phase_selections = universe_phases.get(phase_id, {})
+        for decision_id in phase_decisions:
+            if decision_id not in phase_selections:
+                errors.append(
+                    SemanticError(
+                        "MISSING_PHASE_DECISION",
+                        f"Universe missing decision '{decision_id}' for phase '{phase_id}'",
+                        f"phases.{phase_id}.{decision_id}",
+                    )
+                )
+
+    # Check phase-level constraints
+    for phase_id in universe_phases:
+        if phase_id not in analysis_phases:
+            continue
+        phase_decisions = analysis_phases[phase_id].get("decisions", {})
+        phase_selections = universe_phases[phase_id]
+        errors.extend(
+            _validate_phase_universe_constraints(
+                phase_selections, phase_decisions, phase_id
             )
+        )
 
     return errors
 
@@ -467,6 +614,53 @@ def _validate_universe_constraints(
             parsed = _parse_constraint_ref(ref)
             if parsed and universe_decisions.get(parsed[0]) != parsed[1]:
                 actual = universe_decisions.get(parsed[0], "(not set)")
+                errors.append(
+                    SemanticError(
+                        "MISSING_REQUIRED_OPTION",
+                        f"Option '{decision_id}.{option_id}' requires '{ref}' but got '{actual}'",
+                        path,
+                    )
+                )
+
+    return errors
+
+
+def _validate_phase_universe_constraints(
+    phase_selections: dict[str, str],
+    phase_decisions: dict[str, Any],
+    phase_id: str,
+) -> list[SemanticError]:
+    """Validate that phase decision selections respect constraints."""
+    errors: list[SemanticError] = []
+
+    for decision_id, option_id in phase_selections.items():
+        decision = phase_decisions.get(decision_id)
+        if not decision:
+            continue
+
+        option = decision.get("options", {}).get(option_id)
+        if not option:
+            continue
+
+        path = f"phases.{phase_id}.{decision_id}"
+
+        # Check incompatible_with
+        for ref in option.get("incompatible_with") or []:
+            parsed = _parse_constraint_ref(ref)
+            if parsed and phase_selections.get(parsed[0]) == parsed[1]:
+                errors.append(
+                    SemanticError(
+                        "INCOMPATIBLE_OPTIONS",
+                        f"Option '{decision_id}.{option_id}' is incompatible with '{ref}'",
+                        path,
+                    )
+                )
+
+        # Check requires
+        for ref in option.get("requires") or []:
+            parsed = _parse_constraint_ref(ref)
+            if parsed and phase_selections.get(parsed[0]) != parsed[1]:
+                actual = phase_selections.get(parsed[0], "(not set)")
                 errors.append(
                     SemanticError(
                         "MISSING_REQUIRED_OPTION",

@@ -1,0 +1,33 @@
+version: "1.0"
+
+analysis:
+  name: "Cycle Test"
+  problem: "Test cycle detection in phase wiring"
+
+  inputs:
+    - id: data
+      type: data
+
+  outputs:
+    - id: result
+      type: metric
+      dtype: float
+
+phases:
+  step_a:
+    problem: "Step A"
+    inputs:
+      - id: data
+        from: step_b.output
+    outputs:
+      - id: output
+        type: data
+
+  step_b:
+    problem: "Step B"
+    inputs:
+      - id: data
+        from: step_a.output
+    outputs:
+      - id: output
+        type: data

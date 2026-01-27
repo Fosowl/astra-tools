@@ -2,7 +2,7 @@ version: "1.0"
 
 analysis:
   name: "Self Reference Test"
-  problem: "Test self-referencing sub-analysis"
+  problem: "Test self-referencing phase"
 
   inputs:
     - id: data
@@ -13,8 +13,12 @@ analysis:
       type: metric
       dtype: float
 
-sub_analyses:
+phases:
   step_a:
-    path: ./sub/step_a
+    problem: "Step A"
     inputs:
-      data: step_a.output
+      - id: data
+        from: step_a.output
+    outputs:
+      - id: output
+        type: data

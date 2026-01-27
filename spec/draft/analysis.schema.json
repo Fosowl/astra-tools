@@ -735,7 +735,7 @@
             }
           ],
           "default": null,
-          "description": "Reference to a sub-analysis output in 'sub_analysis_id.output_id' format. When present, this output is drawn from the referenced sub-analysis.",
+          "description": "Reference to a phase output in 'phase_id.output_id' format. When present, this output is drawn from the referenced phase.",
           "title": "From"
         }
       },
@@ -777,6 +777,98 @@
         "doi"
       ],
       "title": "PaperSource",
+      "type": "object"
+    },
+    "Phase": {
+      "additionalProperties": false,
+      "description": "An inline phase within an analysis \u2014 a scoped stage with its own problem,\ninputs, outputs, and decisions.",
+      "properties": {
+        "problem": {
+          "description": "Problem statement for this phase",
+          "title": "Problem",
+          "type": "string"
+        },
+        "success_criteria": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Concrete criteria for determining if this phase succeeded.",
+          "title": "Success Criteria"
+        },
+        "inputs": {
+          "description": "List of phase inputs wired from parent inputs or sibling phase outputs",
+          "items": {
+            "$ref": "#/$defs/PhaseInput"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "outputs": {
+          "description": "List of expected outputs from this phase",
+          "items": {
+            "$ref": "#/$defs/Output"
+          },
+          "title": "Outputs",
+          "type": "array"
+        },
+        "decisions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Decision"
+          },
+          "description": "Map of decision IDs to decision specifications scoped to this phase",
+          "title": "Decisions",
+          "type": "object"
+        }
+      },
+      "required": [
+        "problem"
+      ],
+      "title": "Phase",
+      "type": "object"
+    },
+    "PhaseInput": {
+      "additionalProperties": false,
+      "description": "An input to a phase, wired from parent inputs or sibling phase outputs.",
+      "properties": {
+        "id": {
+          "description": "Unique identifier for the phase input",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "from": {
+          "description": "Wiring reference: 'inputs.<id>' for parent inputs or '<phase_id>.<output_id>' for sibling phase outputs.",
+          "title": "From",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Description of the phase input",
+          "title": "Description"
+        }
+      },
+      "required": [
+        "id",
+        "from"
+      ],
+      "title": "PhaseInput",
       "type": "object"
     },
     "QuoteEvidence": {
@@ -1026,38 +1118,6 @@
       "title": "Source",
       "type": "object"
     },
-    "SubAnalysisRef": {
-      "additionalProperties": false,
-      "description": "A reference to a sub-analysis within a parent analysis.",
-      "properties": {
-        "path": {
-          "description": "Relative path to the sub-analysis directory containing asp.yaml",
-          "title": "Path",
-          "type": "string"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Map of sub-analysis input ID to source reference. References use 'inputs.<id>' for parent inputs or '<sub_analysis_id>.<output_id>' for sibling sub-analysis outputs.",
-          "title": "Inputs"
-        }
-      },
-      "required": [
-        "path"
-      ],
-      "title": "SubAnalysisRef",
-      "type": "object"
-    },
     "TableEvidence": {
       "additionalProperties": false,
       "description": "Evidence from a table.",
@@ -1145,12 +1205,12 @@
       "title": "Insights",
       "type": "object"
     },
-    "sub_analyses": {
+    "phases": {
       "additionalProperties": {
-        "$ref": "#/$defs/SubAnalysisRef"
+        "$ref": "#/$defs/Phase"
       },
-      "description": "Map of sub-analysis IDs to sub-analysis references. Each sub-analysis is a full ASP analysis with its own decisions and universes.",
-      "title": "Sub Analyses",
+      "description": "Map of phase IDs to inline phase definitions. Each phase has its own problem, inputs, outputs, and decisions.",
+      "title": "Phases",
       "type": "object"
     }
   },

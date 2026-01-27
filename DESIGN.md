@@ -148,25 +148,23 @@ decisions:
   random_seed: seed_42
 ```
 
-## Sub-Analyses
+## Phases
 
-Real scientific analyses involve intermediate stages — building mocks, training models, validating results — each with their own inputs, outputs, and decisions. Sub-analyses let you decompose a large analysis into scoped stages that can be worked through incrementally.
+Real scientific analyses involve intermediate stages — building mocks, training models, validating results — each with their own inputs, outputs, and decisions. Phases let you decompose a large analysis into scoped stages defined inline within a single `asp.yaml`.
 
 ### Design Principles
 
-1. **A sub-analysis IS an analysis.** Same `asp.yaml` schema, same file format. It has its own problem statement, inputs, outputs, decisions, and `universes/` directory.
+1. **Inline definition.** Phases are defined directly within the parent `asp.yaml` — no separate files or directories. Each phase has its own problem statement, success criteria, inputs, outputs, and decisions.
 
-2. **Abstract inputs, parent wiring.** Sub-analyses declare what inputs they need without specifying where they come from. The parent maps concrete sources — its own inputs, or sibling sub-analysis outputs — to those abstract inputs.
+2. **Wired inputs.** Phase inputs declare where their data comes from using `from` references — either parent inputs (`inputs.<id>`) or sibling phase outputs (`<phase_id>.<output_id>`).
 
-3. **Telescoping universes.** Each sub-analysis has its own universe files. The parent universe selects which sub-universe to use at each level, plus any parent-level decisions.
+3. **Scoped decisions.** Each phase has its own decisions that are independent from other phases. Decision IDs only need to be unique within their phase — two phases can both have a `method` decision.
 
-4. **Implicit ordering from data flow.** No explicit ordering field. The DAG is derived from how the parent wires outputs to inputs between sub-analyses.
+4. **Nested universe selections.** The universe file includes a `phases` section that maps each phase's decisions to selected options, rather than selecting sub-universe files.
 
-5. **Standalone or composed.** A sub-analysis can be run independently (you provide inputs directly) or as part of a parent pipeline (parent wires inputs). The same file works in both contexts.
+5. **Implicit ordering from data flow.** No explicit ordering field. The DAG is derived from how phases wire outputs to inputs. Cycles are detected and rejected during validation.
 
-### Parent Analysis Structure
-
-The parent analysis declares sub-analyses and wires their inputs:
+### Analysis Structure with Phases
 
 ```yaml
 version: "1.0"
@@ -186,7 +184,7 @@ analysis:
     - id: posterior_contours
       type: figure
       formats: [png]
-      from: validate.posterior_plot       # drawn from a sub-analysis output
+      from: validate.posterior_plot       # drawn from a phase output
     - id: parameter_constraints
       type: table
       formats: [csv]
@@ -203,92 +201,69 @@ decisions:
       exploratory:
         label: "Quick exploratory"
 
-sub_analyses:
+phases:
   build_mocks:
-    path: ./sub/build_mocks
+    problem: "Generate realistic mock catalogs matching survey properties."
+    success_criteria:
+      - "Mock catalog matches observed magnitude distribution"
     inputs:
-      survey_catalog: inputs.survey_catalog       # wire parent input
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: mock_catalog
+        type: data
+        formats: [fits]
+    decisions:
+      noise_model:
+        label: "Noise Model"
+        type: method
+        default: heteroscedastic
+        options:
+          homoscedastic:
+            label: "Homoscedastic"
+          heteroscedastic:
+            label: "Heteroscedastic"
 
   train_network:
-    path: ./sub/train_network
+    problem: "Train SBI neural network on mock catalog."
     inputs:
-      mock_catalog: build_mocks.mock_catalog      # wire from sibling output
-      survey_catalog: inputs.survey_catalog
+      - id: mock_catalog
+        from: build_mocks.mock_catalog
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: trained_model
+        type: model
+    decisions:
+      architecture:
+        label: "Network Architecture"
+        type: method
+        default: maf
+        options:
+          maf:
+            label: "Masked Autoregressive Flow"
+          npe:
+            label: "Neural Posterior Estimation"
 
   validate:
-    path: ./sub/validate
+    problem: "Validate trained model against observed data."
     inputs:
-      trained_model: train_network.trained_model
-      survey_catalog: inputs.survey_catalog
+      - id: trained_model
+        from: train_network.trained_model
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: posterior_plot
+        type: figure
+        formats: [png]
+      - id: constraints_table
+        type: table
+        formats: [csv]
 ```
 
-### Sub-Analysis File
+### Universe with Phase Decisions
 
-Each sub-analysis is a full ASP analysis with its own problem, decisions, and universes:
-
-```yaml
-# sub/build_mocks/asp.yaml
-version: "1.0"
-
-analysis:
-  name: "Build Realistic Mock Catalogs"
-  problem: |
-    Generate realistic mock supernova catalogs that match the
-    survey selection function and noise properties.
-
-  inputs:
-    - id: survey_catalog
-      type: data
-      description: "Reference catalog for matching survey properties"
-      # No source — abstract input, wired by parent or provided directly
-
-  outputs:
-    - id: mock_catalog
-      type: data
-      formats: [fits]
-    - id: diagnostic_plots
-      type: figure
-      formats: [png]
-
-decisions:
-  noise_model:
-    label: "Noise Model"
-    type: method
-    importance: 1
-    default: heteroscedastic
-    options:
-      homoscedastic:
-        label: "Homoscedastic"
-      heteroscedastic:
-        label: "Heteroscedastic"
-```
-
-### Directory Structure
-
-```
-my-sbi-analysis/
-├── asp.yaml                          # Parent analysis (orchestrator)
-├── universes/
-│   └── baseline.yaml                 # Parent universe (selects sub-universes)
-├── sub/
-│   ├── build_mocks/
-│   │   ├── asp.yaml                  # Sub-analysis spec
-│   │   └── universes/
-│   │       └── baseline.yaml
-│   ├── train_network/
-│   │   ├── asp.yaml
-│   │   └── universes/
-│   │       └── baseline.yaml
-│   └── validate/
-│       ├── asp.yaml
-│       └── universes/
-│           └── baseline.yaml
-└── results/
-```
-
-### Telescoping Universes
-
-The parent universe selects which universe to use for each sub-analysis:
+The universe file includes a `phases` section that selects options for each phase's decisions:
 
 ```yaml
 # universes/baseline.yaml
@@ -298,38 +273,39 @@ description: "Standard pipeline configuration"
 decisions:
   reporting_style: publication
 
-sub_analyses:
-  build_mocks: baseline              # use "baseline" universe for build_mocks
-  train_network: baseline
-  validate: baseline
+phases:
+  build_mocks:
+    noise_model: heteroscedastic
+  train_network:
+    architecture: maf
 ```
 
-Each sub-analysis can be explored independently — you can run just `build_mocks` across its own multiverse to find the best mock generation strategy, without touching the rest of the pipeline.
+Phase decisions are validated against the analysis — the universe must select a valid option for every decision in every phase.
 
 ### Input Wiring References
 
-The `inputs` field on a sub-analysis reference maps the sub-analysis's abstract input IDs to concrete sources:
+Phase inputs use the `from` field to declare where their data comes from:
 
 | Reference Format | Meaning | Example |
 |-----------------|---------|---------|
 | `inputs.<id>` | Parent analysis input | `inputs.survey_catalog` |
-| `<sub_id>.<output_id>` | Sibling sub-analysis output | `build_mocks.mock_catalog` |
+| `<phase_id>.<output_id>` | Sibling phase output | `build_mocks.mock_catalog` |
 
-The wiring implicitly defines a DAG — sub-analyses that consume another's output must run after it. Cycles are detected and rejected during validation.
+The wiring implicitly defines a DAG — phases that consume another's output must run after it. Cycles are detected and rejected during validation. Since phases are inline, output IDs are also validated — referencing a nonexistent output in a valid phase is an error.
 
 ### Output Forwarding
 
-Parent outputs can be drawn from sub-analysis outputs using the `from` field:
+Parent outputs can be drawn from phase outputs using the `from` field:
 
 ```yaml
 outputs:
   - id: posterior_contours
     type: figure
     formats: [png]
-    from: validate.posterior_plot    # "sub_analysis_id.output_id"
+    from: validate.posterior_plot    # "phase_id.output_id"
 ```
 
-This declares that the parent's `posterior_contours` output comes from the `validate` sub-analysis's `posterior_plot` output.
+This declares that the parent's `posterior_contours` output comes from the `validate` phase's `posterior_plot` output. Both the phase ID and the output ID are validated.
 
 ## What This Model Does NOT Include
 

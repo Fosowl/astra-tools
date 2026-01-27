@@ -44,12 +44,15 @@
       "title": "Decisions",
       "type": "object"
     },
-    "sub_analyses": {
+    "phases": {
       "additionalProperties": {
-        "type": "string"
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
       },
-      "description": "Map of sub-analysis ID to universe ID to use for that sub-analysis",
-      "title": "Sub Analyses",
+      "description": "Map of phase ID to decision selections (decision_id \u2192 option_id) for that phase",
+      "title": "Phases",
       "type": "object"
     }
   },

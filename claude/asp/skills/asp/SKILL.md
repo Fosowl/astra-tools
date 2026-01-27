@@ -8,6 +8,76 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(asp:*), Bash(python:*)
 
 Help users work with the Agentic Science Protocol (ASP) - a declarative specification format for scientific analyses.
 
+## Agent Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/asp:new` | Create a new analysis project — scope research question, identify sub-analyses, write top-level `asp.yaml` |
+| `/asp:start <name>` | Define or refine a specific sub-analysis (or refine root spec for single-stage analyses) |
+| `/asp:build [name]` | Build universes, CWL workflows, and run the analysis (optionally target a sub-analysis) |
+| `/asp:verify [name]` | Verify results meet success criteria (optionally target a sub-analysis) |
+
+### Workflow
+
+**Single-stage analysis:**
+```
+/asp:new  →  /asp:build  →  /asp:verify
+```
+
+**Multi-stage analysis with sub-analyses:**
+```
+/asp:new  →  /asp:start <stage1>  →  /asp:start <stage2>  →  /asp:build  →  /asp:verify
+```
+
+You can also build/verify individual stages:
+```
+/asp:build <name>  →  /asp:verify <name>
+```
+
+## Sub-Analyses
+
+A multi-stage analysis uses `sub_analyses` in the parent `asp.yaml` to define the pipeline:
+
+```yaml
+sub_analyses:
+  - name: build_mocks
+    description: "Generate synthetic training data"
+    inputs_from: parent
+    outputs_to: train_network
+
+  - name: train_network
+    description: "Train neural network on mock data"
+    inputs_from: build_mocks
+    outputs_to: validate
+
+  - name: validate
+    description: "Validate trained model"
+    inputs_from: [train_network, parent]
+    outputs_to: parent
+```
+
+Each sub-analysis gets its own directory under `sub/`:
+```
+project/
+├── asp.yaml                    # Parent spec with sub_analyses wiring
+├── universes/baseline.yaml
+├── sub/
+│   ├── build_mocks/
+│   │   ├── asp.yaml
+│   │   ├── universes/baseline.yaml
+│   │   ├── workflows/main.cwl
+│   │   ├── steps/...
+│   │   └── results/
+│   ├── train_network/
+│   │   └── ...
+│   └── validate/
+│       └── ...
+├── results/                    # Final parent-level results
+└── .claude/
+```
+
+Sub-analyses are optional. Single-stage analyses work identically to before — no `sub_analyses` section, everything at the root level.
+
 ## Quick Reference
 
 ### CLI Commands
@@ -30,6 +100,8 @@ asp workflow show --cwl main.cwl             # Show parameter mapping table
 asp params universes/baseline.yaml           # Output CWL parameters to stdout
 ```
 
+**Sub-analysis note:** When operating inside `sub/<name>/`, agents should `cd` into the sub-analysis directory so that `asp validate`, `asp info`, etc. resolve the local `asp.yaml` naturally.
+
 ## Core Concepts
 
 ### Analysis Structure
@@ -37,6 +109,7 @@ An ASP analysis (`asp.yaml`) contains:
 - **analysis**: name, problem statement, success criteria, inputs, outputs
 - **decisions**: choices that define the analysis methodology
 - **insights**: scientific knowledge from papers or prior analyses
+- **sub_analyses** (optional): pipeline stages with wiring
 
 ### Success Criteria
 Define concrete, verifiable conditions for success:
@@ -75,23 +148,18 @@ inputs:
 
 ## Creating a New Analysis
 
-1. Use `asp init` to scaffold the project:
+Use `/asp:new` to interactively scope your project:
+1. Define the research question
+2. Identify whether this is multi-stage
+3. Define top-level inputs, outputs, success criteria
+4. Name and wire sub-analyses (if multi-stage)
+
+Then use `/asp:start <name>` to flesh out individual sub-analyses.
+
+Alternatively, scaffold manually:
 ```bash
 asp init my-analysis -n "Analysis Name" -p "Problem statement"
 ```
-
-2. Edit `asp.yaml` to define:
-   - Problem statement (what you're trying to achieve)
-   - **Success criteria** (concrete conditions for success)
-   - Inputs (data sources, literature)
-   - Outputs (metrics, figures, reports)
-   - Decisions (methodology choices)
-
-3. Add insights from relevant papers to support decisions
-
-4. Validate with `asp validate asp.yaml`
-
-**Tip:** Use `/asp:start` to interactively define your analysis with guidance.
 
 ## Extracting Insights from Papers
 
@@ -233,21 +301,40 @@ Then edit `universes/experiment1.yaml` to customize decisions.
 
 ## File Locations
 
+### Single-Stage Analysis
 ```
 my-analysis/
 ├── asp.yaml              # Main analysis specification
-├── universes/            # Decision selections (source of truth for CWL params)
-│   ├── baseline.yaml     # Default configuration
-│   └── experiment1.yaml  # Alternative configuration
+├── universes/            # Decision selections
+│   ├── baseline.yaml
+│   └── experiment1.yaml
 ├── workflows/            # CWL workflow definitions
-│   └── main.cwl          # Main workflow
+│   └── main.cwl
 ├── steps/                # ALL workflow implementation goes here
-│   ├── io/               # Data loading steps (.cwl + scripts)
-│   ├── preprocessing/    # Preprocessing steps
-│   ├── models/           # Model training steps
-│   └── evaluation/       # Evaluation steps
+│   ├── io/
+│   ├── preprocessing/
+│   ├── models/
+│   └── evaluation/
 ├── insights/             # Optional: separate insight files
 └── results/              # Execution outputs (gitignored)
+```
+
+### Multi-Stage Analysis
+```
+my-analysis/
+├── asp.yaml              # Parent spec with sub_analyses
+├── universes/baseline.yaml
+├── sub/
+│   ├── stage_one/
+│   │   ├── asp.yaml
+│   │   ├── universes/baseline.yaml
+│   │   ├── workflows/main.cwl
+│   │   ├── steps/...
+│   │   └── results/
+│   └── stage_two/
+│       └── ...
+├── results/              # Final parent-level results
+└── .claude/
 ```
 
 **Important**:

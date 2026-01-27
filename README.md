@@ -35,7 +35,7 @@ flowchart LR
 
 **Multiverse**: The space of all valid decision combinations. Its purpose is transparency and traceability, not exhaustive search. Document the path taken, the paths not taken, and optionally check robustness.
 
-**Sub-analyses**: Decompose complex analyses into stages — each with its own inputs, outputs, decisions, and universes — that you work through incrementally.
+**Phases**: Decompose complex analyses into inline stages — each with its own problem statement, inputs, outputs, and decisions — that you work through incrementally.
 
 **Evidence-based decisions**: Link decisions to supporting evidence from previous analyses or literature.
 
@@ -163,9 +163,9 @@ decisions:
 
 See [examples/iris/](examples/iris/) for a complete working example.
 
-## Sub-Analyses
+## Phases
 
-Complex analyses have intermediate stages — building mocks, training models, validating results — each with their own decisions. Sub-analyses let you decompose a parent analysis into scoped stages:
+Complex analyses have intermediate stages — building mocks, training models, validating results — each with their own decisions. Phases let you decompose an analysis into scoped stages defined inline within a single `asp.yaml`:
 
 ```yaml
 version: "1.0"
@@ -183,43 +183,78 @@ analysis:
     - id: posterior_contours
       type: figure
       formats: [png]
-      from: validate.posterior_plot       # drawn from a sub-analysis output
+      from: validate.posterior_plot       # drawn from a phase output
 
-sub_analyses:
+phases:
   build_mocks:
-    path: ./sub/build_mocks
+    problem: "Generate realistic mock catalogs matching survey properties."
+    success_criteria:
+      - "Mock catalog matches observed magnitude distribution"
     inputs:
-      survey_catalog: inputs.survey_catalog       # wire parent input
+      - id: survey_catalog
+        from: inputs.survey_catalog       # wire parent input
+    outputs:
+      - id: mock_catalog
+        type: data
+        formats: [fits]
+    decisions:
+      noise_model:
+        label: "Noise Model"
+        type: method
+        default: heteroscedastic
+        options:
+          homoscedastic: { label: "Homoscedastic" }
+          heteroscedastic: { label: "Heteroscedastic" }
 
   train_network:
-    path: ./sub/train_network
+    problem: "Train SBI neural network on mock catalog."
     inputs:
-      mock_catalog: build_mocks.mock_catalog      # wire from sibling output
-      survey_catalog: inputs.survey_catalog
+      - id: mock_catalog
+        from: build_mocks.mock_catalog    # wire from sibling output
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: trained_model
+        type: model
+    decisions:
+      architecture:
+        label: "Network Architecture"
+        type: method
+        default: maf
+        options:
+          maf: { label: "Masked Autoregressive Flow" }
+          npe: { label: "Neural Posterior Estimation" }
 
   validate:
-    path: ./sub/validate
+    problem: "Validate trained model against observed data."
     inputs:
-      trained_model: train_network.trained_model
-      survey_catalog: inputs.survey_catalog
+      - id: trained_model
+        from: train_network.trained_model
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: posterior_plot
+        type: figure
+        formats: [png]
 ```
 
-Each sub-analysis is a full ASP analysis (`asp.yaml`) with its own problem statement, decisions, and `universes/` directory. The parent wires inputs between them — the DAG is implicit from the wiring. Each sub-analysis can also be run independently.
+Each phase has its own problem statement, inputs, outputs, and decisions. The parent wires inputs between phases — the DAG is implicit from the wiring.
 
-**Telescoping universes**: The parent universe selects which universe to use for each sub-analysis:
+**Nested universe selections**: The universe file selects options for each phase's decisions:
 
 ```yaml
 # universes/baseline.yaml
 id: baseline
 decisions:
   reporting_style: publication
-sub_analyses:
-  build_mocks: baseline
-  train_network: baseline
-  validate: baseline
+phases:
+  build_mocks:
+    noise_model: heteroscedastic
+  train_network:
+    architecture: maf
 ```
 
-See [DESIGN.md](DESIGN.md#sub-analyses) for full details.
+See [DESIGN.md](DESIGN.md#phases) for full details.
 
 ## CLI Commands
 
@@ -266,13 +301,6 @@ my-analysis/
 ├── .gitignore            # Git ignore rules
 ├── universes/            # Universe definitions (decision selections)
 │   └── baseline.yaml
-├── sub/                  # Sub-analyses (optional)
-│   ├── build_mocks/
-│   │   ├── asp.yaml      # Sub-analysis spec (full ASP analysis)
-│   │   └── universes/
-│   └── train_network/
-│       ├── asp.yaml
-│       └── universes/
 ├── workflows/            # CWL workflow files
 ├── steps/                # Reusable workflow steps
 ├── results/              # Execution outputs (gitignored)

@@ -31,9 +31,9 @@ class Universe(BaseModel):
     )
     description: str | None = Field(default=None, description="What this universe represents")
     decisions: dict[str, str] = Field(description="Map of decision_id to selected option_id")
-    sub_analyses: dict[str, str] = Field(
+    phases: dict[str, dict[str, str]] = Field(
         default_factory=dict,
-        description="Map of sub-analysis ID to universe ID to use for that sub-analysis",
+        description="Map of phase ID to decision selections (decision_id → option_id) for that phase",
     )
 
     @classmethod
@@ -63,8 +63,20 @@ class Universe(BaseModel):
             raise TypeError("analysis must be an Analysis instance")
 
         decisions = analysis.get_default_universe()
+
+        # Collect per-phase decision defaults
+        phases: dict[str, dict[str, str]] = {}
+        for phase_id, phase in analysis.phases.items():
+            phase_defaults: dict[str, str] = {}
+            for decision_id, decision in phase.decisions.items():
+                if decision.default is not None:
+                    phase_defaults[decision_id] = decision.default
+            if phase_defaults:
+                phases[phase_id] = phase_defaults
+
         return cls(
             id=universe_id,
             description=description or "Default configuration using standard practices",
             decisions=decisions,
+            phases=phases,
         )

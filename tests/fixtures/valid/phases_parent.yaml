@@ -1,0 +1,93 @@
+version: "1.0"
+
+analysis:
+  name: "SBI Cosmological Parameter Estimation"
+  problem: |
+    Use simulation-based inference to constrain cosmological
+    parameters from Type Ia supernova survey data.
+
+  inputs:
+    - id: survey_catalog
+      type: data
+      source: "sn_survey_union2.1"
+      description: "Observed Type Ia supernova catalog"
+
+  outputs:
+    - id: posterior_contours
+      type: figure
+      formats: [png]
+      from: validate.posterior_plot
+    - id: parameter_constraints
+      type: table
+      formats: [csv]
+      from: validate.constraints_table
+
+decisions:
+  reporting_style:
+    label: "Reporting Style"
+    type: parameter
+    default: publication
+    options:
+      publication:
+        label: "Publication quality"
+      exploratory:
+        label: "Quick exploratory"
+
+phases:
+  build_mocks:
+    problem: "Generate realistic mock catalogs matching survey properties."
+    success_criteria:
+      - "Mock catalog matches observed magnitude distribution"
+    inputs:
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: mock_catalog
+        type: data
+        formats: [fits]
+    decisions:
+      noise_model:
+        label: "Noise Model"
+        type: method
+        default: heteroscedastic
+        options:
+          homoscedastic:
+            label: "Homoscedastic"
+          heteroscedastic:
+            label: "Heteroscedastic"
+
+  train_network:
+    problem: "Train SBI neural network on mock catalog."
+    inputs:
+      - id: mock_catalog
+        from: build_mocks.mock_catalog
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: trained_model
+        type: model
+    decisions:
+      architecture:
+        label: "Network Architecture"
+        type: method
+        default: maf
+        options:
+          maf:
+            label: "Masked Autoregressive Flow"
+          npe:
+            label: "Neural Posterior Estimation"
+
+  validate:
+    problem: "Validate trained model against observed data."
+    inputs:
+      - id: trained_model
+        from: train_network.trained_model
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: posterior_plot
+        type: figure
+        formats: [png]
+      - id: constraints_table
+        type: table
+        formats: [csv]
