@@ -238,15 +238,30 @@ def get_outputs(data: dict[str, Any]) -> list[dict[str, Any]]:
 def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Get all decisions from analysis data (collected from all phases).
 
+    Warning: If two phases define decisions with the same ID, the later phase's
+    decision will overwrite the earlier one. A warning is logged when this occurs.
+    Use ``get_phase_decisions()`` when phase-scoped lookup is needed.
+
     Args:
         data: Analysis data as a dict.
 
     Returns:
         Dict mapping decision_id to decision dict.
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
     result: dict[str, dict[str, Any]] = {}
-    for phase in data.get("phases", {}).values():
-        result.update(phase.get("decisions", {}))
+    for phase_id, phase in data.get("phases", {}).items():
+        for decision_id, decision in phase.get("decisions", {}).items():
+            if decision_id in result:
+                logger.warning(
+                    "Decision ID '%s' in phase '%s' overwrites a decision with the same ID "
+                    "from an earlier phase. Use get_phase_decisions() for phase-scoped access.",
+                    decision_id,
+                    phase_id,
+                )
+            result[decision_id] = decision
     return result
 
 

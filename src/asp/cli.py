@@ -707,27 +707,29 @@ def _viz_ascii(data: dict[str, Any]) -> None:
     analysis_name = data.get("analysis", {}).get("name", "Unknown")
     tree = Tree(f"[bold]{analysis_name}[/bold]")
 
-    for decision_id, decision in get_decisions(data).items():
-        importance = decision.get("importance", 3)
-        importance_stars = "★" * importance + "☆" * (5 - importance)
-        branch = tree.add(
-            f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')}) [{importance_stars}]"
-        )
+    for phase_id, decisions in get_phase_decisions(data).items():
+        phase_branch = tree.add(f"[bold magenta]{phase_id}[/bold magenta]")
+        for decision_id, decision in decisions.items():
+            importance = decision.get("importance", 3)
+            importance_stars = "★" * importance + "☆" * (5 - importance)
+            branch = phase_branch.add(
+                f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')}) [{importance_stars}]"
+            )
 
-        options = decision.get("options", {})
-        default = decision.get("default")
-        for option_id, option in options.items():
-            default_marker = " [default]" if option_id == default else ""
-            constraints = []
-            if option.get("incompatible_with"):
-                constraints.append(f"✗ {', '.join(option['incompatible_with'])}")
-            if option.get("requires"):
-                constraints.append(f"→ {', '.join(option['requires'])}")
+            options = decision.get("options", {})
+            default = decision.get("default")
+            for option_id, option in options.items():
+                default_marker = " [default]" if option_id == default else ""
+                constraints = []
+                if option.get("incompatible_with"):
+                    constraints.append(f"✗ {', '.join(option['incompatible_with'])}")
+                if option.get("requires"):
+                    constraints.append(f"→ {', '.join(option['requires'])}")
 
-            option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
-            if constraints:
-                option_text += f" [dim]({'; '.join(constraints)})[/dim]"
-            branch.add(option_text)
+                option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
+                if constraints:
+                    option_text += f" [dim]({'; '.join(constraints)})[/dim]"
+                branch.add(option_text)
 
     console.print(tree)
 
@@ -736,29 +738,40 @@ def _viz_mermaid(data: dict[str, Any]) -> None:
     """Generate Mermaid diagram for decisions."""
     lines = ["graph TD"]
 
-    for decision_id, decision in get_decisions(data).items():
-        # Decision node
-        lines.append(f"    {decision_id}[{decision.get('label', decision_id)}]")
+    for phase_id, decisions in get_phase_decisions(data).items():
+        # Phase subgraph
+        lines.append(f"    subgraph {phase_id}[{phase_id}]")
+        for decision_id, decision in decisions.items():
+            # Use phase-qualified node IDs to avoid collisions
+            node_prefix = f"{phase_id}__{decision_id}"
+            # Decision node
+            lines.append(
+                f"        {node_prefix}[{decision.get('label', decision_id)}]"
+            )
 
-        # Option nodes
-        options = decision.get("options", {})
-        default = decision.get("default")
-        for option_id, option in options.items():
-            node_id = f"{decision_id}_{option_id}"
-            style = ":::default" if option_id == default else ""
-            lines.append(f"    {node_id}(({option.get('label', option_id)})){style}")
-            lines.append(f"    {decision_id} --> {node_id}")
+            # Option nodes
+            options = decision.get("options", {})
+            default = decision.get("default")
+            for option_id, option in options.items():
+                node_id = f"{node_prefix}_{option_id}"
+                style = ":::default" if option_id == default else ""
+                lines.append(
+                    f"        {node_id}(({option.get('label', option_id)})){style}"
+                )
+                lines.append(f"        {node_prefix} --> {node_id}")
 
-            # Constraints
-            if option.get("incompatible_with"):
-                for ref in option["incompatible_with"]:
-                    target = ref.replace(".", "_")
-                    lines.append(f"    {node_id} -.->|incompatible| {target}")
+                # Constraints
+                if option.get("incompatible_with"):
+                    for ref in option["incompatible_with"]:
+                        # Constraints are phase-scoped, qualify with current phase
+                        target = f"{phase_id}__{ref.replace('.', '_')}"
+                        lines.append(f"        {node_id} -.->|incompatible| {target}")
 
-            if option.get("requires"):
-                for ref in option["requires"]:
-                    target = ref.replace(".", "_")
-                    lines.append(f"    {node_id} -->|requires| {target}")
+                if option.get("requires"):
+                    for ref in option["requires"]:
+                        target = f"{phase_id}__{ref.replace('.', '_')}"
+                        lines.append(f"        {node_id} -->|requires| {target}")
+        lines.append("    end")
 
     lines.append("")
     lines.append("    classDef default fill:#90EE90")

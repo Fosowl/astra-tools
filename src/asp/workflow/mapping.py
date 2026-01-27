@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from asp.helpers import get_decisions, get_inputs, get_option
+from asp.helpers import get_decisions, get_inputs, get_option, get_phase_decisions
 
 
 def extract_decision_values(analysis: dict[str, Any], universe: dict[str, Any]) -> dict[str, Any]:
@@ -32,28 +32,26 @@ def extract_decision_values(analysis: dict[str, Any], universe: dict[str, Any]) 
         If option has no value field, the value is the option_id string.
     """
     values: dict[str, Any] = {}
-    decisions = get_decisions(analysis)
+    phase_decisions = get_phase_decisions(analysis)
 
-    # Collect all decision selections from universe phases
+    # Iterate phase-by-phase to look up each decision in its correct phase
     universe_phases = universe.get("phases", {})
-    all_selections: dict[str, str] = {}
-    for phase_selections in universe_phases.values():
-        all_selections.update(phase_selections)
+    for phase_id, phase_selections in universe_phases.items():
+        decisions_in_phase = phase_decisions.get(phase_id, {})
+        for decision_id, option_id in phase_selections.items():
+            decision = decisions_in_phase.get(decision_id)
+            if decision is None:
+                continue
 
-    for decision_id, option_id in all_selections.items():
-        decision = decisions.get(decision_id)
-        if decision is None:
-            continue
+            option = get_option(decision, option_id)
+            if option is None:
+                continue
 
-        option = get_option(decision, option_id)
-        if option is None:
-            continue
-
-        # Use value if present, otherwise use option_id as string
-        if option.get("value") is not None:
-            values[decision_id] = option["value"]
-        else:
-            values[decision_id] = option_id
+            # Use value if present, otherwise use option_id as string
+            if option.get("value") is not None:
+                values[decision_id] = option["value"]
+            else:
+                values[decision_id] = option_id
 
     return values
 

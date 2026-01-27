@@ -161,10 +161,10 @@ my-analysis/
 ├── steps/                # Reusable workflow steps
 ├── results/              # Execution outputs (gitignored)
 ├── .claude/              # Claude Code configuration
-│   └── settings.json     # Auto-installs ASP plugin from marketplace
+│   └── settings.json     # Configures permissions and hooks for ASP workflows
 ```
 
-The `settings.json` configures Claude Code to automatically install the ASP plugin from the marketplace when the project is opened.
+The `settings.json` configures Claude Code permissions and hooks directly (e.g., venv activation, skill loading) for working with ASP projects.
 
 ## Important Design Patterns
 
