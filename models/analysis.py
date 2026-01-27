@@ -151,6 +151,10 @@ class Decision(BaseModel):
         description="Importance level (1=critical, 5=implementation detail)",
     )
     rationale: str | None = Field(default=None, description="Why this decision exists")
+    reviewed: bool | None = Field(
+        default=None,
+        description="Whether a human has reviewed and confirmed this decision",
+    )
     default: str | None = Field(
         default=None, description="Default option ID for baseline universes"
     )

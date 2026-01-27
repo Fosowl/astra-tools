@@ -149,13 +149,11 @@ def create_universe_from_defaults(
     Returns:
         A universe dict with the default decisions selected under phases.
     """
-    universe: dict[str, Any] = {
+    return {
         "id": universe_id,
         "description": description or "Default configuration using standard practices",
         "phases": get_default_universe(data),
     }
-
-    return universe
 
 
 def get_input_ids(data: dict[str, Any]) -> set[str]:

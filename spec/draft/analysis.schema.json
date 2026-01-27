@@ -252,6 +252,19 @@
           "description": "Why this decision exists",
           "title": "Rationale"
         },
+        "reviewed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether a human has reviewed and confirmed this decision",
+          "title": "Reviewed"
+        },
         "default": {
           "anyOf": [
             {

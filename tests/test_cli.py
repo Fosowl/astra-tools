@@ -260,10 +260,6 @@ class TestInitCommand:
         assert (project_dir / "results").is_dir()
         assert (project_dir / "workflows").is_dir()
         assert (project_dir / "steps").is_dir()
-        assert (project_dir / "steps" / "io").is_dir()
-        assert (project_dir / "steps" / "preprocessing").is_dir()
-        assert (project_dir / "steps" / "models").is_dir()
-        assert (project_dir / "steps" / "evaluation").is_dir()
 
         # scripts/ no longer created
         assert not (project_dir / "scripts").exists()

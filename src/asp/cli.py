@@ -273,11 +273,7 @@ def _get_plugin_source_dir() -> Path | None:
 
 
 def _create_claude_settings(directory: Path) -> None:
-    """Create Claude Code settings with ASP skills and agents.
-
-    Copies the plugin files (scripts, skills, agents) into the project's
-    .claude/ directory for local use.
-    """
+    """Create Claude Code settings with ASP skills and agents."""
     claude_dir = directory / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
 
