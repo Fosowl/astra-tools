@@ -143,6 +143,48 @@
       "title": "AnalysisSource",
       "type": "object"
     },
+    "Artefact": {
+      "additionalProperties": false,
+      "description": "An artefact produced by a phase.",
+      "properties": {
+        "id": {
+          "description": "Unique identifier for the artefact",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type of artefact",
+          "enum": [
+            "figure",
+            "table",
+            "data",
+            "report"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Description of the artefact",
+          "title": "Description"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "Artefact",
+      "type": "object"
+    },
     "Checksum": {
       "additionalProperties": false,
       "description": "Checksum for data integrity verification.",
@@ -724,19 +766,6 @@
           "default": null,
           "description": "Description of the output",
           "title": "Description"
-        },
-        "from": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Reference to a phase output in 'phase_id.output_id' format. When present, this output is drawn from the referenced phase.",
-          "title": "From"
         }
       },
       "required": [
@@ -781,12 +810,20 @@
     },
     "Phase": {
       "additionalProperties": false,
-      "description": "An inline phase within an analysis \u2014 a scoped stage with its own problem,\ninputs, outputs, and decisions.",
+      "description": "An inline phase within an analysis \u2014 a scoped stage with its own problem,\ndecisions, and optional artefacts.",
       "properties": {
         "problem": {
-          "description": "Problem statement for this phase",
-          "title": "Problem",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Problem statement for this phase (optional for 'main' phase, which inherits from analysis)",
+          "title": "Problem"
         },
         "success_criteria": {
           "anyOf": [
@@ -804,22 +841,6 @@
           "description": "Concrete criteria for determining if this phase succeeded.",
           "title": "Success Criteria"
         },
-        "inputs": {
-          "description": "List of phase inputs wired from parent inputs or sibling phase outputs",
-          "items": {
-            "$ref": "#/$defs/PhaseInput"
-          },
-          "title": "Inputs",
-          "type": "array"
-        },
-        "outputs": {
-          "description": "List of expected outputs from this phase",
-          "items": {
-            "$ref": "#/$defs/Output"
-          },
-          "title": "Outputs",
-          "type": "array"
-        },
         "decisions": {
           "additionalProperties": {
             "$ref": "#/$defs/Decision"
@@ -827,48 +848,25 @@
           "description": "Map of decision IDs to decision specifications scoped to this phase",
           "title": "Decisions",
           "type": "object"
-        }
-      },
-      "required": [
-        "problem"
-      ],
-      "title": "Phase",
-      "type": "object"
-    },
-    "PhaseInput": {
-      "additionalProperties": false,
-      "description": "An input to a phase, wired from parent inputs or sibling phase outputs.",
-      "properties": {
-        "id": {
-          "description": "Unique identifier for the phase input",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "title": "Id",
-          "type": "string"
         },
-        "from": {
-          "description": "Wiring reference: 'inputs.<id>' for parent inputs or '<phase_id>.<output_id>' for sibling phase outputs.",
-          "title": "From",
-          "type": "string"
-        },
-        "description": {
+        "artefacts": {
           "anyOf": [
             {
-              "type": "string"
+              "items": {
+                "$ref": "#/$defs/Artefact"
+              },
+              "type": "array"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Description of the phase input",
-          "title": "Description"
+          "description": "List of artefacts produced by this phase",
+          "title": "Artefacts"
         }
       },
-      "required": [
-        "id",
-        "from"
-      ],
-      "title": "PhaseInput",
+      "title": "Phase",
       "type": "object"
     },
     "QuoteEvidence": {
@@ -1189,14 +1187,6 @@
       "$ref": "#/$defs/AnalysisContent",
       "description": "The analysis specification"
     },
-    "decisions": {
-      "additionalProperties": {
-        "$ref": "#/$defs/Decision"
-      },
-      "description": "Map of decision IDs to decision specifications",
-      "title": "Decisions",
-      "type": "object"
-    },
     "insights": {
       "additionalProperties": {
         "$ref": "#/$defs/Insight"
@@ -1209,14 +1199,15 @@
       "additionalProperties": {
         "$ref": "#/$defs/Phase"
       },
-      "description": "Map of phase IDs to inline phase definitions. Each phase has its own problem, inputs, outputs, and decisions.",
+      "description": "Map of phase IDs to phase definitions. Single-stage analyses use a 'main' phase. All decisions live under phases.",
       "title": "Phases",
       "type": "object"
     }
   },
   "required": [
     "version",
-    "analysis"
+    "analysis",
+    "phases"
   ],
   "title": "ASP Analysis Specification",
   "type": "object"

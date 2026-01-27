@@ -19,6 +19,7 @@ from asp.helpers import (
     get_decisions,
     get_inputs,
     get_outputs,
+    get_phase_decisions,
     load_yaml,
     save_yaml,
 )
@@ -179,20 +180,22 @@ analysis:
       type: report
       description: "Summary addressing the problem statement"
 
-decisions:
-  example_method:
-    label: "Example Method Choice"
-    type: method
-    importance: 3
-    rationale: "TODO: Explain why this decision matters"
-    default: option_a
-    options:
-      option_a:
-        label: "Option A"
-        description: "TODO: Describe option A"
-      option_b:
-        label: "Option B"
-        description: "TODO: Describe option B"
+phases:
+  main:
+    decisions:
+      example_method:
+        label: "Example Method Choice"
+        type: method
+        importance: 3
+        rationale: "TODO: Explain why this decision matters"
+        default: option_a
+        options:
+          option_a:
+            label: "Option A"
+            description: "TODO: Describe option A"
+          option_b:
+            label: "Option B"
+            description: "TODO: Describe option B"
 '''
     (directory / "asp.yaml").write_text(asp_yaml)
 
@@ -203,8 +206,9 @@ decisions:
 id: baseline
 description: "Default configuration using standard practices"
 
-decisions:
-  example_method: option_a
+phases:
+  main:
+    example_method: option_a
 """
     (directory / "universes" / "baseline.yaml").write_text(baseline_universe)
 
@@ -569,28 +573,32 @@ def info(
             )
         console.print(table)
 
-    # Decisions
+    # Decisions (grouped by phase)
     if decisions or show_all:
         console.print("\n[bold]Decisions:[/bold]")
-        for decision_id, decision in decision_dict.items():
-            tree = Tree(f"[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
-            tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
-            tree.add(f"[dim]Importance:[/dim] {decision.get('importance', 3)}/5")
-            if decision.get("rationale"):
-                tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
+        phase_decisions = get_phase_decisions(data)
+        for phase_id, phase_decs in phase_decisions.items():
+            if len(phase_decisions) > 1:
+                console.print(f"\n  [bold magenta]Phase: {phase_id}[/bold magenta]")
+            for decision_id, decision in phase_decs.items():
+                tree = Tree(f"[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
+                tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
+                tree.add(f"[dim]Importance:[/dim] {decision.get('importance', 3)}/5")
+                if decision.get("rationale"):
+                    tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
 
-            options_branch = tree.add("[dim]Options:[/dim]")
-            options = decision.get("options", {})
-            default = decision.get("default")
-            for option_id, option in options.items():
-                default_marker = " [yellow](default)[/yellow]" if option_id == default else ""
-                option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
-                if option.get("description"):
-                    option_text += f" - [dim]{option['description']}[/dim]"
-                options_branch.add(option_text)
+                options_branch = tree.add("[dim]Options:[/dim]")
+                options = decision.get("options", {})
+                default = decision.get("default")
+                for option_id, option in options.items():
+                    default_marker = " [yellow](default)[/yellow]" if option_id == default else ""
+                    option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
+                    if option.get("description"):
+                        option_text += f" - [dim]{option['description']}[/dim]"
+                    options_branch.add(option_text)
 
-            console.print(tree)
-            console.print()
+                console.print(tree)
+                console.print()
 
 
 @main.group()
@@ -624,9 +632,13 @@ def generate_universe(
     analysis_path = _require_analysis(analysis)
     data = load_yaml(analysis_path)
 
-    # Check all decisions have defaults
-    decisions = get_decisions(data)
-    missing_defaults = [d_id for d_id, d in decisions.items() if d.get("default") is None]
+    # Check all decisions have defaults (across all phases)
+    phase_decs = get_phase_decisions(data)
+    missing_defaults: list[str] = []
+    for phase_id, decs in phase_decs.items():
+        for d_id, d in decs.items():
+            if d.get("default") is None:
+                missing_defaults.append(f"{phase_id}.{d_id}")
     if missing_defaults:
         console.print("[red]Error:[/red] Some decisions don't have defaults:")
         for d_id in missing_defaults:
@@ -643,8 +655,11 @@ def generate_universe(
 
     console.print(f"[green]✓[/green] Generated universe at [cyan]{output}[/cyan]")
     console.print("\nDecisions:")
-    for d_id, opt_id in uni["decisions"].items():
-        console.print(f"  {d_id}: {opt_id}")
+    for phase_id, phase_selections in uni.get("phases", {}).items():
+        if len(uni.get("phases", {})) > 1:
+            console.print(f"  [magenta]{phase_id}:[/magenta]")
+        for d_id, opt_id in phase_selections.items():
+            console.print(f"  {d_id}: {opt_id}")
 
 
 @universe.command("check")

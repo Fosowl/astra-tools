@@ -1,9 +1,6 @@
 id: baseline
 description: "Standard pipeline configuration"
 
-decisions:
-  reporting_style: publication
-
 phases:
   build_mocks:
     noise_model: heteroscedastic

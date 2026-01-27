@@ -12,3 +12,6 @@ analysis:
       type: metric
     - id: result  # Duplicate ID
       type: figure
+
+phases:
+  main: {}

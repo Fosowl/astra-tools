@@ -3,8 +3,9 @@
 id: incompatible
 description: "Violates incompatible_with"
 
-decisions:
-  preprocessing: minmax
-  model: svm  # minmax is incompatible with svm
-  test_split: split_20
-  seed: seed_42
+phases:
+  main:
+    preprocessing: minmax
+    model: svm  # minmax is incompatible with svm
+    test_split: split_20
+    seed: seed_42

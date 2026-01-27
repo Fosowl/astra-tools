@@ -71,18 +71,31 @@ def get_output(data: dict[str, Any], output_id: str) -> dict[str, Any] | None:
     return None
 
 
-def get_decision(data: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
+def get_decision(
+    data: dict[str, Any], decision_id: str, phase_id: str | None = None
+) -> dict[str, Any] | None:
     """Get a decision by ID from analysis data.
+
+    Searches across all phases, or within a specific phase if phase_id is given.
 
     Args:
         data: Analysis data as a dict.
         decision_id: The decision ID to find.
+        phase_id: Optional phase ID to search within.
 
     Returns:
         The decision dict if found, None otherwise.
     """
-    decisions: dict[str, dict[str, Any]] = data.get("decisions", {})
-    return decisions.get(decision_id)
+    phases: dict[str, dict[str, Any]] = data.get("phases", {})
+    if phase_id is not None:
+        phase = phases.get(phase_id, {})
+        return phase.get("decisions", {}).get(decision_id)
+    # Search all phases
+    for phase in phases.values():
+        decisions = phase.get("decisions", {})
+        if decision_id in decisions:
+            return decisions[decision_id]
+    return None
 
 
 def get_insight(data: dict[str, Any], insight_id: str) -> dict[str, Any] | None:
@@ -99,21 +112,25 @@ def get_insight(data: dict[str, Any], insight_id: str) -> dict[str, Any] | None:
     return insights.get(insight_id)
 
 
-def get_default_universe(data: dict[str, Any]) -> dict[str, str]:
-    """Get the default universe based on decision defaults.
+def get_default_universe(data: dict[str, Any]) -> dict[str, dict[str, str]]:
+    """Get the default universe based on decision defaults across all phases.
 
     Args:
         data: Analysis data as a dict.
 
     Returns:
-        Dict mapping decision_id to default option_id.
+        Dict mapping phase_id to dict of decision_id to default option_id.
     """
-    result: dict[str, str] = {}
-    decisions = data.get("decisions", {})
-    for decision_id, decision in decisions.items():
-        default = decision.get("default")
-        if default is not None:
-            result[decision_id] = default
+    result: dict[str, dict[str, str]] = {}
+    phases = data.get("phases", {})
+    for phase_id, phase in phases.items():
+        phase_defaults: dict[str, str] = {}
+        for decision_id, decision in phase.get("decisions", {}).items():
+            default = decision.get("default")
+            if default is not None:
+                phase_defaults[decision_id] = default
+        if phase_defaults:
+            result[phase_id] = phase_defaults
     return result
 
 
@@ -130,29 +147,13 @@ def create_universe_from_defaults(
         description: Optional description for the universe.
 
     Returns:
-        A universe dict with the default decisions selected.
+        A universe dict with the default decisions selected under phases.
     """
     universe: dict[str, Any] = {
         "id": universe_id,
         "description": description or "Default configuration using standard practices",
-        "decisions": get_default_universe(data),
+        "phases": get_default_universe(data),
     }
-
-    # Collect per-phase decision defaults
-    phases = data.get("phases", {})
-    if phases:
-        phase_defaults: dict[str, dict[str, str]] = {}
-        for phase_id, phase in phases.items():
-            phase_decisions = phase.get("decisions", {})
-            defaults: dict[str, str] = {}
-            for decision_id, decision in phase_decisions.items():
-                default = decision.get("default")
-                if default is not None:
-                    defaults[decision_id] = default
-            if defaults:
-                phase_defaults[phase_id] = defaults
-        if phase_defaults:
-            universe["phases"] = phase_defaults
 
     return universe
 
@@ -184,7 +185,7 @@ def get_output_ids(data: dict[str, Any]) -> set[str]:
 
 
 def get_decision_ids(data: dict[str, Any]) -> set[str]:
-    """Get all decision IDs from analysis data.
+    """Get all decision IDs from analysis data (across all phases).
 
     Args:
         data: Analysis data as a dict.
@@ -192,7 +193,10 @@ def get_decision_ids(data: dict[str, Any]) -> set[str]:
     Returns:
         Set of decision IDs.
     """
-    return set(data.get("decisions", {}).keys())
+    result: set[str] = set()
+    for phase in data.get("phases", {}).values():
+        result.update(phase.get("decisions", {}).keys())
+    return result
 
 
 def get_insight_ids(data: dict[str, Any]) -> set[str]:
@@ -234,7 +238,7 @@ def get_outputs(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Get all decisions from analysis data.
+    """Get all decisions from analysis data (collected from all phases).
 
     Args:
         data: Analysis data as a dict.
@@ -242,7 +246,26 @@ def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     Returns:
         Dict mapping decision_id to decision dict.
     """
-    result: dict[str, dict[str, Any]] = data.get("decisions", {})
+    result: dict[str, dict[str, Any]] = {}
+    for phase in data.get("phases", {}).values():
+        result.update(phase.get("decisions", {}))
+    return result
+
+
+def get_phase_decisions(data: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
+    """Get all decisions grouped by phase.
+
+    Args:
+        data: Analysis data as a dict.
+
+    Returns:
+        Dict mapping phase_id to dict of decision_id to decision dict.
+    """
+    result: dict[str, dict[str, dict[str, Any]]] = {}
+    for phase_id, phase in data.get("phases", {}).items():
+        decisions = phase.get("decisions", {})
+        if decisions:
+            result[phase_id] = decisions
     return result
 
 

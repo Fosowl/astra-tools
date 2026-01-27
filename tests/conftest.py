@@ -63,12 +63,16 @@ def minimal_analysis_data() -> dict:
             "inputs": [{"id": "test_data", "type": "data"}],
             "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
         },
-        "decisions": {
-            "method": {
-                "label": "Method",
-                "type": "method",
-                "default": "a",
-                "options": {"a": {"label": "A"}, "b": {"label": "B"}},
+        "phases": {
+            "main": {
+                "decisions": {
+                    "method": {
+                        "label": "Method",
+                        "type": "method",
+                        "default": "a",
+                        "options": {"a": {"label": "A"}, "b": {"label": "B"}},
+                    }
+                }
             }
         },
     }
@@ -80,5 +84,5 @@ def baseline_universe_data() -> dict:
     return {
         "id": "baseline",
         "description": "Test baseline",
-        "decisions": {"method": "a"},
+        "phases": {"main": {"method": "a"}},
     }

@@ -13,6 +13,7 @@ from asp.validation.semantic import (
     SemanticError,
     validate_analysis,
     validate_analysis_file,
+    validate_universe,
     validate_universe_file,
 )
 
@@ -70,8 +71,6 @@ class TestSemanticValidation:
         assert errors == []
 
     def test_duplicate_input_ids(self, invalid_dir: Path):
-        # This will fail at Pydantic level or we need to check semantically
-        # The schema allows it but semantic validation should catch it
         errors = validate_analysis_file(invalid_dir / "duplicate_input_ids.yaml")
         assert any(e.code == "DUPLICATE_INPUT" for e in errors)
 
@@ -105,7 +104,7 @@ class TestUniverseValidation:
             invalid_dir / "universe_missing_decision.yaml",
             full_analysis_path,
         )
-        assert any(e.code == "MISSING_DECISION" for e in errors)
+        assert any(e.code == "MISSING_PHASE_DECISION" for e in errors)
 
     def test_invalid_option(self, full_analysis_path: Path, invalid_dir: Path):
         errors = validate_universe_file(
@@ -136,40 +135,13 @@ class TestPhaseValidation:
         errors = validate_analysis_file(valid_dir / "phases_parent.yaml")
         assert errors == []
 
-    def test_invalid_wiring_ref(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "phases_invalid_wiring.yaml")
-        assert any(e.code == "INVALID_WIRING_REF" for e in errors)
-        # Should have two errors: bad parent input ref and bad sibling ref
-        wiring_errors = [e for e in errors if e.code == "INVALID_WIRING_REF"]
-        assert len(wiring_errors) == 2
-
-    def test_cycle_detection(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "phases_cycle.yaml")
-        assert any(e.code == "CYCLE_DETECTED" for e in errors)
-
-    def test_invalid_from_ref(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "phases_invalid_from.yaml")
-        assert any(e.code == "INVALID_FROM_REF" for e in errors)
-
-    def test_invalid_output_ref(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "phases_invalid_output_ref.yaml")
-        assert any(e.code == "INVALID_FROM_OUTPUT_REF" for e in errors)
-
-    def test_self_reference(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "phases_self_ref.yaml")
-        assert any(e.code == "SELF_REFERENCE" for e in errors)
-
     def test_valid_phases_universe(self, valid_dir: Path):
-        from asp.validation.semantic import validate_universe
-
         analysis_data = load_yaml(valid_dir / "phases_parent.yaml")
         universe_data = load_yaml(valid_dir / "phases_universe.yaml")
         errors = validate_universe(universe_data, analysis_data)
         assert errors == []
 
     def test_missing_phase_decision_in_universe(self, valid_dir: Path, invalid_dir: Path):
-        from asp.validation.semantic import validate_universe
-
         analysis_data = load_yaml(valid_dir / "phases_parent.yaml")
         universe_data = load_yaml(invalid_dir / "universe_missing_phase_decision.yaml")
         errors = validate_universe(universe_data, analysis_data)

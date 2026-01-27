@@ -12,13 +12,15 @@ analysis:
       type: metric
       dtype: float
 
-decisions:
-  method:
-    label: "Method"
-    type: method
-    default: option_a
-    options:
-      option_a:
-        label: "Option A"
-      option_b:
-        label: "Option B"
+phases:
+  main:
+    decisions:
+      method:
+        label: "Method"
+        type: method
+        default: option_a
+        options:
+          option_a:
+            label: "Option A"
+          option_b:
+            label: "Option B"

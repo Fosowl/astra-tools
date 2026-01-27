@@ -2,7 +2,7 @@
   "$id": "https://asp-spec.org/v1/universe.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "A universe specification - a complete set of decisions.",
+  "description": "A universe specification - a complete set of decisions organized by phase.",
   "properties": {
     "$schema": {
       "anyOf": [
@@ -36,14 +36,6 @@
       "description": "What this universe represents",
       "title": "Description"
     },
-    "decisions": {
-      "additionalProperties": {
-        "type": "string"
-      },
-      "description": "Map of decision_id to selected option_id",
-      "title": "Decisions",
-      "type": "object"
-    },
     "phases": {
       "additionalProperties": {
         "additionalProperties": {
@@ -51,14 +43,14 @@
         },
         "type": "object"
       },
-      "description": "Map of phase ID to decision selections (decision_id \u2192 option_id) for that phase",
+      "description": "Map of phase ID to decision selections (decision_id -> option_id) for that phase",
       "title": "Phases",
       "type": "object"
     }
   },
   "required": [
     "id",
-    "decisions"
+    "phases"
   ],
   "title": "ASP Universe Specification",
   "type": "object"

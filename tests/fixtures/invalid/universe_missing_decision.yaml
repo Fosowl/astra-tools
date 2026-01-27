@@ -2,6 +2,7 @@
 id: incomplete
 description: "Missing decisions"
 
-decisions:
-  preprocessing: standard
-  # Missing: model, test_split, seed
+phases:
+  main:
+    preprocessing: standard
+    # Missing: model, test_split, seed

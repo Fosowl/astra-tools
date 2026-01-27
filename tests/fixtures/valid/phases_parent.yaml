@@ -16,35 +16,15 @@ analysis:
     - id: posterior_contours
       type: figure
       formats: [png]
-      from: validate.posterior_plot
     - id: parameter_constraints
       type: table
       formats: [csv]
-      from: validate.constraints_table
-
-decisions:
-  reporting_style:
-    label: "Reporting Style"
-    type: parameter
-    default: publication
-    options:
-      publication:
-        label: "Publication quality"
-      exploratory:
-        label: "Quick exploratory"
 
 phases:
   build_mocks:
     problem: "Generate realistic mock catalogs matching survey properties."
     success_criteria:
       - "Mock catalog matches observed magnitude distribution"
-    inputs:
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
-      - id: mock_catalog
-        type: data
-        formats: [fits]
     decisions:
       noise_model:
         label: "Noise Model"
@@ -55,17 +35,13 @@ phases:
             label: "Homoscedastic"
           heteroscedastic:
             label: "Heteroscedastic"
+    artefacts:
+      - id: mock_sample_plot
+        type: figure
+        description: "Sample mock catalog visualization"
 
   train_network:
     problem: "Train SBI neural network on mock catalog."
-    inputs:
-      - id: mock_catalog
-        from: build_mocks.mock_catalog
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
-      - id: trained_model
-        type: model
     decisions:
       architecture:
         label: "Network Architecture"
@@ -79,15 +55,3 @@ phases:
 
   validate:
     problem: "Validate trained model against observed data."
-    inputs:
-      - id: trained_model
-        from: train_network.trained_model
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
-      - id: posterior_plot
-        type: figure
-        formats: [png]
-      - id: constraints_table
-        type: table
-        formats: [csv]

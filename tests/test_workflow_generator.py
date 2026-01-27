@@ -18,13 +18,17 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "Random Forest"}},
-                },
+            "phases": {
+                "main": {
+                    "decisions": {
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "Random Forest"}},
+                        },
+                    }
+                }
             },
         }
         cwl_str = generate_cwl_skeleton(analysis)
@@ -48,13 +52,17 @@ class TestGenerateCWLSkeleton:
                 ],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "Random Forest"}},
-                },
+            "phases": {
+                "main": {
+                    "decisions": {
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "Random Forest"}},
+                        },
+                    }
+                }
             },
         }
         cwl_str = generate_cwl_skeleton(analysis)
@@ -75,7 +83,7 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data", "description": "Input data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {},
+            "phases": {"main": {"decisions": {}}},
         }
         cwl_str = generate_cwl_skeleton(analysis)
         cwl = yaml.safe_load(cwl_str)
@@ -92,13 +100,17 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "Random Forest"}},
-                },
+            "phases": {
+                "main": {
+                    "decisions": {
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "Random Forest"}},
+                        },
+                    }
+                }
             },
         }
         cwl_str = generate_cwl_skeleton(analysis)
@@ -121,7 +133,7 @@ class TestGenerateCWLSkeleton:
                     {"id": "model_file", "type": "model"},
                 ],
             },
-            "decisions": {},
+            "phases": {"main": {"decisions": {}}},
         }
         cwl_str = generate_cwl_skeleton(analysis)
         cwl = yaml.safe_load(cwl_str)
@@ -139,19 +151,23 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "iris_data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "scaling": {
-                    "label": "Scaling",
-                    "type": "method",
-                    "default": "standard",
-                    "options": {"standard": {"label": "Standard"}},
-                },
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "RF"}},
-                },
+            "phases": {
+                "main": {
+                    "decisions": {
+                        "scaling": {
+                            "label": "Scaling",
+                            "type": "method",
+                            "default": "standard",
+                            "options": {"standard": {"label": "Standard"}},
+                        },
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "RF"}},
+                        },
+                    }
+                }
             },
         }
         cwl_str = generate_cwl_skeleton(analysis)
@@ -178,7 +194,7 @@ class TestGenerateCWLSkeleton:
                     {"id": "trained_model", "type": "model"},
                 ],
             },
-            "decisions": {},
+            "phases": {"main": {"decisions": {}}},
         }
         cwl_str = generate_cwl_skeleton(analysis)
         cwl = yaml.safe_load(cwl_str)
@@ -198,18 +214,22 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "scaling": {
-                    "label": "Scaling",
-                    "type": "method",
-                    "default": "standard",
-                    "options": {
-                        "standard": {
-                            "label": "Standard",
-                            "value": {"method": "standard", "with_mean": True},
+            "phases": {
+                "main": {
+                    "decisions": {
+                        "scaling": {
+                            "label": "Scaling",
+                            "type": "method",
+                            "default": "standard",
+                            "options": {
+                                "standard": {
+                                    "label": "Standard",
+                                    "value": {"method": "standard", "with_mean": True},
+                                },
+                            },
                         },
-                    },
-                },
+                    }
+                }
             },
         }
         cwl_str = generate_cwl_skeleton(analysis)
@@ -229,7 +249,7 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {},
+            "phases": {"main": {"decisions": {}}},
         }
         cwl_str = generate_cwl_skeleton(analysis)
 

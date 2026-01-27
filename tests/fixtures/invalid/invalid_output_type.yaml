@@ -10,3 +10,6 @@ analysis:
   outputs:
     - id: result
       type: invalid_type  # Should be metric, figure, table, data, model, or report
+
+phases:
+  main: {}

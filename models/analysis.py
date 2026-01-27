@@ -88,12 +88,6 @@ class Output(BaseModel):
         default=False, description="Whether this is the primary output for comparison"
     )
     description: str | None = Field(default=None, description="Description of the output")
-    from_: str | None = Field(
-        default=None,
-        alias="from",
-        description="Reference to a phase output in 'phase_id.output_id' format. "
-        "When present, this output is drawn from the referenced phase.",
-    )
 
 
 class Evidence(BaseModel):
@@ -170,45 +164,43 @@ class Decision(BaseModel):
         return self
 
 
-class PhaseInput(BaseModel):
-    """An input to a phase, wired from parent inputs or sibling phase outputs."""
+class Artefact(BaseModel):
+    """An artefact produced by a phase."""
 
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(
         pattern=r"^[a-z][a-z0-9_]*$",
-        description="Unique identifier for the phase input",
+        description="Unique identifier for the artefact",
     )
-    from_: str = Field(
-        alias="from",
-        description="Wiring reference: 'inputs.<id>' for parent inputs or "
-        "'<phase_id>.<output_id>' for sibling phase outputs.",
+    type: Literal["figure", "table", "data", "report"] = Field(
+        description="Type of artefact"
     )
-    description: str | None = Field(default=None, description="Description of the phase input")
+    description: str | None = Field(default=None, description="Description of the artefact")
 
 
 class Phase(BaseModel):
     """An inline phase within an analysis — a scoped stage with its own problem,
-    inputs, outputs, and decisions."""
+    decisions, and optional artefacts."""
 
     model_config = ConfigDict(extra="forbid")
 
-    problem: str = Field(description="Problem statement for this phase")
+    problem: str | None = Field(
+        default=None,
+        description="Problem statement for this phase (optional for 'main' phase, "
+        "which inherits from analysis)",
+    )
     success_criteria: list[str] | None = Field(
         default=None,
         description="Concrete criteria for determining if this phase succeeded.",
     )
-    inputs: list[PhaseInput] = Field(
-        default_factory=list,
-        description="List of phase inputs wired from parent inputs or sibling phase outputs",
-    )
-    outputs: list[Output] = Field(
-        default_factory=list,
-        description="List of expected outputs from this phase",
-    )
     decisions: dict[str, Decision] = Field(
         default_factory=dict,
         description="Map of decision IDs to decision specifications scoped to this phase",
+    )
+    artefacts: list[Artefact] | None = Field(
+        default=None,
+        description="List of artefacts produced by this phase",
     )
 
 
@@ -250,18 +242,14 @@ class Analysis(BaseModel):
     schema_: str | None = Field(default=None, alias="$schema", description="JSON Schema reference")
     version: str = Field(pattern=r"^\d+\.\d+$", description="ASP specification version")
     analysis: AnalysisContent = Field(description="The analysis specification")
-    decisions: dict[str, Decision] = Field(
-        default_factory=dict,
-        description="Map of decision IDs to decision specifications",
-    )
     insights: dict[str, Insight] = Field(
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
     )
     phases: dict[str, Phase] = Field(
-        default_factory=dict,
-        description="Map of phase IDs to inline phase definitions. "
-        "Each phase has its own problem, inputs, outputs, and decisions.",
+        description="Map of phase IDs to phase definitions. "
+        "Single-stage analyses use a 'main' phase. "
+        "All decisions live under phases.",
     )
 
     @classmethod
@@ -291,18 +279,31 @@ class Analysis(BaseModel):
                 return out
         return None
 
-    def get_decision(self, decision_id: str) -> Decision | None:
-        """Get a decision by ID."""
-        return self.decisions.get(decision_id)
+    def get_decision(self, decision_id: str, phase_id: str | None = None) -> Decision | None:
+        """Get a decision by ID, searching across phases or within a specific phase."""
+        if phase_id is not None:
+            phase = self.phases.get(phase_id)
+            if phase:
+                return phase.decisions.get(decision_id)
+            return None
+        # Search all phases
+        for phase in self.phases.values():
+            if decision_id in phase.decisions:
+                return phase.decisions[decision_id]
+        return None
 
     def get_insight(self, insight_id: str) -> Insight | None:
         """Get an insight by ID."""
         return self.insights.get(insight_id)
 
-    def get_default_universe(self) -> dict[str, str]:
-        """Get the default universe based on decision defaults."""
-        return {
-            decision_id: decision.default
-            for decision_id, decision in self.decisions.items()
-            if decision.default is not None
-        }
+    def get_default_universe(self) -> dict[str, dict[str, str]]:
+        """Get the default universe based on decision defaults across all phases."""
+        result: dict[str, dict[str, str]] = {}
+        for phase_id, phase in self.phases.items():
+            phase_defaults: dict[str, str] = {}
+            for decision_id, decision in phase.decisions.items():
+                if decision.default is not None:
+                    phase_defaults[decision_id] = decision.default
+            if phase_defaults:
+                result[phase_id] = phase_defaults
+        return result

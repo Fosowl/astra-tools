@@ -33,9 +33,14 @@ def extract_decision_values(analysis: dict[str, Any], universe: dict[str, Any]) 
     """
     values: dict[str, Any] = {}
     decisions = get_decisions(analysis)
-    universe_decisions = universe.get("decisions", {})
 
-    for decision_id, option_id in universe_decisions.items():
+    # Collect all decision selections from universe phases
+    universe_phases = universe.get("phases", {})
+    all_selections: dict[str, str] = {}
+    for phase_selections in universe_phases.values():
+        all_selections.update(phase_selections)
+
+    for decision_id, option_id in all_selections.items():
         decision = decisions.get(decision_id)
         if decision is None:
             continue
