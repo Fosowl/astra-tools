@@ -24,23 +24,26 @@ Start open: "What are you trying to learn?" Then follow the energy — whatever 
 Techniques:
 - **Make it concrete**: "What would a clear answer look like? A number, a plot, a comparison?"
 - **Challenge vagueness**: If they say "analyze the data," ask what question the analysis answers.
-- **Surface hidden choices**: "You said preprocessing — what alternatives are you considering? Would a different choice change the result?"
 - **Test completeness**: "If I handed you [these outputs], would you be done?"
 - **Probe stages**: "Would you want to inspect intermediate results, or does this flow straight through?"
 
 Don't ask all of these. Pick what matters. Two sharp questions beat five routine ones.
 
+**Ask about substance, not methodology.** Focus on the science — priors, algorithm families, domain constraints, what counts as a good result. Don't ask HOW to implement things (that's `/asp-plan`). Good questions: "What model families make sense here — generative, discriminative, or both?" / "Are there known priors or constraints on these parameters?" / "What baseline would you compare against?" Bad questions: "What preprocessing should we use?" / "How should we split the data?"
+
+When the user answers a question and it maps to a decision (e.g., they pick an algorithm family or a prior), note it — you'll mark that decision `reviewed: true` when you write the spec.
+
 Keep a mental checklist — don't walk through it out loud:
 - What they're studying and why it matters
 - What data exists (or needs to be created)
 - What a "clear answer" looks like (this becomes success criteria)
-- What choices are defensible alternatives (these become decisions)
+- What scientific choices matter (algorithm families, priors, domain constraints — these become decisions)
 - What phases the analysis needs (even a simple analysis has a `main` phase)
 
 You have enough when every item has at least a rough answer.
 
 **How to ask questions:**
-- Use `AskUserQuestion` with multiple-choice options whenever a question has discrete answers (phase breakdown, output format, data source, etc.). Put your recommendation first with "(Recommended)" in the label.
+- Use `AskUserQuestion` with multiple-choice options whenever a question has discrete answers (phase breakdown, algorithm family, prior choice, etc.). Put your recommendation first with "(Recommended)" in the label.
 - For open-ended questions (research question, problem statement), use plain text — don't force multiple choice.
 
 **Anti-patterns to avoid:**
@@ -50,12 +53,15 @@ You have enough when every item has at least a rough answer.
 - Over-splitting — don't create many phases when one would do. A single phase is fine
 - Jargon dumping — don't explain ASP concepts unless the user asks
 - Wall of questions — never ask multiple questions in one message
+- Asking implementation questions — "what preprocessing?" or "what test split?" belongs in `/asp-plan`, not here
 
 ## Step 2: Write the Specification
 
 Print: `## Step 2: Write the Specification`
 
 Based on what you learned in Step 1, write `asp.yaml` directly. Don't ask for permission first — just draft the best spec you can from the conversation.
+
+Any decision the user explicitly weighed in on during Step 1 gets `reviewed: true`. Decisions you inferred or filled in with sensible defaults stay unreviewed — `/asp-plan` will surface those later.
 
 Structure:
 - **analysis**: problem, success_criteria, inputs, outputs
