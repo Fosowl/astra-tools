@@ -305,14 +305,14 @@ my-analysis/
 ├── workflows/            # CWL workflow definitions
 │   └── main.cwl
 ├── plans/                # Implementation plans per phase
-├── steps/                # Workflow implementation — organized per phase
-│   ├── <phase_name>/     # Each phase gets its own directory
-│   └── ...
+├── steps/                # Workflow implementation (created during /asp-build)
 ├── results/              # Execution outputs (gitignored)
 └── .claude/
 ```
 
-Phases are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is not scaffolded upfront — each phase creates its own subdirectory under `steps/` during `/asp-build`.
+Phases are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is created during `/asp-build`:
+- **Single phase**: implementation goes directly in `steps/` (no subdirectory)
+- **Multiple phases**: each phase gets `steps/<phase_name>/`
 
 **Important**:
 - Universes are the source of truth for CWL parameters. Use `asp workflow run` to execute workflows directly from universes, or `asp params` to inspect the generated parameters.

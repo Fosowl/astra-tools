@@ -37,7 +37,7 @@ Read the decisions in scope — `phases.<name>.decisions` for the target phase (
 
 1. Generate universes if missing (`asp universe generate -n baseline`)
 2. Build CWL workflows mapping inputs, decisions, and outputs
-3. Implement workflow steps in `steps/<phase_name>/`
+3. Implement workflow steps in `steps/` (single phase) or `steps/<phase_name>/` (multiple phases)
 4. Validate (`asp workflow validate --cwl workflows/main.cwl`)
 5. Run (`asp workflow run universes/baseline.yaml --cwl workflows/main.cwl -o results/baseline/`)
 
