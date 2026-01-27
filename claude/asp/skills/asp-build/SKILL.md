@@ -27,6 +27,10 @@ Build universes, create CWL workflows, and run the analysis.
 - No argument + `phases` exist: build all phases in dependency order (inferred from input wiring)
 - `<phase>` argument: build only that phase
 
+### Check decisions before building
+
+Read the decisions in scope — top-level `decisions` for single-stage/no-arg, or `phases.<name>.decisions` for a specific phase. If any implementation choice maps to a decision with importance 1-2, ask the user before proceeding. For importance 3, mention it. For 4-5, use defaults.
+
 ### Build steps
 
 1. Generate universes if missing (`asp universe generate -n baseline`)

@@ -28,6 +28,14 @@ Plan how to implement an analysis (or a specific phase of one).
 - No argument + `phases` exist: ask the user which phase to plan (or plan all sequentially)
 - `<phase>` argument: plan that specific phase
 
+### Surface important decisions
+
+Read the decisions in scope — top-level `decisions` for single-stage/no-arg, or `phases.<name>.decisions` for a specific phase. Based on importance:
+
+- **1-2 (critical/high)**: Must ask the user. Discuss options and rationale before proceeding.
+- **3 (medium)**: Mention the decision and offer to discuss. Proceed with default if the user declines.
+- **4-5 (low/detail)**: Handle with defaults. No need to ask.
+
 ### Plan the implementation
 
 For the target scope, work out:
