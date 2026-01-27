@@ -27,18 +27,29 @@ Repeat plan/build/verify for each phase. Omit the argument to target all phases.
 
 ## Phases
 
-Every analysis has `phases` in `asp.yaml` defining its pipeline stages. Even a simple analysis has one phase. Each phase has its own problem, inputs, outputs, and decisions — all in one file:
+Every analysis has `phases` in `asp.yaml`. All decisions live under phases — there are no top-level decisions. A simple analysis uses a single `main` phase. Complex analyses have multiple phases:
+
+```yaml
+phases:
+  main:
+    decisions:
+      scaling:
+        label: "Feature Scaling"
+        type: method
+        default: standard
+        options:
+          standard:
+            label: "StandardScaler"
+          minmax:
+            label: "MinMaxScaler"
+```
+
+Multi-phase example:
 
 ```yaml
 phases:
   build_mocks:
     problem: "Generate realistic mock catalogs matching survey properties."
-    inputs:
-      - id: survey_catalog
-        from: inputs.survey_catalog
-    outputs:
-      - id: mock_catalog
-        type: data
     decisions:
       noise_model:
         label: "Noise Model"
@@ -49,15 +60,12 @@ phases:
             label: "Homoscedastic"
           heteroscedastic:
             label: "Heteroscedastic"
+    artefacts:
+      - id: mock_catalog
+        type: data
 
   train_network:
     problem: "Train SBI neural network on mock catalog."
-    inputs:
-      - id: mock_catalog
-        from: build_mocks.mock_catalog
-    outputs:
-      - id: trained_model
-        type: model
     decisions:
       architecture:
         label: "Network Architecture"
@@ -70,9 +78,9 @@ phases:
             label: "Neural Posterior Estimation"
 ```
 
-Phase inputs wire from parent inputs (`from: inputs.<id>`) or sibling phase outputs (`from: <phase_id>.<output_id>`). Top-level outputs can reference phase outputs using `from: <phase_id>.<output_id>`.
+A phase can have: `problem`, `success_criteria`, `decisions`, and `artefacts` (figures, tables, data, reports produced by the phase).
 
-A simple analysis has one phase (e.g., `main` or a descriptive name). Complex analyses have multiple phases wired together.
+The `main` phase is special — it inherits `problem` and `success_criteria` from the top-level `analysis`, and its outputs are the analysis-level `outputs`. Don't set `problem`, `success_criteria`, or `artefacts` on `main`; they belong on the analysis. Non-main phases should set their own `problem`, `success_criteria`, and `artefacts` as needed.
 
 ## Quick Reference
 
@@ -103,9 +111,8 @@ asp params universes/baseline.yaml           # Output CWL parameters to stdout
 ### Analysis Structure
 An ASP analysis (`asp.yaml`) contains:
 - **analysis**: name, problem statement, success criteria, inputs, outputs
-- **decisions**: choices that define the analysis methodology
 - **insights**: scientific knowledge from papers or prior analyses
-- **phases**: inline pipeline stages with wiring (every analysis has at least one)
+- **phases**: pipeline stages, each with its own decisions (every analysis has at least one — use `main` for single-stage analyses)
 
 ### Success Criteria
 Define concrete, verifiable conditions for success:
@@ -121,7 +128,14 @@ analysis:
 These criteria are used by `/asp-verify` to determine if the analysis succeeded.
 
 ### Universes
-A universe is a complete set of decisions - one option per decision point.
+A universe is a complete set of decisions organized by phase — one option per decision point. Decisions are nested under their phase:
+
+```yaml
+phases:
+  main:
+    scaling: standard
+    model: random_forest
+```
 
 ### Inputs
 Inputs define the data sources for an analysis:
@@ -260,23 +274,26 @@ Before finalizing an analysis, verify:
 ## Common Patterns
 
 ### Adding a New Decision
+Decisions live under `phases.<phase_name>.decisions`:
 ```yaml
-decisions:
-  new_decision:
-    label: "Human-readable Label"
-    type: method  # or: data, parameter
-    importance: 3  # 1=critical, 5=minor
-    reviewed: true  # Has a human weighed in on this decision?
-    rationale: "Why this decision matters"
-    default: option_a
-    options:
-      option_a:
-        label: "Option A"
-        description: "What this option does"
-      option_b:
-        label: "Option B"
-        description: "Alternative approach"
-        incompatible_with: ["other_decision.some_option"]
+phases:
+  main:
+    decisions:
+      new_decision:
+        label: "Human-readable Label"
+        type: method  # or: data, parameter
+        importance: 3  # 1=critical, 5=minor
+        reviewed: true  # Has a human weighed in on this decision?
+        rationale: "Why this decision matters"
+        default: option_a
+        options:
+          option_a:
+            label: "Option A"
+            description: "What this option does"
+          option_b:
+            label: "Option B"
+            description: "Alternative approach"
+            incompatible_with: ["other_decision.some_option"]
 ```
 
 ### Adding Literature Input
@@ -301,7 +318,7 @@ Then edit `universes/experiment1.yaml` to customize decisions.
 my-analysis/
 ├── asp.yaml              # Full spec with phases defined inline
 ├── universes/
-│   └── baseline.yaml     # Includes phases section for phase-scoped decisions
+│   └── baseline.yaml     # Decision selections organized by phase
 ├── workflows/            # CWL workflow definitions
 │   └── main.cwl
 ├── plans/                # Implementation plans per phase

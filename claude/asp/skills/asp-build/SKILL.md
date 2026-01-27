@@ -23,12 +23,12 @@ Build universes, create CWL workflows, and run the analysis.
 
 ### Determine scope
 
-- No argument: build all phases in dependency order (inferred from input wiring)
+- No argument: build all phases in order
 - `<phase>` argument: build only that phase
 
 ### Check decisions before building
 
-Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). Skip any decision that already has `reviewed: true` — a human has already weighed in. For unreviewed decisions:
+Read the decisions in scope — `phases.<name>.decisions` for the target phase. Skip any decision that already has `reviewed: true` — a human has already weighed in. For unreviewed decisions:
 - **Importance 1-2**: Ask the user, then set `reviewed: true` in `asp.yaml`.
 - **Importance 3**: Mention and offer to discuss.
 - **Importance 4-5**: Use defaults without asking.
@@ -43,7 +43,7 @@ Read the decisions in scope — `phases.<name>.decisions` for the target phase (
 
 ### Phase builds
 
-When building a specific phase, scope all work to that phase's inputs, outputs, and decisions. Phase decisions appear under `phases.<name>.decisions` in the spec and `phases.<name>` in universe files.
+When building a specific phase, scope all work to that phase's decisions. Phase decisions appear under `phases.<name>.decisions` in the spec and `phases.<name>` in universe files.
 
 ## Completion
 

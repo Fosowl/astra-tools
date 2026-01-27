@@ -22,8 +22,9 @@ Verify that analysis results meet the original research goals and success criter
 
 ### Determine scope
 
-- No argument: verify all phases against their criteria, then parent-level criteria
+- No argument: verify all phases against their criteria, then analysis-level criteria
 - `<phase>` argument: verify only that phase's results against its success criteria
+- For `main` phase: use the analysis-level `success_criteria` (the `main` phase doesn't define its own)
 
 ### Verification
 

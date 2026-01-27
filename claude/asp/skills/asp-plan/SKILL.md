@@ -29,7 +29,7 @@ Plan how to implement an analysis phase.
 
 ### Surface important decisions
 
-Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). Skip any decision that already has `reviewed: true` — a human has already weighed in. For unreviewed decisions, based on importance:
+Read the decisions in scope — `phases.<name>.decisions` for the target phase. Skip any decision that already has `reviewed: true` — a human has already weighed in. For unreviewed decisions, based on importance:
 
 - **1-2 (critical/high)**: Must ask the user. Use `AskUserQuestion` with the decision options as multiple-choice answers. Put the default/recommended option first with "(Recommended)". Ask one decision at a time.
 - **3 (medium)**: Mention the decision and offer to discuss. Use `AskUserQuestion` to let the user confirm the default or pick an alternative.

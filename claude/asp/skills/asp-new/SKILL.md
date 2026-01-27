@@ -35,8 +35,7 @@ Keep a mental checklist — don't walk through it out loud:
 - What data exists (or needs to be created)
 - What a "clear answer" looks like (this becomes success criteria)
 - What choices are defensible alternatives (these become decisions)
-- What phases the analysis needs (even a simple analysis has one phase)
-- What flows between phases (this becomes phase input wiring)
+- What phases the analysis needs (even a simple analysis has a `main` phase)
 
 You have enough when every item has at least a rough answer.
 
@@ -52,58 +51,41 @@ You have enough when every item has at least a rough answer.
 - Jargon dumping — don't explain ASP concepts unless the user asks
 - Wall of questions — never ask multiple questions in one message
 
-## Step 2: Define the Specification
+## Step 2: Write the Specification
 
-Print: `## Step 2: Define the Specification`
+Print: `## Step 2: Write the Specification`
 
-Based on what you learned in Step 1, draft the specification structure. Work through these pieces:
+Based on what you learned in Step 1, write `asp.yaml` directly. Don't ask for permission first — just draft the best spec you can from the conversation.
 
-- **problem**, **success_criteria**, **inputs**, **outputs** (top-level)
-- **decisions** at the top level for cross-cutting choices (e.g., reporting style)
-- **phases** — propose a phase breakdown to the user using `AskUserQuestion`. Make a recommendation and present concrete options, e.g.:
-  - "Single phase: `main`" — when the analysis flows straight through
-  - "N phases: `phase_a` → `phase_b` → ..." — when there are distinct stages worth inspecting separately
-
-  Put your recommended option first with "(Recommended)" in the label. If proposing multiple phases, name them concretely in the option description.
-
-  Each phase is an inline block with:
-  - **problem**: what this phase solves
-  - **success_criteria**: how to know this phase worked
-  - **inputs**: wired from parent inputs (`from: inputs.<id>`) or sibling phase outputs (`from: <phase_id>.<output_id>`)
-  - **outputs**: what this phase produces
-  - **decisions**: methodological choices scoped to this phase
-- **Top-level outputs** can reference phase outputs using `from: <phase_id>.<output_id>`
-
-## Step 3: Write Files
-
-Print: `## Step 3: Write Files`
-
-Before writing, present what you'd write and let the user react. Summarize the problem, inputs, outputs, decisions, and phases. Don't ask permission — propose:
-
-"Here's what I'd write: [brief summary]. Should I go ahead, or do you want to adjust anything?"
-
-Do not write until the user agrees.
+Structure:
+- **analysis**: problem, success_criteria, inputs, outputs
+- **phases**: use a single `main` phase unless the conversation clearly called for multiple stages. All decisions live under phases — there are no top-level decisions.
+  - The `main` phase only needs `decisions` — it inherits `problem` and `success_criteria` from the analysis, and its outputs are the analysis-level `outputs`.
+  - Non-main phases should set their own `problem`, `success_criteria`, and `artefacts` as needed.
 
 Then:
-1. Write `asp.yaml` (single file with everything, including all phases)
+1. Write `asp.yaml`
 2. Generate baseline universe: `asp universe generate -n baseline`
 3. Validate: `asp validate asp.yaml`
 
-**Universe structure for phases**: The baseline universe includes a `phases` section with decisions scoped to each phase:
+**Universe structure**: The baseline universe organizes all decisions under their phase:
 
 ```yaml
 id: baseline
 description: "Standard configuration"
 
-decisions:
-  reporting_style: publication   # top-level decisions
-
 phases:
   build_mocks:
-    noise_model: heteroscedastic  # phase-scoped decisions
+    noise_model: heteroscedastic
   train_network:
     architecture: maf
 ```
+
+After writing, present a brief summary of what you wrote (problem, inputs, outputs, phases, key decisions) and ask the user:
+
+"Want to continue to `/asp-plan <first_phase>`? Or tell me what to change."
+
+If the user gives edit instructions, apply them to `asp.yaml`, re-validate, and ask again.
 
 ## Restrictions
 
@@ -115,9 +97,9 @@ You MUST ONLY modify:
 - `asp.yaml`
 - `universes/*.yaml`
 
-## Step 4: Done
+## Step 3: Done
 
-Print:
+When the user confirms they want to continue, print:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -125,4 +107,4 @@ Print:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-"Analysis project created with [N] phase(s)." List the phases, then: "Run `/clear`, then `/asp-plan <first_phase_name>` to start planning."
+"Analysis project created with [N] phase(s)." List the phases, then: "Run `/asp-plan <first_phase_name>` to start planning."
