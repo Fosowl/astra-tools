@@ -89,12 +89,14 @@ def get_decision(
     phases: dict[str, dict[str, Any]] = data.get("phases", {})
     if phase_id is not None:
         phase = phases.get(phase_id, {})
-        return phase.get("decisions", {}).get(decision_id)
+        result: dict[str, Any] | None = phase.get("decisions", {}).get(decision_id)
+        return result
     # Search all phases
     for phase in phases.values():
         decisions = phase.get("decisions", {})
         if decision_id in decisions:
-            return decisions[decision_id]
+            found: dict[str, Any] = decisions[decision_id]
+            return found
     return None
 
 

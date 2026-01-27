@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from asp.helpers import get_decisions, get_inputs, get_option, get_phase_decisions
+from asp.helpers import get_inputs, get_option, get_phase_decisions
 
 
 def extract_decision_values(analysis: dict[str, Any], universe: dict[str, Any]) -> dict[str, Any]:
