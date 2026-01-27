@@ -19,21 +19,15 @@ Help users work with the Agentic Science Protocol (ASP) - a declarative specific
 
 ### Workflow
 
-**Single-stage analysis:**
-```
-/asp:new  →  /asp:plan  →  /asp:build  →  /asp:verify
-```
-
-**Multi-stage analysis with phases:**
 ```
 /asp:new  →  /asp:plan <phase>  →  /asp:build <phase>  →  /asp:verify <phase>
 ```
 
-You can plan/build/verify individual phases by name, or omit the argument to target everything.
+Repeat plan/build/verify for each phase. Omit the argument to target all phases.
 
 ## Phases
 
-A multi-stage analysis uses `phases` in `asp.yaml` to define inline pipeline stages. Each phase has its own problem, inputs, outputs, and decisions — all in one file:
+Every analysis has `phases` in `asp.yaml` defining its pipeline stages. Even a simple analysis has one phase. Each phase has its own problem, inputs, outputs, and decisions — all in one file:
 
 ```yaml
 phases:
@@ -78,7 +72,7 @@ phases:
 
 Phase inputs wire from parent inputs (`from: inputs.<id>`) or sibling phase outputs (`from: <phase_id>.<output_id>`). Top-level outputs can reference phase outputs using `from: <phase_id>.<output_id>`.
 
-Phases are optional. Single-stage analyses have no `phases` section — everything lives at the root level.
+A simple analysis has one phase (e.g., `main` or a descriptive name). Complex analyses have multiple phases wired together.
 
 ## Quick Reference
 
@@ -111,7 +105,7 @@ An ASP analysis (`asp.yaml`) contains:
 - **analysis**: name, problem statement, success criteria, inputs, outputs
 - **decisions**: choices that define the analysis methodology
 - **insights**: scientific knowledge from papers or prior analyses
-- **phases** (optional): inline pipeline stages with wiring
+- **phases**: inline pipeline stages with wiring (every analysis has at least one)
 
 ### Success Criteria
 Define concrete, verifiable conditions for success:
@@ -152,11 +146,10 @@ inputs:
 
 Use `/asp:new` to interactively scope your project:
 1. Define the research question
-2. Identify whether this is multi-stage
-3. Define top-level inputs, outputs, success criteria
-4. Define phases with wiring (if multi-stage)
+2. Define top-level inputs, outputs, success criteria
+3. Define phases with wiring
 
-Then use `/asp:plan` (or `/asp:plan <phase>`) to plan the implementation.
+Then use `/asp:plan <phase>` to plan the implementation for each phase.
 
 Alternatively, scaffold manually:
 ```bash
@@ -303,25 +296,6 @@ Then edit `universes/experiment1.yaml` to customize decisions.
 
 ## File Locations
 
-### Single-Stage Analysis
-```
-my-analysis/
-├── asp.yaml              # Main analysis specification
-├── universes/            # Decision selections
-│   ├── baseline.yaml
-│   └── experiment1.yaml
-├── workflows/            # CWL workflow definitions
-│   └── main.cwl
-├── steps/                # ALL workflow implementation goes here
-│   ├── io/
-│   ├── preprocessing/
-│   ├── models/
-│   └── evaluation/
-├── insights/             # Optional: separate insight files
-└── results/              # Execution outputs (gitignored)
-```
-
-### Multi-Stage Analysis (with phases)
 ```
 my-analysis/
 ├── asp.yaml              # Full spec with phases defined inline
@@ -329,12 +303,13 @@ my-analysis/
 │   └── baseline.yaml     # Includes phases section for phase-scoped decisions
 ├── workflows/            # CWL workflow definitions
 │   └── main.cwl
+├── plans/                # Implementation plans per phase
 ├── steps/                # ALL workflow implementation goes here
 ├── results/              # Execution outputs (gitignored)
 └── .claude/
 ```
 
-Phases are defined inline in `asp.yaml` — no separate directories needed for the specification. The project directory structure is the same as single-stage.
+Phases are defined inline in `asp.yaml` — no separate directories needed for the specification.
 
 **Important**:
 - All implementation code (Python, R, shell scripts) must be placed in the `steps/` folder alongside their CWL definitions. Do not create a separate `scripts/` folder.

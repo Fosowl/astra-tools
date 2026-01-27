@@ -146,8 +146,7 @@ __pycache__/
     console.print("\n[bold]Next steps:[/bold]")
     console.print(f"  1. [cyan]cd {directory}[/cyan]")
     console.print("  2. Run [cyan]claude[/cyan] to launch Claude Code")
-    console.print("  3. Edit [cyan]asp.yaml[/cyan] to define inputs, outputs, and decisions")
-    console.print("  4. Run [cyan]asp validate asp.yaml[/cyan] to check your spec")
+    console.print("  3. Run [cyan]/asp:new[/cyan] to scope your research question and define the analysis")
 
 
 def _create_boilerplate_asp_yaml(directory: Path) -> None:

@@ -6,43 +6,60 @@ allowed-tools: Read, Write(asp.yaml), Write(universes/*), Edit(asp.yaml), Edit(u
 
 # /asp:new
 
-Create a new ASP analysis project through direct conversation.
+Create a new ASP analysis project through direct conversation. Follow each step in order, printing the step header to the user before starting it.
 
 ## Setup
 
 1. Read the ASP reference guide: `.claude/skills/asp/SKILL.md`
-2. Read the scientific framing guide: `claude/asp/references/scientific-framing.md`
-3. Read `asp.yaml` if it exists (to avoid overwriting)
+2. Read `asp.yaml` if it exists (to avoid overwriting)
 
-## Process
+## Step 1: Scope the Research Question
 
-### Scope the research question
+Print: `## Step 1: Scope the Research Question`
 
-Follow the scientific framing guide. Start with "What are you trying to learn?" and question until the problem is sharp enough to specify.
+You are a research collaborator, not an interviewer running through a checklist. Your job is to take a fuzzy idea and sharpen it into a testable question with defensible methodology.
 
-You are a research collaborator helping them think clearly — not a form to fill out. Focus on:
-- What they're studying and why
-- What data they have
-- What a clear answer looks like
-- What methodological choices have defensible alternatives
-- Whether this has distinct stages where you'd inspect intermediate results
+Start open: "What are you trying to learn?" Then follow the energy — whatever they're most uncertain or excited about, dig there first.
 
-### Define the specification
+Techniques:
+- **Make it concrete**: "What would a clear answer look like? A number, a plot, a comparison?"
+- **Challenge vagueness**: If they say "analyze the data," ask what question the analysis answers.
+- **Surface hidden choices**: "You said preprocessing — what alternatives are you considering? Would a different choice change the result?"
+- **Test completeness**: "If I handed you [these outputs], would you be done?"
+- **Probe stages**: "Would you want to inspect intermediate results, or does this flow straight through?"
 
-When you have enough clarity (see Decision Gate in the framing guide), draft the spec.
+Don't ask all of these. Pick what matters. Two sharp questions beat five routine ones.
 
-**Single-stage analysis** — the common case. No phases needed. `/asp:new` produces a complete, ready-to-build spec:
+Keep a mental checklist — don't walk through it out loud:
+- What they're studying and why it matters
+- What data exists (or needs to be created)
+- What a "clear answer" looks like (this becomes success criteria)
+- What choices are defensible alternatives (these become decisions)
+- What phases the analysis needs (even a simple analysis has one phase)
+- What flows between phases (this becomes phase input wiring)
 
-- **problem**, **success_criteria**, **inputs**, **outputs**
-- **decisions** with all options fully defined
+You have enough when every item has at least a rough answer.
 
-After writing, the user goes straight to `/asp:build`.
+**Anti-patterns to avoid:**
+- Checklist walking — asking every question in order regardless of what the user said
+- Accepting vague goals — "Analyze this dataset" is not a research question
+- Rushing past the question — a clear problem is worth more than a complete spec
+- Over-splitting — don't create many phases when one would do. A single phase is fine
+- Jargon dumping — don't explain ASP concepts unless the user asks
 
-**Multi-stage analysis** — the analysis has distinct stages where you'd inspect intermediate results. `/asp:new` defines everything in one `asp.yaml`, including phases with their own scoped problems, inputs, outputs, and decisions:
+## Step 2: Define the Specification
+
+Print: `## Step 2: Define the Specification`
+
+Based on what you learned in Step 1, draft the specification structure. Work through these pieces:
 
 - **problem**, **success_criteria**, **inputs**, **outputs** (top-level)
 - **decisions** at the top level for cross-cutting choices (e.g., reporting style)
-- **phases** — each phase is an inline block with:
+- **phases** — propose a phase breakdown to the user. Make a recommendation and present it as a multiple-choice question:
+  - **Single phase** (e.g., `main` or a descriptive name) — when the analysis flows straight through with no need to inspect intermediate results
+  - **Multiple phases** — when there are distinct stages with intermediate results worth inspecting, or when stages have their own methodological decisions
+
+  Each phase is an inline block with:
   - **problem**: what this phase solves
   - **success_criteria**: how to know this phase worked
   - **inputs**: wired from parent inputs (`from: inputs.<id>`) or sibling phase outputs (`from: <phase_id>.<output_id>`)
@@ -50,11 +67,18 @@ After writing, the user goes straight to `/asp:build`.
   - **decisions**: methodological choices scoped to this phase
 - **Top-level outputs** can reference phase outputs using `from: <phase_id>.<output_id>`
 
-Phases are fully defined inline — no separate directories or stub files. The full analysis lives in one `asp.yaml`.
+## Step 3: Write Files
 
-### Write files
+Print: `## Step 3: Write Files`
 
-1. Write `asp.yaml` (single file with everything, including phases if multi-stage)
+Before writing, present what you'd write and let the user react. Summarize the problem, inputs, outputs, decisions, and phases. Don't ask permission — propose:
+
+"Here's what I'd write: [brief summary]. Should I go ahead, or do you want to adjust anything?"
+
+Do not write until the user agrees.
+
+Then:
+1. Write `asp.yaml` (single file with everything, including all phases)
 2. Generate baseline universe: `asp universe generate -n baseline`
 3. Validate: `asp validate asp.yaml`
 
@@ -84,10 +108,14 @@ You MUST ONLY modify:
 - `asp.yaml`
 - `universes/*.yaml`
 
-## Completion
+## Step 4: Done
 
-End with:
-- **Single-stage**: "Analysis project created. Run `/asp:plan` to plan the implementation."
-- **Multi-stage**: "Analysis project created with [N] phases." Then list the phases and recommend starting with the first one: "Run `/asp:plan <first_phase_name>` to plan the first phase."
+Print:
 
-Then: `/clear` first for a fresh context window.
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► PROJECT CREATED ✓
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+"Analysis project created with [N] phase(s)." List the phases, then: "Run `/clear`, then `/asp:plan <first_phase_name>` to plan the first phase."

@@ -9,7 +9,7 @@ allowed-tools: Read, Glob, Grep, Bash, Task
 Verify that analysis results meet the original research goals and success criteria.
 
 **Usage:**
-- `/asp:verify` — verify the whole analysis (all phases + parent criteria if applicable)
+- `/asp:verify` — verify all phases + parent-level criteria
 - `/asp:verify <phase>` — verify a specific phase by name
 
 ## Setup
@@ -22,8 +22,7 @@ Verify that analysis results meet the original research goals and success criter
 
 ### Determine scope
 
-- No argument + no `phases`: verify root results against root success criteria
-- No argument + `phases` exist: verify each phase against its own criteria, then parent-level criteria
+- No argument: verify all phases against their criteria, then parent-level criteria
 - `<phase>` argument: verify only that phase's results against its success criteria
 
 ### Verification
@@ -46,7 +45,5 @@ Produce a verification report with:
 ## Completion
 
 - **Complete**: "Verification complete. The analysis successfully addresses the research question."
-- **Gaps found**: "Gaps identified. Consider running `/asp:plan <name>` to refine the approach." Use the actual phase name.
-- If there are more phases to verify, also mention: "Next phase to verify: `/asp:verify <next_name>`."
-
-Then: `/clear` first for a fresh context window.
+- **Gaps found**: "Gaps identified. Run `/clear`, then `/asp:plan <name>` to refine the approach." Use the actual phase name.
+- If there are more phases to verify, also mention: "Next phase to verify: `/clear`, then `/asp:verify <next_name>`."

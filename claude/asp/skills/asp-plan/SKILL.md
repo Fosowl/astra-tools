@@ -1,17 +1,17 @@
 ---
 name: asp-plan
-description: Plan how to implement an ASP analysis. Usage: /asp:plan [phase] — plan a specific phase, or the whole analysis if single-stage.
+description: Plan how to implement an ASP analysis phase. Usage: /asp:plan [phase] — plan a specific phase, or all phases.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash(asp:*), WebFetch, AskUserQuestion, Task
 ---
 
 # /asp:plan
 
-Plan how to implement an analysis (or a specific phase of one).
+Plan how to implement an analysis phase.
 
 `/asp:new` defines WHAT we want. `/asp:plan` figures out HOW to do it.
 
 **Usage:**
-- `/asp:plan` — plan the whole analysis (single-stage, no phases)
+- `/asp:plan` — plan all phases (asks which to start with, or goes in order)
 - `/asp:plan <phase>` — plan a specific phase by name
 
 ## Setup
@@ -24,13 +24,12 @@ Plan how to implement an analysis (or a specific phase of one).
 
 ### Determine scope
 
-- No argument + no `phases`: plan the root analysis
-- No argument + `phases` exist: ask the user which phase to plan (or plan all sequentially)
+- No argument: plan all phases (ask the user which to start with, or plan in order)
 - `<phase>` argument: plan that specific phase
 
 ### Surface important decisions
 
-Read the decisions in scope — top-level `decisions` for single-stage/no-arg, or `phases.<name>.decisions` for a specific phase. Based on importance:
+Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). Based on importance:
 
 - **1-2 (critical/high)**: Must ask the user. Discuss options and rationale before proceeding.
 - **3 (medium)**: Mention the decision and offer to discuss. Proceed with default if the user declines.
@@ -46,7 +45,15 @@ For the target scope, work out:
 
 ### Write the plan
 
-Present the plan to the user for review. Once agreed, write it to a planning artifact the build agent can follow.
+Present the plan to the user for review. Once agreed, write it to `plans/<phase_name>.md`.
+
+The plan file should include:
+- **Steps**: Ordered list of workflow steps from inputs to outputs
+- **Decision mapping**: How each decision maps to step parameters
+- **Tools/libraries**: What to use for each step
+- **Dependencies**: Execution order between steps
+
+Create the `plans/` directory if it doesn't exist.
 
 ## Restrictions
 
@@ -56,8 +63,5 @@ You MUST NOT write implementation code (Python, R, CWL, etc.).
 
 ## Completion
 
-- **Single-stage**: "Plan ready. Run `/asp:build` to start building."
-- **Phase**: "Plan for `<name>` ready. Run `/asp:build <name>` to build it." Use the actual phase name.
-- **Phase with next**: If there are more phases to plan, also mention: "Next phase to plan: `/asp:plan <next_name>`."
-
-Then: `/clear` first for a fresh context window.
+- "Plan for `<name>` ready. Run `/clear`, then `/asp:build <name>` to build it." Use the actual phase name.
+- If there are more phases to plan, also mention: "Next phase to plan: `/clear`, then `/asp:plan <next_name>`."

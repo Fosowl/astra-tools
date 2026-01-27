@@ -1,6 +1,6 @@
 ---
 name: asp-build
-description: Build and run an ASP analysis. Usage: /asp:build [phase] — build a specific phase, or the whole analysis if single-stage.
+description: Build and run an ASP analysis phase. Usage: /asp:build [phase] — build a specific phase, or all phases.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task
 ---
 
@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task
 Build universes, create CWL workflows, and run the analysis.
 
 **Usage:**
-- `/asp:build` — build the whole analysis (single-stage) or all phases in dependency order
+- `/asp:build` — build all phases in dependency order
 - `/asp:build <phase>` — build a specific phase by name
 
 ## Setup
@@ -17,19 +17,18 @@ Build universes, create CWL workflows, and run the analysis.
 1. Read the ASP reference guide: `.claude/skills/asp/SKILL.md`
 2. Read the workflow guide: `.claude/skills/asp/workflow-guide.md`
 3. Read `asp.yaml` to understand the specification
-4. If a plan exists from `/asp:plan`, read it
+4. Read the plan: `plans/<phase_name>.md`. If no plan exists, warn the user and suggest running `/asp:plan` first.
 
 ## Process
 
 ### Determine scope
 
-- No argument + no `phases`: build the root analysis
-- No argument + `phases` exist: build all phases in dependency order (inferred from input wiring)
+- No argument: build all phases in dependency order (inferred from input wiring)
 - `<phase>` argument: build only that phase
 
 ### Check decisions before building
 
-Read the decisions in scope — top-level `decisions` for single-stage/no-arg, or `phases.<name>.decisions` for a specific phase. If any implementation choice maps to a decision with importance 1-2, ask the user before proceeding. For importance 3, mention it. For 4-5, use defaults.
+Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). If any implementation choice maps to a decision with importance 1-2, ask the user before proceeding. For importance 3, mention it. For 4-5, use defaults.
 
 ### Build steps
 
@@ -45,8 +44,5 @@ When building a specific phase, scope all work to that phase's inputs, outputs, 
 
 ## Completion
 
-- "Results are in `results/`. Run `/asp:verify` to check if they meet your research goals."
-- For phase: "Results for `<name>` ready. Run `/asp:verify <name>` to check them." Use the actual phase name.
-- If there are more phases to build, also mention: "Next phase to build: `/asp:build <next_name>`."
-
-Then: `/clear` first for a fresh context window.
+- "Results for `<name>` ready. Run `/clear`, then `/asp:verify <name>` to check them." Use the actual phase name.
+- If there are more phases to build, also mention: "Next phase to build: `/clear`, then `/asp:build <next_name>`."
