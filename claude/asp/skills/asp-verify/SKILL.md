@@ -46,4 +46,7 @@ Produce a verification report with:
 ## Completion
 
 - **Complete**: "Verification complete. The analysis successfully addresses the research question."
-- **Gaps found**: "Gaps identified. Consider running `/asp:plan <phase>` to refine the approach."
+- **Gaps found**: "Gaps identified. Consider running `/asp:plan <name>` to refine the approach." Use the actual phase name.
+- If there are more phases to verify, also mention: "Next phase to verify: `/asp:verify <next_name>`."
+
+Then: `/clear` first for a fresh context window.

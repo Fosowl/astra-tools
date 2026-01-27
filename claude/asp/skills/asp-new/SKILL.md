@@ -88,4 +88,6 @@ You MUST ONLY modify:
 
 End with:
 - **Single-stage**: "Analysis project created. Run `/asp:plan` to plan the implementation."
-- **Multi-stage**: "Analysis project created with [N] phases. Run `/asp:plan <phase>` to plan a phase, or `/asp:plan` to plan all."
+- **Multi-stage**: "Analysis project created with [N] phases." Then list the phases and recommend starting with the first one: "Run `/asp:plan <first_phase_name>` to plan the first phase."
+
+Then: `/clear` first for a fresh context window.

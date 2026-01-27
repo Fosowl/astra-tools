@@ -42,4 +42,7 @@ When building a specific phase, scope all work to that phase's inputs, outputs, 
 ## Completion
 
 - "Results are in `results/`. Run `/asp:verify` to check if they meet your research goals."
-- For phase: "Results for `<phase>` ready. Run `/asp:verify <phase>` to check them."
+- For phase: "Results for `<name>` ready. Run `/asp:verify <name>` to check them." Use the actual phase name.
+- If there are more phases to build, also mention: "Next phase to build: `/asp:build <next_name>`."
+
+Then: `/clear` first for a fresh context window.

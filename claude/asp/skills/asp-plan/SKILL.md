@@ -49,4 +49,7 @@ You MUST NOT write implementation code (Python, R, CWL, etc.).
 ## Completion
 
 - **Single-stage**: "Plan ready. Run `/asp:build` to start building."
-- **Phase**: "Plan for `<phase>` ready. Run `/asp:build <phase>` to build it."
+- **Phase**: "Plan for `<name>` ready. Run `/asp:build <name>` to build it." Use the actual phase name.
+- **Phase with next**: If there are more phases to plan, also mention: "Next phase to plan: `/asp:plan <next_name>`."
+
+Then: `/clear` first for a fresh context window.
