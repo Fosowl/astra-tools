@@ -1,18 +1,18 @@
 ---
 name: asp-plan
-description: Plan how to implement an ASP analysis phase. Usage: /asp:plan [phase] — plan a specific phase, or all phases.
+description: Plan how to implement an ASP analysis phase. Usage: /asp-plan [phase] — plan a specific phase, or all phases.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash(asp:*), WebFetch, AskUserQuestion, Task
 ---
 
-# /asp:plan
+# /asp-plan
 
 Plan how to implement an analysis phase.
 
-`/asp:new` defines WHAT we want. `/asp:plan` figures out HOW to do it.
+`/asp-new` defines WHAT we want. `/asp-plan` figures out HOW to do it.
 
 **Usage:**
-- `/asp:plan` — plan all phases (asks which to start with, or goes in order)
-- `/asp:plan <phase>` — plan a specific phase by name
+- `/asp-plan` — plan all phases (asks which to start with, or goes in order)
+- `/asp-plan <phase>` — plan a specific phase by name
 
 ## Setup
 
@@ -29,11 +29,13 @@ Plan how to implement an analysis phase.
 
 ### Surface important decisions
 
-Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). Based on importance:
+Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). Skip any decision that already has `reviewed: true` — a human has already weighed in. For unreviewed decisions, based on importance:
 
 - **1-2 (critical/high)**: Must ask the user. Use `AskUserQuestion` with the decision options as multiple-choice answers. Put the default/recommended option first with "(Recommended)". Ask one decision at a time.
 - **3 (medium)**: Mention the decision and offer to discuss. Use `AskUserQuestion` to let the user confirm the default or pick an alternative.
 - **4-5 (low/detail)**: Handle with defaults. No need to ask.
+
+After discussing a decision with the user, set `reviewed: true` on that decision in `asp.yaml`.
 
 ### Plan the implementation
 
@@ -63,5 +65,4 @@ You MUST NOT write implementation code (Python, R, CWL, etc.).
 
 ## Completion
 
-- "Plan for `<name>` ready. Run `/clear`, then `/asp:build <name>` to build it." Use the actual phase name.
-- If there are more phases to plan, also mention: "Next phase to plan: `/clear`, then `/asp:plan <next_name>`."
+- "Plan for `<name>` ready. Run `/asp-build <name>` to build it." Use the actual phase name.

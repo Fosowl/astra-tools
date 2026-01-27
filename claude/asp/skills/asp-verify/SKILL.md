@@ -1,16 +1,16 @@
 ---
 name: asp-verify
-description: Verify analysis results meet research goals. Usage: /asp:verify [phase] — verify a specific phase, or the whole analysis.
+description: Verify analysis results meet research goals. Usage: /asp-verify [phase] — verify a specific phase, or the whole analysis.
 allowed-tools: Read, Glob, Grep, Bash, Task
 ---
 
-# /asp:verify
+# /asp-verify
 
 Verify that analysis results meet the original research goals and success criteria.
 
 **Usage:**
-- `/asp:verify` — verify all phases + parent-level criteria
-- `/asp:verify <phase>` — verify a specific phase by name
+- `/asp-verify` — verify all phases + parent-level criteria
+- `/asp-verify <phase>` — verify a specific phase by name
 
 ## Setup
 
@@ -44,6 +44,5 @@ Produce a verification report with:
 
 ## Completion
 
-- **Complete**: "Verification complete. The analysis successfully addresses the research question."
-- **Gaps found**: "Gaps identified. Run `/clear`, then `/asp:plan <name>` to refine the approach." Use the actual phase name.
-- If there are more phases to verify, also mention: "Next phase to verify: `/clear`, then `/asp:verify <next_name>`."
+- **Complete**: "Phase `<name>` verified." If there are remaining phases, suggest: "Run `/clear`, then `/asp-plan <next_phase>` to start the next phase." If all phases are done: "All phases verified. The analysis successfully addresses the research question."
+- **Gaps found**: "Gaps identified in `<name>`. Run `/asp-plan <name>` to refine the approach." Use the actual phase name.

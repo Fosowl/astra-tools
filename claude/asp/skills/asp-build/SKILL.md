@@ -1,23 +1,23 @@
 ---
 name: asp-build
-description: Build and run an ASP analysis phase. Usage: /asp:build [phase] — build a specific phase, or all phases.
+description: Build and run an ASP analysis phase. Usage: /asp-build [phase] — build a specific phase, or all phases.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task
 ---
 
-# /asp:build
+# /asp-build
 
 Build universes, create CWL workflows, and run the analysis.
 
 **Usage:**
-- `/asp:build` — build all phases in dependency order
-- `/asp:build <phase>` — build a specific phase by name
+- `/asp-build` — build all phases in dependency order
+- `/asp-build <phase>` — build a specific phase by name
 
 ## Setup
 
 1. Read the ASP reference guide: `.claude/skills/asp/SKILL.md`
 2. Read the workflow guide: `.claude/skills/asp/workflow-guide.md`
 3. Read `asp.yaml` to understand the specification
-4. Read the plan: `plans/<phase_name>.md`. If no plan exists, warn the user and suggest running `/asp:plan` first.
+4. Read the plan: `plans/<phase_name>.md`. If no plan exists, warn the user and suggest running `/asp-plan` first.
 
 ## Process
 
@@ -28,13 +28,16 @@ Build universes, create CWL workflows, and run the analysis.
 
 ### Check decisions before building
 
-Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). If any implementation choice maps to a decision with importance 1-2, ask the user before proceeding. For importance 3, mention it. For 4-5, use defaults.
+Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). Skip any decision that already has `reviewed: true` — a human has already weighed in. For unreviewed decisions:
+- **Importance 1-2**: Ask the user, then set `reviewed: true` in `asp.yaml`.
+- **Importance 3**: Mention and offer to discuss.
+- **Importance 4-5**: Use defaults without asking.
 
 ### Build steps
 
 1. Generate universes if missing (`asp universe generate -n baseline`)
 2. Build CWL workflows mapping inputs, decisions, and outputs
-3. Implement workflow steps in `steps/`
+3. Implement workflow steps in `steps/<phase_name>/`
 4. Validate (`asp workflow validate --cwl workflows/main.cwl`)
 5. Run (`asp workflow run universes/baseline.yaml --cwl workflows/main.cwl -o results/baseline/`)
 
@@ -44,5 +47,4 @@ When building a specific phase, scope all work to that phase's inputs, outputs, 
 
 ## Completion
 
-- "Results for `<name>` ready. Run `/clear`, then `/asp:verify <name>` to check them." Use the actual phase name.
-- If there are more phases to build, also mention: "Next phase to build: `/clear`, then `/asp:build <next_name>`."
+- "Results for `<name>` ready. Run `/asp-verify <name>` to check them." Use the actual phase name.

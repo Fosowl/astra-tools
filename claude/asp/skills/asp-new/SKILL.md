@@ -4,7 +4,7 @@ description: Create a new ASP analysis project - scope research question, identi
 allowed-tools: Read, Write(asp.yaml), Write(universes/*), Edit(asp.yaml), Edit(universes/*), Glob, Grep, Bash(asp validate:*), Bash(asp info:*), Bash(asp init:*), Bash(asp universe:*), Bash(mkdir:*), WebFetch, AskUserQuestion
 ---
 
-# /asp:new
+# /asp-new
 
 Create a new ASP analysis project through direct conversation. Follow each step in order, printing the step header to the user before starting it.
 
@@ -126,4 +126,4 @@ Print:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-"Analysis project created with [N] phase(s)." List the phases, then: "Run `/clear`, then `/asp:plan <first_phase_name>` to plan the first phase."
+"Analysis project created with [N] phase(s)." List the phases, then: "Run `/clear`, then `/asp-plan <first_phase_name>` to start planning."

@@ -12,15 +12,15 @@ Help users work with the Agentic Science Protocol (ASP) - a declarative specific
 
 | Command | Purpose |
 |---------|---------|
-| `/asp:new` | Create a new analysis project — scope research question, define `asp.yaml` (WHAT we want) |
-| `/asp:plan [phase]` | Plan how to implement the analysis or a specific phase (HOW to do it) |
-| `/asp:build [phase]` | Build universes, CWL workflows, and run the analysis (optionally target a phase) |
-| `/asp:verify [phase]` | Verify results meet success criteria (optionally target a phase) |
+| `/asp-new` | Create a new analysis project — scope research question, define `asp.yaml` (WHAT we want) |
+| `/asp-plan [phase]` | Plan how to implement the analysis or a specific phase (HOW to do it) |
+| `/asp-build [phase]` | Build universes, CWL workflows, and run the analysis (optionally target a phase) |
+| `/asp-verify [phase]` | Verify results meet success criteria (optionally target a phase) |
 
 ### Workflow
 
 ```
-/asp:new  →  /asp:plan <phase>  →  /asp:build <phase>  →  /asp:verify <phase>
+/asp-new  →  /asp-plan <phase>  →  /asp-build <phase>  →  /asp-verify <phase>
 ```
 
 Repeat plan/build/verify for each phase. Omit the argument to target all phases.
@@ -118,7 +118,7 @@ analysis:
     - "Model size under 10MB for mobile deployment"
     - "Prediction time under 100ms per sample"
 ```
-These criteria are used by `/asp:verify` to determine if the analysis succeeded.
+These criteria are used by `/asp-verify` to determine if the analysis succeeded.
 
 ### Universes
 A universe is a complete set of decisions - one option per decision point.
@@ -144,12 +144,12 @@ inputs:
 
 ## Creating a New Analysis
 
-Use `/asp:new` to interactively scope your project:
+Use `/asp-new` to interactively scope your project:
 1. Define the research question
 2. Define top-level inputs, outputs, success criteria
 3. Define phases with wiring
 
-Then use `/asp:plan <phase>` to plan the implementation for each phase.
+Then use `/asp-plan <phase>` to plan the implementation for each phase.
 
 Alternatively, scaffold manually:
 ```bash
@@ -266,6 +266,7 @@ decisions:
     label: "Human-readable Label"
     type: method  # or: data, parameter
     importance: 3  # 1=critical, 5=minor
+    reviewed: true  # Has a human weighed in on this decision?
     rationale: "Why this decision matters"
     default: option_a
     options:
@@ -304,15 +305,16 @@ my-analysis/
 ├── workflows/            # CWL workflow definitions
 │   └── main.cwl
 ├── plans/                # Implementation plans per phase
-├── steps/                # ALL workflow implementation goes here
+├── steps/                # Workflow implementation — organized per phase
+│   ├── <phase_name>/     # Each phase gets its own directory
+│   └── ...
 ├── results/              # Execution outputs (gitignored)
 └── .claude/
 ```
 
-Phases are defined inline in `asp.yaml` — no separate directories needed for the specification.
+Phases are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is not scaffolded upfront — each phase creates its own subdirectory under `steps/` during `/asp-build`.
 
 **Important**:
-- All implementation code (Python, R, shell scripts) must be placed in the `steps/` folder alongside their CWL definitions. Do not create a separate `scripts/` folder.
 - Universes are the source of truth for CWL parameters. Use `asp workflow run` to execute workflows directly from universes, or `asp params` to inspect the generated parameters.
 
 ## Building CWL Workflows
