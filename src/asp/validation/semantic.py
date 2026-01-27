@@ -294,9 +294,7 @@ def validate_universe(
         phase_decisions = analysis_phases[phase_id].get("decisions", {})
         phase_selections = universe_phases[phase_id]
         errors.extend(
-            _validate_phase_universe_constraints(
-                phase_selections, phase_decisions, phase_id
-            )
+            _validate_phase_universe_constraints(phase_selections, phase_decisions, phase_id)
         )
 
     return errors

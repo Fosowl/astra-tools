@@ -747,9 +747,7 @@ def _viz_mermaid(data: dict[str, Any]) -> None:
             # Use phase-qualified node IDs to avoid collisions
             node_prefix = f"{phase_id}__{decision_id}"
             # Decision node
-            lines.append(
-                f"        {node_prefix}[{decision.get('label', decision_id)}]"
-            )
+            lines.append(f"        {node_prefix}[{decision.get('label', decision_id)}]")
 
             # Option nodes
             options = decision.get("options", {})
@@ -757,9 +755,7 @@ def _viz_mermaid(data: dict[str, Any]) -> None:
             for option_id, option in options.items():
                 node_id = f"{node_prefix}_{option_id}"
                 style = ":::default" if option_id == default else ""
-                lines.append(
-                    f"        {node_id}(({option.get('label', option_id)})){style}"
-                )
+                lines.append(f"        {node_id}(({option.get('label', option_id)})){style}")
                 lines.append(f"        {node_prefix} --> {node_id}")
 
                 # Constraints
