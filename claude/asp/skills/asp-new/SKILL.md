@@ -42,7 +42,6 @@ You have enough when every item has at least a rough answer.
 
 **How to ask questions:**
 - Use `AskUserQuestion` with multiple-choice options whenever a question has discrete answers (phase breakdown, output format, data source, etc.). Put your recommendation first with "(Recommended)" in the label.
-- Ask one question at a time. Wait for the answer before asking the next.
 - For open-ended questions (research question, problem statement), use plain text — don't force multiple choice.
 
 **Anti-patterns to avoid:**
