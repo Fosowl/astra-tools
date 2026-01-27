@@ -88,6 +88,12 @@ class Output(BaseModel):
         default=False, description="Whether this is the primary output for comparison"
     )
     description: str | None = Field(default=None, description="Description of the output")
+    from_: str | None = Field(
+        default=None,
+        alias="from",
+        description="Reference to a sub-analysis output in 'sub_analysis_id.output_id' format. "
+        "When present, this output is drawn from the referenced sub-analysis.",
+    )
 
 
 class Evidence(BaseModel):
@@ -164,6 +170,22 @@ class Decision(BaseModel):
         return self
 
 
+class SubAnalysisRef(BaseModel):
+    """A reference to a sub-analysis within a parent analysis."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(
+        description="Relative path to the sub-analysis directory containing asp.yaml"
+    )
+    inputs: dict[str, str] | None = Field(
+        default=None,
+        description="Map of sub-analysis input ID to source reference. "
+        "References use 'inputs.<id>' for parent inputs or '<sub_analysis_id>.<output_id>' "
+        "for sibling sub-analysis outputs.",
+    )
+
+
 class AnalysisContent(BaseModel):
     """The content of an analysis specification."""
 
@@ -209,6 +231,11 @@ class Analysis(BaseModel):
     insights: dict[str, Insight] = Field(
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
+    )
+    sub_analyses: dict[str, SubAnalysisRef] = Field(
+        default_factory=dict,
+        description="Map of sub-analysis IDs to sub-analysis references. "
+        "Each sub-analysis is a full ASP analysis with its own decisions and universes.",
     )
 
     @classmethod

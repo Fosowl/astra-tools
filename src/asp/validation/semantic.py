@@ -133,6 +133,167 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
             for ref in requires:
                 errors.extend(_validate_constraint_ref(ref, decisions, option_path))
 
+    # Validate sub-analyses
+    sub_analyses = data.get("sub_analyses", {})
+    if sub_analyses:
+        errors.extend(
+            _validate_sub_analyses(sub_analyses, input_ids, output_ids, outputs)
+        )
+
+    return errors
+
+
+def _validate_sub_analyses(
+    sub_analyses: dict[str, Any],
+    parent_input_ids: set[str],
+    parent_output_ids: set[str],
+    parent_outputs: list[dict[str, Any]],
+) -> list[SemanticError]:
+    """Validate sub-analysis references and wiring."""
+    errors: list[SemanticError] = []
+
+    # Collect all sub-analysis IDs and their declared output IDs (for sibling references)
+    sub_analysis_ids = set(sub_analyses.keys())
+
+    # Validate each sub-analysis reference
+    for sub_id, sub_ref in sub_analyses.items():
+        sub_path = f"sub_analyses.{sub_id}"
+
+        # Validate input wiring references
+        input_wiring = sub_ref.get("inputs") or {}
+        for input_id, source_ref in input_wiring.items():
+            errors.extend(
+                _validate_wiring_ref(
+                    source_ref, parent_input_ids, sub_analysis_ids, sub_id, sub_path
+                )
+            )
+
+    # Validate 'from' references on parent outputs
+    for out in parent_outputs:
+        from_ref = out.get("from")
+        if from_ref:
+            out_id = out.get("id", "?")
+            parts = from_ref.split(".")
+            if len(parts) != 2:
+                errors.append(
+                    SemanticError(
+                        "INVALID_FROM_FORMAT",
+                        f"Output 'from' value '{from_ref}' should be "
+                        f"in 'sub_analysis_id.output_id' format",
+                        f"outputs.{out_id}",
+                    )
+                )
+            elif parts[0] not in sub_analysis_ids:
+                errors.append(
+                    SemanticError(
+                        "INVALID_FROM_REF",
+                        f"Output 'from' references unknown sub-analysis '{parts[0]}'",
+                        f"outputs.{out_id}",
+                    )
+                )
+
+    # Check for cycles in the sub-analysis DAG
+    errors.extend(_validate_sub_analysis_dag(sub_analyses))
+
+    return errors
+
+
+def _validate_wiring_ref(
+    ref: str,
+    parent_input_ids: set[str],
+    sub_analysis_ids: set[str],
+    current_sub_id: str,
+    sub_path: str,
+) -> list[SemanticError]:
+    """Validate a single input wiring reference."""
+    errors: list[SemanticError] = []
+
+    if ref.startswith("inputs."):
+        # Reference to a parent input
+        input_id = ref[7:]  # Remove "inputs." prefix
+        if input_id not in parent_input_ids:
+            errors.append(
+                SemanticError(
+                    "INVALID_WIRING_REF",
+                    f"Wiring ref '{ref}' points to non-existent parent input '{input_id}'",
+                    sub_path,
+                )
+            )
+    else:
+        # Reference to a sibling sub-analysis output: "sub_id.output_id"
+        parts = ref.split(".")
+        if len(parts) != 2:
+            errors.append(
+                SemanticError(
+                    "INVALID_WIRING_FORMAT",
+                    f"Wiring ref '{ref}' should be 'inputs.<id>' "
+                    f"or '<sub_analysis_id>.<output_id>'",
+                    sub_path,
+                )
+            )
+        else:
+            sibling_id = parts[0]
+            if sibling_id == current_sub_id:
+                errors.append(
+                    SemanticError(
+                        "SELF_REFERENCE",
+                        f"Sub-analysis '{current_sub_id}' cannot reference its own outputs",
+                        sub_path,
+                    )
+                )
+            elif sibling_id not in sub_analysis_ids:
+                errors.append(
+                    SemanticError(
+                        "INVALID_WIRING_REF",
+                        f"Wiring ref '{ref}' points to non-existent sub-analysis '{sibling_id}'",
+                        sub_path,
+                    )
+                )
+
+    return errors
+
+
+def _validate_sub_analysis_dag(
+    sub_analyses: dict[str, Any],
+) -> list[SemanticError]:
+    """Validate that sub-analysis wiring forms a DAG (no cycles)."""
+    errors: list[SemanticError] = []
+
+    # Build adjacency list from wiring references
+    # An edge from A -> B means B depends on A (B uses A's output)
+    dependencies: dict[str, set[str]] = {sub_id: set() for sub_id in sub_analyses}
+
+    for sub_id, sub_ref in sub_analyses.items():
+        input_wiring = sub_ref.get("inputs") or {}
+        for source_ref in input_wiring.values():
+            if not source_ref.startswith("inputs."):
+                parts = source_ref.split(".")
+                if len(parts) == 2 and parts[0] in sub_analyses:
+                    dependencies[sub_id].add(parts[0])
+
+    # Detect cycles using topological sort (Kahn's algorithm)
+    in_degree = {sub_id: len(deps) for sub_id, deps in dependencies.items()}
+    queue = [sub_id for sub_id, deg in in_degree.items() if deg == 0]
+    visited = 0
+
+    while queue:
+        node = queue.pop(0)
+        visited += 1
+        for sub_id, deps in dependencies.items():
+            if node in deps:
+                in_degree[sub_id] -= 1
+                if in_degree[sub_id] == 0:
+                    queue.append(sub_id)
+
+    if visited != len(sub_analyses):
+        errors.append(
+            SemanticError(
+                "CYCLE_DETECTED",
+                "Sub-analysis wiring contains a cycle",
+                "sub_analyses",
+            )
+        )
+
     return errors
 
 
@@ -233,6 +394,30 @@ def validate_universe(
 
     # Check constraints
     errors.extend(_validate_universe_constraints(universe_data, analysis_data))
+
+    # Check sub-analysis universe references
+    universe_sub_analyses = universe_data.get("sub_analyses", {})
+    analysis_sub_analyses = analysis_data.get("sub_analyses", {})
+
+    for sub_id in universe_sub_analyses:
+        if sub_id not in analysis_sub_analyses:
+            errors.append(
+                SemanticError(
+                    "UNKNOWN_SUB_ANALYSIS",
+                    f"Universe references unknown sub-analysis: {sub_id}",
+                    f"sub_analyses.{sub_id}",
+                )
+            )
+
+    for sub_id in analysis_sub_analyses:
+        if sub_id not in universe_sub_analyses and analysis_sub_analyses:
+            errors.append(
+                SemanticError(
+                    "MISSING_SUB_ANALYSIS_UNIVERSE",
+                    f"Universe missing sub-analysis universe selection: {sub_id}",
+                    f"sub_analyses.{sub_id}",
+                )
+            )
 
     return errors
 

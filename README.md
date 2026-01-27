@@ -35,6 +35,8 @@ flowchart LR
 
 **Multiverse**: The space of all valid decision combinations. Its purpose is transparency and traceability, not exhaustive search. Document the path taken, the paths not taken, and optionally check robustness.
 
+**Sub-analyses**: Decompose complex analyses into stages — each with its own inputs, outputs, decisions, and universes — that you work through incrementally.
+
 **Evidence-based decisions**: Link decisions to supporting evidence from previous analyses or literature.
 
 **Composability**: Use outputs from one analysis as inputs to another.
@@ -161,6 +163,64 @@ decisions:
 
 See [examples/iris/](examples/iris/) for a complete working example.
 
+## Sub-Analyses
+
+Complex analyses have intermediate stages — building mocks, training models, validating results — each with their own decisions. Sub-analyses let you decompose a parent analysis into scoped stages:
+
+```yaml
+version: "1.0"
+
+analysis:
+  name: "SBI Cosmology Pipeline"
+  problem: "Constrain cosmological parameters via simulation-based inference."
+
+  inputs:
+    - id: survey_catalog
+      type: data
+      source: "sn_survey_union2.1"
+
+  outputs:
+    - id: posterior_contours
+      type: figure
+      formats: [png]
+      from: validate.posterior_plot       # drawn from a sub-analysis output
+
+sub_analyses:
+  build_mocks:
+    path: ./sub/build_mocks
+    inputs:
+      survey_catalog: inputs.survey_catalog       # wire parent input
+
+  train_network:
+    path: ./sub/train_network
+    inputs:
+      mock_catalog: build_mocks.mock_catalog      # wire from sibling output
+      survey_catalog: inputs.survey_catalog
+
+  validate:
+    path: ./sub/validate
+    inputs:
+      trained_model: train_network.trained_model
+      survey_catalog: inputs.survey_catalog
+```
+
+Each sub-analysis is a full ASP analysis (`asp.yaml`) with its own problem statement, decisions, and `universes/` directory. The parent wires inputs between them — the DAG is implicit from the wiring. Each sub-analysis can also be run independently.
+
+**Telescoping universes**: The parent universe selects which universe to use for each sub-analysis:
+
+```yaml
+# universes/baseline.yaml
+id: baseline
+decisions:
+  reporting_style: publication
+sub_analyses:
+  build_mocks: baseline
+  train_network: baseline
+  validate: baseline
+```
+
+See [DESIGN.md](DESIGN.md#sub-analyses) for full details.
+
 ## CLI Commands
 
 ```bash
@@ -206,6 +266,13 @@ my-analysis/
 ├── .gitignore            # Git ignore rules
 ├── universes/            # Universe definitions (decision selections)
 │   └── baseline.yaml
+├── sub/                  # Sub-analyses (optional)
+│   ├── build_mocks/
+│   │   ├── asp.yaml      # Sub-analysis spec (full ASP analysis)
+│   │   └── universes/
+│   └── train_network/
+│       ├── asp.yaml
+│       └── universes/
 ├── workflows/            # CWL workflow files
 ├── steps/                # Reusable workflow steps
 ├── results/              # Execution outputs (gitignored)

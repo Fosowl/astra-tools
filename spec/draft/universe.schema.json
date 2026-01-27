@@ -43,6 +43,14 @@
       "description": "Map of decision_id to selected option_id",
       "title": "Decisions",
       "type": "object"
+    },
+    "sub_analyses": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Map of sub-analysis ID to universe ID to use for that sub-analysis",
+      "title": "Sub Analyses",
+      "type": "object"
     }
   },
   "required": [

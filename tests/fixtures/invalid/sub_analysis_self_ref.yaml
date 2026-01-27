@@ -1,0 +1,20 @@
+version: "1.0"
+
+analysis:
+  name: "Self Reference Test"
+  problem: "Test self-referencing sub-analysis"
+
+  inputs:
+    - id: data
+      type: data
+
+  outputs:
+    - id: result
+      type: metric
+      dtype: float
+
+sub_analyses:
+  step_a:
+    path: ./sub/step_a
+    inputs:
+      data: step_a.output

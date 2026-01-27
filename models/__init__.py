@@ -4,7 +4,7 @@ These models are used for schema generation and are NOT installed as part
 of the asp package. They are only used by tools/generate_schemas.py.
 """
 
-from models.analysis import Analysis, Decision, Evidence, Input, Option, Output
+from models.analysis import Analysis, Decision, Evidence, Input, Option, Output, SubAnalysisRef
 from models.insight import (
     AnalysisSource,
     Insight,
@@ -26,5 +26,6 @@ __all__ = [
     "Option",
     "Output",
     "PaperSource",
+    "SubAnalysisRef",
     "Universe",
 ]

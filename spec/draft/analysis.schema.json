@@ -724,6 +724,19 @@
           "default": null,
           "description": "Description of the output",
           "title": "Description"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference to a sub-analysis output in 'sub_analysis_id.output_id' format. When present, this output is drawn from the referenced sub-analysis.",
+          "title": "From"
         }
       },
       "required": [
@@ -1013,6 +1026,38 @@
       "title": "Source",
       "type": "object"
     },
+    "SubAnalysisRef": {
+      "additionalProperties": false,
+      "description": "A reference to a sub-analysis within a parent analysis.",
+      "properties": {
+        "path": {
+          "description": "Relative path to the sub-analysis directory containing asp.yaml",
+          "title": "Path",
+          "type": "string"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Map of sub-analysis input ID to source reference. References use 'inputs.<id>' for parent inputs or '<sub_analysis_id>.<output_id>' for sibling sub-analysis outputs.",
+          "title": "Inputs"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "SubAnalysisRef",
+      "type": "object"
+    },
     "TableEvidence": {
       "additionalProperties": false,
       "description": "Evidence from a table.",
@@ -1098,6 +1143,14 @@
       },
       "description": "Map of insight IDs to insight specifications",
       "title": "Insights",
+      "type": "object"
+    },
+    "sub_analyses": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SubAnalysisRef"
+      },
+      "description": "Map of sub-analysis IDs to sub-analysis references. Each sub-analysis is a full ASP analysis with its own decisions and universes.",
+      "title": "Sub Analyses",
       "type": "object"
     }
   },

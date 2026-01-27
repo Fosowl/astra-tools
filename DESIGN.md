@@ -148,6 +148,189 @@ decisions:
   random_seed: seed_42
 ```
 
+## Sub-Analyses
+
+Real scientific analyses involve intermediate stages — building mocks, training models, validating results — each with their own inputs, outputs, and decisions. Sub-analyses let you decompose a large analysis into scoped stages that can be worked through incrementally.
+
+### Design Principles
+
+1. **A sub-analysis IS an analysis.** Same `asp.yaml` schema, same file format. It has its own problem statement, inputs, outputs, decisions, and `universes/` directory.
+
+2. **Abstract inputs, parent wiring.** Sub-analyses declare what inputs they need without specifying where they come from. The parent maps concrete sources — its own inputs, or sibling sub-analysis outputs — to those abstract inputs.
+
+3. **Telescoping universes.** Each sub-analysis has its own universe files. The parent universe selects which sub-universe to use at each level, plus any parent-level decisions.
+
+4. **Implicit ordering from data flow.** No explicit ordering field. The DAG is derived from how the parent wires outputs to inputs between sub-analyses.
+
+5. **Standalone or composed.** A sub-analysis can be run independently (you provide inputs directly) or as part of a parent pipeline (parent wires inputs). The same file works in both contexts.
+
+### Parent Analysis Structure
+
+The parent analysis declares sub-analyses and wires their inputs:
+
+```yaml
+version: "1.0"
+
+analysis:
+  name: "SBI Cosmological Parameter Estimation"
+  problem: |
+    Use simulation-based inference to constrain cosmological
+    parameters from Type Ia supernova survey data.
+
+  inputs:
+    - id: survey_catalog
+      type: data
+      source: "sn_survey_union2.1"
+
+  outputs:
+    - id: posterior_contours
+      type: figure
+      formats: [png]
+      from: validate.posterior_plot       # drawn from a sub-analysis output
+    - id: parameter_constraints
+      type: table
+      formats: [csv]
+      from: validate.constraints_table
+
+decisions:
+  reporting_style:
+    label: "Reporting Style"
+    type: parameter
+    default: publication
+    options:
+      publication:
+        label: "Publication quality"
+      exploratory:
+        label: "Quick exploratory"
+
+sub_analyses:
+  build_mocks:
+    path: ./sub/build_mocks
+    inputs:
+      survey_catalog: inputs.survey_catalog       # wire parent input
+
+  train_network:
+    path: ./sub/train_network
+    inputs:
+      mock_catalog: build_mocks.mock_catalog      # wire from sibling output
+      survey_catalog: inputs.survey_catalog
+
+  validate:
+    path: ./sub/validate
+    inputs:
+      trained_model: train_network.trained_model
+      survey_catalog: inputs.survey_catalog
+```
+
+### Sub-Analysis File
+
+Each sub-analysis is a full ASP analysis with its own problem, decisions, and universes:
+
+```yaml
+# sub/build_mocks/asp.yaml
+version: "1.0"
+
+analysis:
+  name: "Build Realistic Mock Catalogs"
+  problem: |
+    Generate realistic mock supernova catalogs that match the
+    survey selection function and noise properties.
+
+  inputs:
+    - id: survey_catalog
+      type: data
+      description: "Reference catalog for matching survey properties"
+      # No source — abstract input, wired by parent or provided directly
+
+  outputs:
+    - id: mock_catalog
+      type: data
+      formats: [fits]
+    - id: diagnostic_plots
+      type: figure
+      formats: [png]
+
+decisions:
+  noise_model:
+    label: "Noise Model"
+    type: method
+    importance: 1
+    default: heteroscedastic
+    options:
+      homoscedastic:
+        label: "Homoscedastic"
+      heteroscedastic:
+        label: "Heteroscedastic"
+```
+
+### Directory Structure
+
+```
+my-sbi-analysis/
+├── asp.yaml                          # Parent analysis (orchestrator)
+├── universes/
+│   └── baseline.yaml                 # Parent universe (selects sub-universes)
+├── sub/
+│   ├── build_mocks/
+│   │   ├── asp.yaml                  # Sub-analysis spec
+│   │   └── universes/
+│   │       └── baseline.yaml
+│   ├── train_network/
+│   │   ├── asp.yaml
+│   │   └── universes/
+│   │       └── baseline.yaml
+│   └── validate/
+│       ├── asp.yaml
+│       └── universes/
+│           └── baseline.yaml
+└── results/
+```
+
+### Telescoping Universes
+
+The parent universe selects which universe to use for each sub-analysis:
+
+```yaml
+# universes/baseline.yaml
+id: baseline
+description: "Standard pipeline configuration"
+
+decisions:
+  reporting_style: publication
+
+sub_analyses:
+  build_mocks: baseline              # use "baseline" universe for build_mocks
+  train_network: baseline
+  validate: baseline
+```
+
+Each sub-analysis can be explored independently — you can run just `build_mocks` across its own multiverse to find the best mock generation strategy, without touching the rest of the pipeline.
+
+### Input Wiring References
+
+The `inputs` field on a sub-analysis reference maps the sub-analysis's abstract input IDs to concrete sources:
+
+| Reference Format | Meaning | Example |
+|-----------------|---------|---------|
+| `inputs.<id>` | Parent analysis input | `inputs.survey_catalog` |
+| `<sub_id>.<output_id>` | Sibling sub-analysis output | `build_mocks.mock_catalog` |
+
+The wiring implicitly defines a DAG — sub-analyses that consume another's output must run after it. Cycles are detected and rejected during validation.
+
+### Output Forwarding
+
+Parent outputs can be drawn from sub-analysis outputs using the `from` field:
+
+```yaml
+outputs:
+  - id: posterior_contours
+    type: figure
+    formats: [png]
+    from: validate.posterior_plot    # "sub_analysis_id.output_id"
+```
+
+This declares that the parent's `posterior_contours` output comes from the `validate` sub-analysis's `posterior_plot` output.
+
 ## What This Model Does NOT Include
 
 ### No Execution Order / Edges

@@ -129,6 +129,41 @@ class TestUniverseValidation:
         assert any(e.code == "MISSING_REQUIRED_OPTION" for e in errors)
 
 
+class TestSubAnalysisValidation:
+    """Tests for sub-analysis semantic validation."""
+
+    def test_valid_sub_analysis_parent(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "sub_analysis_parent.yaml")
+        assert errors == []
+
+    def test_invalid_wiring_ref(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "sub_analysis_invalid_wiring.yaml")
+        assert any(e.code == "INVALID_WIRING_REF" for e in errors)
+        # Should have two errors: bad parent input ref and bad sibling ref
+        wiring_errors = [e for e in errors if e.code == "INVALID_WIRING_REF"]
+        assert len(wiring_errors) == 2
+
+    def test_cycle_detection(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "sub_analysis_cycle.yaml")
+        assert any(e.code == "CYCLE_DETECTED" for e in errors)
+
+    def test_invalid_from_ref(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "sub_analysis_invalid_from.yaml")
+        assert any(e.code == "INVALID_FROM_REF" for e in errors)
+
+    def test_self_reference(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "sub_analysis_self_ref.yaml")
+        assert any(e.code == "SELF_REFERENCE" for e in errors)
+
+    def test_valid_sub_analysis_universe(self, valid_dir: Path):
+        from asp.validation.semantic import validate_universe
+
+        analysis_data = load_yaml(valid_dir / "sub_analysis_parent.yaml")
+        universe_data = load_yaml(valid_dir / "sub_analysis_universe.yaml")
+        errors = validate_universe(universe_data, analysis_data)
+        assert errors == []
+
+
 class TestSemanticError:
     """Tests for SemanticError class."""
 

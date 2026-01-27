@@ -1,0 +1,21 @@
+version: "1.0"
+
+analysis:
+  name: "Bad From Ref Test"
+  problem: "Test invalid 'from' reference on output"
+
+  inputs:
+    - id: data
+      type: data
+
+  outputs:
+    - id: result
+      type: figure
+      formats: [png]
+      from: nonexistent_sub.some_output
+
+sub_analyses:
+  step_a:
+    path: ./sub/step_a
+    inputs:
+      data: inputs.data

@@ -31,6 +31,10 @@ class Universe(BaseModel):
     )
     description: str | None = Field(default=None, description="What this universe represents")
     decisions: dict[str, str] = Field(description="Map of decision_id to selected option_id")
+    sub_analyses: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of sub-analysis ID to universe ID to use for that sub-analysis",
+    )
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Universe:
