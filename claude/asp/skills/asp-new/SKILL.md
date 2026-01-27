@@ -1,7 +1,7 @@
 ---
 name: asp-new
-description: Create a new ASP analysis project - scope research question, identify sub-analyses, define top-level spec
-allowed-tools: Read, Write(asp.yaml), Write(universes/*), Write(sub/*/asp.yaml), Write(sub/*/universes/*), Edit(asp.yaml), Edit(universes/*), Glob, Grep, Bash(asp validate:*), Bash(asp info:*), Bash(asp init:*), Bash(asp universe:*), Bash(mkdir:*), WebFetch, AskUserQuestion
+description: Create a new ASP analysis project - scope research question, identify phases, define the full spec
+allowed-tools: Read, Write(asp.yaml), Write(universes/*), Edit(asp.yaml), Edit(universes/*), Glob, Grep, Bash(asp validate:*), Bash(asp info:*), Bash(asp init:*), Bash(asp universe:*), Bash(mkdir:*), WebFetch, AskUserQuestion
 ---
 
 # /asp:new
@@ -25,33 +25,54 @@ You are a research collaborator helping them think clearly — not a form to fil
 - What data they have
 - What a clear answer looks like
 - What methodological choices have defensible alternatives
-- Whether this has distinct stages
+- Whether this has distinct stages where you'd inspect intermediate results
 
 ### Define the specification
 
 When you have enough clarity (see Decision Gate in the framing guide), draft the spec.
 
-**Single-stage analysis** — the common case. No sub-analyses needed. `/asp:new` produces a complete, ready-to-build spec:
+**Single-stage analysis** — the common case. No phases needed. `/asp:new` produces a complete, ready-to-build spec:
 
 - **problem**, **success_criteria**, **inputs**, **outputs**
 - **decisions** with all options fully defined
 
 After writing, the user goes straight to `/asp:build`.
 
-**Multi-stage analysis** — the analysis has distinct stages where you'd inspect intermediate results. `/asp:new` defines the parent spec and wiring, but leaves each stage as a stub:
+**Multi-stage analysis** — the analysis has distinct stages where you'd inspect intermediate results. `/asp:new` defines everything in one `asp.yaml`, including phases with their own scoped problems, inputs, outputs, and decisions:
 
 - **problem**, **success_criteria**, **inputs**, **outputs** (top-level)
-- **sub_analyses** with name, description, and wiring (`inputs_from`, `outputs_to`)
-- **No decisions at the parent level** — decisions live inside each sub-analysis
+- **decisions** at the top level for cross-cutting choices (e.g., reporting style)
+- **phases** — each phase is an inline block with:
+  - **problem**: what this phase solves
+  - **success_criteria**: how to know this phase worked
+  - **inputs**: wired from parent inputs (`from: inputs.<id>`) or sibling phase outputs (`from: <phase_id>.<output_id>`)
+  - **outputs**: what this phase produces
+  - **decisions**: methodological choices scoped to this phase
+- **Top-level outputs** can reference phase outputs using `from: <phase_id>.<output_id>`
 
-Each stage gets fleshed out later via `/asp:start <name>`, which scopes that stage's own decisions, inputs/outputs (constrained by wiring), and success criteria.
+Phases are fully defined inline — no separate directories or stub files. The full analysis lives in one `asp.yaml`.
 
 ### Write files
 
-1. Write `asp.yaml`
-2. If multi-stage, create `sub/<name>/` directories with stub `asp.yaml` for each stage
-3. Generate baseline universe: `asp universe generate -n baseline`
-4. Validate: `asp validate asp.yaml`
+1. Write `asp.yaml` (single file with everything, including phases if multi-stage)
+2. Generate baseline universe: `asp universe generate -n baseline`
+3. Validate: `asp validate asp.yaml`
+
+**Universe structure for phases**: The baseline universe includes a `phases` section with decisions scoped to each phase:
+
+```yaml
+id: baseline
+description: "Standard configuration"
+
+decisions:
+  reporting_style: publication   # top-level decisions
+
+phases:
+  build_mocks:
+    noise_model: heteroscedastic  # phase-scoped decisions
+  train_network:
+    architecture: maf
+```
 
 ## Restrictions
 
@@ -62,11 +83,9 @@ You MUST NOT write any Python, R, or other implementation code.
 You MUST ONLY modify:
 - `asp.yaml`
 - `universes/*.yaml`
-- `sub/<name>/asp.yaml`
-- `sub/<name>/universes/*.yaml`
 
 ## Completion
 
 End with:
-- **Single-stage**: "Analysis project created. Run `/asp:build` to start building."
-- **Multi-stage**: "Analysis project created. Run `/asp:start <name>` to scope each stage, then `/asp:build` when ready."
+- **Single-stage**: "Analysis project created. Run `/asp:plan` to plan the implementation."
+- **Multi-stage**: "Analysis project created with [N] phases. Run `/asp:plan <phase>` to plan a phase, or `/asp:plan` to plan all."

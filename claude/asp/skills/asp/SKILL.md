@@ -12,71 +12,73 @@ Help users work with the Agentic Science Protocol (ASP) - a declarative specific
 
 | Command | Purpose |
 |---------|---------|
-| `/asp:new` | Create a new analysis project — scope research question, identify sub-analyses, write top-level `asp.yaml` |
-| `/asp:start <name>` | Define or refine a specific sub-analysis (or refine root spec for single-stage analyses) |
-| `/asp:build [name]` | Build universes, CWL workflows, and run the analysis (optionally target a sub-analysis) |
-| `/asp:verify [name]` | Verify results meet success criteria (optionally target a sub-analysis) |
+| `/asp:new` | Create a new analysis project — scope research question, define `asp.yaml` (WHAT we want) |
+| `/asp:plan [phase]` | Plan how to implement the analysis or a specific phase (HOW to do it) |
+| `/asp:build [phase]` | Build universes, CWL workflows, and run the analysis (optionally target a phase) |
+| `/asp:verify [phase]` | Verify results meet success criteria (optionally target a phase) |
 
 ### Workflow
 
 **Single-stage analysis:**
 ```
-/asp:new  →  /asp:build  →  /asp:verify
+/asp:new  →  /asp:plan  →  /asp:build  →  /asp:verify
 ```
 
-**Multi-stage analysis with sub-analyses:**
+**Multi-stage analysis with phases:**
 ```
-/asp:new  →  /asp:start <stage1>  →  /asp:start <stage2>  →  /asp:build  →  /asp:verify
-```
-
-You can also build/verify individual stages:
-```
-/asp:build <name>  →  /asp:verify <name>
+/asp:new  →  /asp:plan <phase>  →  /asp:build <phase>  →  /asp:verify <phase>
 ```
 
-## Sub-Analyses
+You can plan/build/verify individual phases by name, or omit the argument to target everything.
 
-A multi-stage analysis uses `sub_analyses` in the parent `asp.yaml` to define the pipeline:
+## Phases
+
+A multi-stage analysis uses `phases` in `asp.yaml` to define inline pipeline stages. Each phase has its own problem, inputs, outputs, and decisions — all in one file:
 
 ```yaml
-sub_analyses:
-  - name: build_mocks
-    description: "Generate synthetic training data"
-    inputs_from: parent
-    outputs_to: train_network
+phases:
+  build_mocks:
+    problem: "Generate realistic mock catalogs matching survey properties."
+    inputs:
+      - id: survey_catalog
+        from: inputs.survey_catalog
+    outputs:
+      - id: mock_catalog
+        type: data
+    decisions:
+      noise_model:
+        label: "Noise Model"
+        type: method
+        default: heteroscedastic
+        options:
+          homoscedastic:
+            label: "Homoscedastic"
+          heteroscedastic:
+            label: "Heteroscedastic"
 
-  - name: train_network
-    description: "Train neural network on mock data"
-    inputs_from: build_mocks
-    outputs_to: validate
-
-  - name: validate
-    description: "Validate trained model"
-    inputs_from: [train_network, parent]
-    outputs_to: parent
+  train_network:
+    problem: "Train SBI neural network on mock catalog."
+    inputs:
+      - id: mock_catalog
+        from: build_mocks.mock_catalog
+    outputs:
+      - id: trained_model
+        type: model
+    decisions:
+      architecture:
+        label: "Network Architecture"
+        type: method
+        default: maf
+        options:
+          maf:
+            label: "Masked Autoregressive Flow"
+          npe:
+            label: "Neural Posterior Estimation"
 ```
 
-Each sub-analysis gets its own directory under `sub/`:
-```
-project/
-├── asp.yaml                    # Parent spec with sub_analyses wiring
-├── universes/baseline.yaml
-├── sub/
-│   ├── build_mocks/
-│   │   ├── asp.yaml
-│   │   ├── universes/baseline.yaml
-│   │   ├── workflows/main.cwl
-│   │   ├── steps/...
-│   │   └── results/
-│   ├── train_network/
-│   │   └── ...
-│   └── validate/
-│       └── ...
-├── results/                    # Final parent-level results
-└── .claude/
-```
+Phase inputs wire from parent inputs (`from: inputs.<id>`) or sibling phase outputs (`from: <phase_id>.<output_id>`). Top-level outputs can reference phase outputs using `from: <phase_id>.<output_id>`.
 
-Sub-analyses are optional. Single-stage analyses work identically to before — no `sub_analyses` section, everything at the root level.
+Phases are optional. Single-stage analyses have no `phases` section — everything lives at the root level.
 
 ## Quick Reference
 
@@ -100,7 +102,7 @@ asp workflow show --cwl main.cwl             # Show parameter mapping table
 asp params universes/baseline.yaml           # Output CWL parameters to stdout
 ```
 
-**Sub-analysis note:** When operating inside `sub/<name>/`, agents should `cd` into the sub-analysis directory so that `asp validate`, `asp info`, etc. resolve the local `asp.yaml` naturally.
+**Phase note:** All phases are defined inline in the root `asp.yaml`. No separate directories or files needed for phase specifications.
 
 ## Core Concepts
 
@@ -109,7 +111,7 @@ An ASP analysis (`asp.yaml`) contains:
 - **analysis**: name, problem statement, success criteria, inputs, outputs
 - **decisions**: choices that define the analysis methodology
 - **insights**: scientific knowledge from papers or prior analyses
-- **sub_analyses** (optional): pipeline stages with wiring
+- **phases** (optional): inline pipeline stages with wiring
 
 ### Success Criteria
 Define concrete, verifiable conditions for success:
@@ -152,9 +154,9 @@ Use `/asp:new` to interactively scope your project:
 1. Define the research question
 2. Identify whether this is multi-stage
 3. Define top-level inputs, outputs, success criteria
-4. Name and wire sub-analyses (if multi-stage)
+4. Define phases with wiring (if multi-stage)
 
-Then use `/asp:start <name>` to flesh out individual sub-analyses.
+Then use `/asp:plan` (or `/asp:plan <phase>`) to plan the implementation.
 
 Alternatively, scaffold manually:
 ```bash
@@ -319,23 +321,20 @@ my-analysis/
 └── results/              # Execution outputs (gitignored)
 ```
 
-### Multi-Stage Analysis
+### Multi-Stage Analysis (with phases)
 ```
 my-analysis/
-├── asp.yaml              # Parent spec with sub_analyses
-├── universes/baseline.yaml
-├── sub/
-│   ├── stage_one/
-│   │   ├── asp.yaml
-│   │   ├── universes/baseline.yaml
-│   │   ├── workflows/main.cwl
-│   │   ├── steps/...
-│   │   └── results/
-│   └── stage_two/
-│       └── ...
-├── results/              # Final parent-level results
+├── asp.yaml              # Full spec with phases defined inline
+├── universes/
+│   └── baseline.yaml     # Includes phases section for phase-scoped decisions
+├── workflows/            # CWL workflow definitions
+│   └── main.cwl
+├── steps/                # ALL workflow implementation goes here
+├── results/              # Execution outputs (gitignored)
 └── .claude/
 ```
+
+Phases are defined inline in `asp.yaml` — no separate directories needed for the specification. The project directory structure is the same as single-stage.
 
 **Important**:
 - All implementation code (Python, R, shell scripts) must be placed in the `steps/` folder alongside their CWL definitions. Do not create a separate `scripts/` folder.
