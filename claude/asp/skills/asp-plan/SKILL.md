@@ -24,15 +24,15 @@ Plan how to implement an analysis phase.
 
 ### Determine scope
 
-- No argument: plan all phases (ask the user which to start with, or plan in order)
+- No argument: plan all phases. If there are multiple, use `AskUserQuestion` to ask which phase to start with (list phase names as options).
 - `<phase>` argument: plan that specific phase
 
 ### Surface important decisions
 
 Read the decisions in scope — `phases.<name>.decisions` for the target phase (plus top-level `decisions` for cross-cutting choices). Based on importance:
 
-- **1-2 (critical/high)**: Must ask the user. Discuss options and rationale before proceeding.
-- **3 (medium)**: Mention the decision and offer to discuss. Proceed with default if the user declines.
+- **1-2 (critical/high)**: Must ask the user. Use `AskUserQuestion` with the decision options as multiple-choice answers. Put the default/recommended option first with "(Recommended)". Ask one decision at a time.
+- **3 (medium)**: Mention the decision and offer to discuss. Use `AskUserQuestion` to let the user confirm the default or pick an alternative.
 - **4-5 (low/detail)**: Handle with defaults. No need to ask.
 
 ### Plan the implementation

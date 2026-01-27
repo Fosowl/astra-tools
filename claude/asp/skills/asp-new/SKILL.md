@@ -40,12 +40,18 @@ Keep a mental checklist — don't walk through it out loud:
 
 You have enough when every item has at least a rough answer.
 
+**How to ask questions:**
+- Use `AskUserQuestion` with multiple-choice options whenever a question has discrete answers (phase breakdown, output format, data source, etc.). Put your recommendation first with "(Recommended)" in the label.
+- Ask one question at a time. Wait for the answer before asking the next.
+- For open-ended questions (research question, problem statement), use plain text — don't force multiple choice.
+
 **Anti-patterns to avoid:**
 - Checklist walking — asking every question in order regardless of what the user said
 - Accepting vague goals — "Analyze this dataset" is not a research question
 - Rushing past the question — a clear problem is worth more than a complete spec
 - Over-splitting — don't create many phases when one would do. A single phase is fine
 - Jargon dumping — don't explain ASP concepts unless the user asks
+- Wall of questions — never ask multiple questions in one message
 
 ## Step 2: Define the Specification
 
@@ -55,9 +61,11 @@ Based on what you learned in Step 1, draft the specification structure. Work thr
 
 - **problem**, **success_criteria**, **inputs**, **outputs** (top-level)
 - **decisions** at the top level for cross-cutting choices (e.g., reporting style)
-- **phases** — propose a phase breakdown to the user. Make a recommendation and present it as a multiple-choice question:
-  - **Single phase** (e.g., `main` or a descriptive name) — when the analysis flows straight through with no need to inspect intermediate results
-  - **Multiple phases** — when there are distinct stages with intermediate results worth inspecting, or when stages have their own methodological decisions
+- **phases** — propose a phase breakdown to the user using `AskUserQuestion`. Make a recommendation and present concrete options, e.g.:
+  - "Single phase: `main`" — when the analysis flows straight through
+  - "N phases: `phase_a` → `phase_b` → ..." — when there are distinct stages worth inspecting separately
+
+  Put your recommended option first with "(Recommended)" in the label. If proposing multiple phases, name them concretely in the option description.
 
   Each phase is an inline block with:
   - **problem**: what this phase solves
