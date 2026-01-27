@@ -43,8 +43,9 @@ Keep a mental checklist — don't walk through it out loud:
 You have enough when every item has at least a rough answer.
 
 **How to ask questions:**
-- Use `AskUserQuestion` with multiple-choice options whenever a question has discrete answers (phase breakdown, algorithm family, prior choice, etc.). Put your recommendation first with "(Recommended)" in the label.
-- For open-ended questions (research question, problem statement), use plain text — don't force multiple choice.
+- Always use `AskUserQuestion` with multiple-choice options. Put your recommendation first with "(Recommended)" in the label.
+- Batch related questions into a single `AskUserQuestion` call (up to 4 questions). For example, ask about algorithm family, prior choice, and comparison baseline in one go rather than three separate rounds.
+- Only fall back to plain text for truly open-ended prompts where options can't be enumerated (e.g., "Describe your research question").
 
 **Anti-patterns to avoid:**
 - Checklist walking — asking every question in order regardless of what the user said
@@ -52,7 +53,7 @@ You have enough when every item has at least a rough answer.
 - Rushing past the question — a clear problem is worth more than a complete spec
 - Over-splitting — don't create many phases when one would do. A single phase is fine
 - Jargon dumping — don't explain ASP concepts unless the user asks
-- Wall of questions — never ask multiple questions in one message
+- One-at-a-time questions — batch them. The user shouldn't need 5 round trips when 2 would do
 - Asking implementation questions — "what preprocessing?" or "what test split?" belongs in `/asp-plan`, not here
 
 ## Step 2: Write the Specification
