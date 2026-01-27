@@ -24,7 +24,7 @@ Plan how to implement an analysis phase.
 
 ### Determine scope
 
-- No argument: plan all phases. If there are multiple, use `AskUserQuestion` to ask which phase to start with (list phase names as options).
+- No argument: if there are multiple phases, use `AskUserQuestion` to ask which phase to plan (list phase names as options). Plan ONE phase at a time.
 - `<phase>` argument: plan that specific phase
 
 ### Surface important decisions
@@ -66,3 +66,4 @@ You MUST NOT write implementation code (Python, R, CWL, etc.).
 ## Completion
 
 - "Plan for `<name>` ready. Run `/asp-build <name>` to build it." Use the actual phase name.
+- **Do NOT suggest planning the next phase.** The workflow is plan → build → verify for each phase. Only `/asp-verify` advances to the next phase.

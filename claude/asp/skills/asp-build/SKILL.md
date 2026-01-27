@@ -48,3 +48,4 @@ When building a specific phase, scope all work to that phase's decisions. Phase 
 ## Completion
 
 - "Results for `<name>` ready. Run `/asp-verify <name>` to check them." Use the actual phase name.
+- **Do NOT suggest planning or building the next phase.** The workflow is plan → build → verify for each phase. Only `/asp-verify` advances to the next phase.
