@@ -6,25 +6,42 @@ of the asp package. They are only used by tools/generate_schemas.py.
 
 from models.analysis import Analysis, Decision, Evidence, Input, Option, Output
 from models.insight import (
-    AnalysisSource,
+    ArxivSource,
+    DoiSource,
+    FigureSelector,
+    FragmentSelector,
     Insight,
     InsightCollection,
-    InsightEvidence,
-    PaperSource,
+    InsightSource,
+    TableSelector,
+    TextQuoteSelector,
+)
+from models.insight import (
+    Evidence as InsightEvidence,
 )
 from models.universe import Universe
 
 __all__ = [
+    # Analysis
     "Analysis",
-    "AnalysisSource",
     "Decision",
     "Evidence",
     "Input",
+    "Option",
+    "Output",
+    # Universe
+    "Universe",
+    # Insight - Sources
+    "ArxivSource",
+    "DoiSource",
+    "InsightSource",
+    # Insight - W3C Selectors
+    "TextQuoteSelector",
+    "FragmentSelector",
+    "FigureSelector",
+    "TableSelector",
+    # Insight - Core
     "Insight",
     "InsightCollection",
     "InsightEvidence",
-    "Option",
-    "Output",
-    "PaperSource",
-    "Universe",
 ]
