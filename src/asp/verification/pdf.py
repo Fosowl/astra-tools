@@ -12,15 +12,23 @@ from pathlib import Path
 from typing import Any
 
 # Check for optional dependencies
-try:
-    import httpx
-except ImportError:
-    httpx = None  # type: ignore[assignment]
+# These are optional and may not be installed
+httpx: Any = None
+pdftext: Any = None
 
 try:
-    import pdftext.extraction
+    import httpx as _httpx  # type: ignore[import-not-found]
+
+    httpx = _httpx
 except ImportError:
-    pdftext = None  # type: ignore[assignment]
+    pass
+
+try:
+    import pdftext as _pdftext  # type: ignore[import-not-found]
+
+    pdftext = _pdftext
+except ImportError:
+    pass
 
 
 def _check_dependencies() -> None:
@@ -196,7 +204,6 @@ def get_arxiv_pdf(
         httpx.HTTPError: If download fails.
     """
     _check_dependencies()
-    import httpx as _httpx  # noqa: F811
 
     # Handle both dict and object
     if isinstance(source, dict):
@@ -220,7 +227,7 @@ def get_arxiv_pdf(
 
     # Download
     url = f"https://arxiv.org/pdf/{arxiv_id}v{version}.pdf"
-    response = _httpx.get(url, follow_redirects=True, timeout=60.0)
+    response = httpx.get(url, follow_redirects=True, timeout=60.0)
     response.raise_for_status()
 
     # Save to cache
@@ -242,13 +249,12 @@ def extract_text_from_pdf(pdf_path: Path) -> PDFDocument:
         ImportError: If pdftext is not installed.
     """
     _check_dependencies()
-    import pdftext.extraction as _pdftext  # noqa: F811
 
     # Calculate SHA-256
     sha256 = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
 
     # Extract text by page
-    pages = _pdftext.plain_text_output(str(pdf_path), sort=True, hyphens=False)
+    pages = pdftext.extraction.plain_text_output(str(pdf_path), sort=True, hyphens=False)
 
     return PDFDocument(
         path=pdf_path,

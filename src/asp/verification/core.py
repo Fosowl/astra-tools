@@ -75,9 +75,7 @@ class InsightVerification:
     @property
     def verified_count(self) -> int:
         """Count of verified evidence items."""
-        return sum(
-            1 for ev in self.evidence_results if ev.status == VerificationStatus.VERIFIED
-        )
+        return sum(1 for ev in self.evidence_results if ev.status == VerificationStatus.VERIFIED)
 
     @property
     def failed_count(self) -> int:
@@ -131,9 +129,7 @@ def verify_evidence(
             result.quote_status = VerificationStatus.WRONG_PAGE
             result.quote_found_pages = found_pages
             result.status = VerificationStatus.WRONG_PAGE
-            result.message = (
-                f"Quote found on page(s) {found_pages}, expected page {hint_page}"
-            )
+            result.message = f"Quote found on page(s) {found_pages}, expected page {hint_page}"
         else:
             result.quote_status = VerificationStatus.VERIFIED
             result.quote_found_pages = found_pages
