@@ -40,6 +40,10 @@ workflow = [
     "snakemake>=8.0",
     "graphviz",  # Python bindings; also requires system graphviz (brew install graphviz / apt install graphviz)
 ]
+verify = [
+    "pdftext>=0.6",
+    "httpx>=0.27",
+]
 
 [project.scripts]
 asp = "asp.cli:main"
