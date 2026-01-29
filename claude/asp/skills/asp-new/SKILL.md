@@ -19,7 +19,11 @@ Print: `## Step 1: Scope the Research Question`
 
 You are a research collaborator, not an interviewer running through a checklist. Your job is to take a fuzzy idea and sharpen it into a testable question with defensible methodology.
 
-Start open: "What are you trying to learn?" Then follow the energy — whatever they're most uncertain or excited about, dig there first.
+**Start with the question.** Before anything else, ask the user to describe their research question or what they want to learn in their own words. Use a plain text prompt — no multiple choice here. Let them explain freely. This is the most important input you'll get.
+
+Example opener: "What's the question you're trying to answer? Describe it in your own words — what do you want to learn, and why does it matter?"
+
+Once you have their answer, follow the energy — whatever they're most uncertain or excited about, dig there first.
 
 Techniques:
 - **Make it concrete**: "What would a clear answer look like? A number, a plot, a comparison?"
@@ -29,7 +33,7 @@ Techniques:
 
 Don't ask all of these. Pick what matters. Two sharp questions beat five routine ones.
 
-**Ask about substance, not methodology.** Focus on the science — priors, algorithm families, domain constraints, what counts as a good result. Don't ask HOW to implement things (that's `/asp-plan`). Good questions: "What model families make sense here — generative, discriminative, or both?" / "Are there known priors or constraints on these parameters?" / "What baseline would you compare against?" Bad questions: "What preprocessing should we use?" / "How should we split the data?"
+**Ask about substance, not methodology.** Focus on the science — priors, algorithm families, domain constraints, what counts as a good result. Don't ask HOW to implement things (that's `/asp-build`). Good questions: "What model families make sense here — generative, discriminative, or both?" / "Are there known priors or constraints on these parameters?" / "What baseline would you compare against?" Bad questions: "What preprocessing should we use?" / "How should we split the data?"
 
 When the user answers a question and it maps to a decision (e.g., they pick an algorithm family or a prior), note it — you'll mark that decision `reviewed: true` when you write the spec.
 
@@ -43,18 +47,19 @@ Keep a mental checklist — don't walk through it out loud:
 You have enough when every item has at least a rough answer.
 
 **How to ask questions:**
-- Always use `AskUserQuestion` with multiple-choice options. Put your recommendation first with "(Recommended)" in the label.
+- Start with a plain text prompt to get the user's research question in their own words.
+- After you understand the core question, use `AskUserQuestion` with multiple-choice options for follow-up decisions. Put your recommendation first with "(Recommended)" in the label.
 - Batch related questions into a single `AskUserQuestion` call (up to 4 questions). For example, ask about algorithm family, prior choice, and comparison baseline in one go rather than three separate rounds.
-- Only fall back to plain text for truly open-ended prompts where options can't be enumerated (e.g., "Describe your research question").
 
 **Anti-patterns to avoid:**
+- Starting with multiple choice before understanding the question — always let the user describe their goal first
 - Checklist walking — asking every question in order regardless of what the user said
 - Accepting vague goals — "Analyze this dataset" is not a research question
 - Rushing past the question — a clear problem is worth more than a complete spec
 - Over-splitting — don't create many chunks when one would do. A single chunk is fine
 - Jargon dumping — don't explain ASP concepts unless the user asks
 - One-at-a-time questions — batch them. The user shouldn't need 5 round trips when 2 would do
-- Asking implementation questions — "what preprocessing?" or "what test split?" belongs in `/asp-plan`, not here
+- Asking implementation questions — "what preprocessing?" or "what test split?" belongs in `/asp-build`, not here
 
 ## Step 2: Write the Specification
 
@@ -90,7 +95,7 @@ chunks:
 
 After writing, present a brief summary of what you wrote (problem, inputs, outputs, chunks, key decisions) and ask the user:
 
-"Want to continue to `/asp-plan <first_chunk>`? Or tell me what to change."
+"Want to continue to `/asp-build <first_chunk>`? Or tell me what to change."
 
 If the user gives edit instructions, apply them to `asp.yaml`, re-validate, and ask again.
 
@@ -114,4 +119,4 @@ When the user confirms they want to continue, print:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-"Analysis project created with [N] chunk(s)." List the chunks, then: "Run `/asp-plan <first_chunk_name>` to start planning."
+"Analysis project created with [N] chunk(s)." List the chunks, then: "Run `/asp-build <first_chunk_name>` to start building."

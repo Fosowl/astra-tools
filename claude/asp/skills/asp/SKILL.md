@@ -13,17 +13,15 @@ Help users work with the Agentic Science Protocol (ASP) - a declarative specific
 | Command | Purpose |
 |---------|---------|
 | `/asp-new` | Create a new analysis project — scope research question, define `asp.yaml` (WHAT we want) |
-| `/asp-plan [chunk]` | Plan how to implement the analysis or a specific chunk (HOW to do it) |
-| `/asp-build [chunk]` | Build universes, CWL workflows, and run the analysis (optionally target a chunk) |
-| `/asp-verify [chunk]` | Verify results meet success criteria (optionally target a chunk) |
+| `/asp-build [chunk]` | Plan, build, and run the analysis or a specific chunk (HOW to do it) |
 
 ### Workflow
 
 ```
-/asp-new  →  /asp-plan <chunk>  →  /asp-build <chunk>  →  /asp-verify <chunk>
+/asp-new  →  /asp-build <chunk>  →  /asp-build <next_chunk>  → ...
 ```
 
-Repeat plan/build/verify for each chunk. Omit the argument to target all chunks.
+Run `/asp-build` for each chunk in turn. Omit the argument to target all chunks.
 
 ## Chunks
 
@@ -125,7 +123,6 @@ analysis:
     - "Model size under 10MB for mobile deployment"
     - "Prediction time under 100ms per sample"
 ```
-These criteria are used by `/asp-verify` to determine if the analysis succeeded.
 
 ### Universes
 A universe is a complete set of decisions organized by chunk — one option per decision point. Decisions are nested under their chunk:
@@ -163,7 +160,7 @@ Use `/asp-new` to interactively scope your project:
 2. Define top-level inputs, outputs, success criteria
 3. Define chunks with wiring
 
-Then use `/asp-plan <chunk>` to plan the implementation for each chunk.
+Then use `/asp-build <chunk>` to plan and build each chunk.
 
 Alternatively, scaffold manually:
 ```bash
