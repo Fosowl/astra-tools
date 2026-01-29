@@ -560,9 +560,7 @@ def info(
         table.add_column("Description")
 
         for out in output_list:
-            table.add_row(
-                out.get("id", ""), out.get("type", ""), out.get("description", "")
-            )
+            table.add_row(out.get("id", ""), out.get("type", ""), out.get("description", ""))
         console.print(table)
 
     # Decisions (grouped by chunk)

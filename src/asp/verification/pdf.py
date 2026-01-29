@@ -17,7 +17,7 @@ httpx: Any = None
 pdftext: Any = None
 
 try:
-    import httpx as _httpx  # type: ignore[import-not-found]
+    import httpx as _httpx
 
     httpx = _httpx
 except ImportError:
