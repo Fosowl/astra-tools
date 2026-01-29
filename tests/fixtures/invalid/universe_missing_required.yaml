@@ -3,7 +3,7 @@
 id: missing-required
 description: "Violates requires constraint"
 
-phases:
+chunks:
   main:
     preprocessing: none  # svm requires standard
     model: svm

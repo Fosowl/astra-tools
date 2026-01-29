@@ -1,7 +1,7 @@
 id: baseline
 description: "Standard pipeline configuration"
 
-phases:
+chunks:
   build_mocks:
     noise_model: heteroscedastic
   train_network:

@@ -18,7 +18,7 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "model": {
@@ -52,7 +52,7 @@ class TestGenerateCWLSkeleton:
                 ],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "model": {
@@ -83,7 +83,7 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data", "description": "Input data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {"main": {"decisions": {}}},
+            "chunks": {"main": {"decisions": {}}},
         }
         cwl_str = generate_cwl_skeleton(analysis)
         cwl = yaml.safe_load(cwl_str)
@@ -100,7 +100,7 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "model": {
@@ -133,7 +133,7 @@ class TestGenerateCWLSkeleton:
                     {"id": "model_file", "type": "model"},
                 ],
             },
-            "phases": {"main": {"decisions": {}}},
+            "chunks": {"main": {"decisions": {}}},
         }
         cwl_str = generate_cwl_skeleton(analysis)
         cwl = yaml.safe_load(cwl_str)
@@ -151,7 +151,7 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "iris_data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "scaling": {
@@ -194,7 +194,7 @@ class TestGenerateCWLSkeleton:
                     {"id": "trained_model", "type": "model"},
                 ],
             },
-            "phases": {"main": {"decisions": {}}},
+            "chunks": {"main": {"decisions": {}}},
         }
         cwl_str = generate_cwl_skeleton(analysis)
         cwl = yaml.safe_load(cwl_str)
@@ -214,7 +214,7 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "scaling": {
@@ -249,7 +249,7 @@ class TestGenerateCWLSkeleton:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {"main": {"decisions": {}}},
+            "chunks": {"main": {"decisions": {}}},
         }
         cwl_str = generate_cwl_skeleton(analysis)
 

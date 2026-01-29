@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class Universe(BaseModel):
-    """A universe specification - a complete set of decisions organized by phase."""
+    """A universe specification - a complete set of decisions organized by chunk."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -30,9 +30,9 @@ class Universe(BaseModel):
         description="Unique identifier for the universe",
     )
     description: str | None = Field(default=None, description="What this universe represents")
-    phases: dict[str, dict[str, str]] = Field(
-        description="Map of phase ID to decision selections (decision_id -> option_id) "
-        "for that phase",
+    chunks: dict[str, dict[str, str]] = Field(
+        description="Map of chunk ID to decision selections (decision_id -> option_id) "
+        "for that chunk",
     )
 
     @classmethod
@@ -61,10 +61,10 @@ class Universe(BaseModel):
         if not isinstance(analysis, Analysis):
             raise TypeError("analysis must be an Analysis instance")
 
-        phases = analysis.get_default_universe()
+        chunks = analysis.get_default_universe()
 
         return cls(
             id=universe_id,
             description=description or "Default configuration using standard practices",
-            phases=phases,
+            chunks=chunks,
         )

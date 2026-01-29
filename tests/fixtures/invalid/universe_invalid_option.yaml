@@ -2,7 +2,7 @@
 id: invalid-option
 description: "Invalid option selection"
 
-phases:
+chunks:
   main:
     preprocessing: standard
     model: nonexistent_model  # This option doesn't exist

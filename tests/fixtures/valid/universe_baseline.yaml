@@ -1,7 +1,7 @@
 id: baseline
 description: "Baseline configuration"
 
-phases:
+chunks:
   main:
     preprocessing: standard
     model: rf

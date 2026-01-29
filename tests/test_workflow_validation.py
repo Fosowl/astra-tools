@@ -70,7 +70,7 @@ class TestValidateDecisionCoverage:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "accuracy", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "model": {
@@ -128,7 +128,7 @@ class TestValidateDecisionCoverage:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "model": {
@@ -162,7 +162,7 @@ class TestValidateDecisionCoverage:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "model": {
@@ -195,7 +195,7 @@ class TestDictValueMapping:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "scaling": {
@@ -261,7 +261,7 @@ class TestGetUnmappedCWLParams:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "model": {

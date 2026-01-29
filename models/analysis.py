@@ -169,7 +169,7 @@ class Decision(BaseModel):
 
 
 class Artefact(BaseModel):
-    """An artefact produced by a phase."""
+    """An artefact produced by a chunk."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -183,28 +183,28 @@ class Artefact(BaseModel):
     description: str | None = Field(default=None, description="Description of the artefact")
 
 
-class Phase(BaseModel):
-    """An inline phase within an analysis — a scoped stage with its own problem,
+class Chunk(BaseModel):
+    """An inline chunk within an analysis — a scoped stage with its own problem,
     decisions, and optional artefacts."""
 
     model_config = ConfigDict(extra="forbid")
 
     problem: str | None = Field(
         default=None,
-        description="Problem statement for this phase (optional for 'main' phase, "
+        description="Problem statement for this chunk (optional for 'main' chunk, "
         "which inherits from analysis)",
     )
     success_criteria: list[str] | None = Field(
         default=None,
-        description="Concrete criteria for determining if this phase succeeded.",
+        description="Concrete criteria for determining if this chunk succeeded.",
     )
     decisions: dict[str, Decision] = Field(
         default_factory=dict,
-        description="Map of decision IDs to decision specifications scoped to this phase",
+        description="Map of decision IDs to decision specifications scoped to this chunk",
     )
     artefacts: list[Artefact] | None = Field(
         default=None,
-        description="List of artefacts produced by this phase",
+        description="List of artefacts produced by this chunk",
     )
 
 
@@ -250,10 +250,10 @@ class Analysis(BaseModel):
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
     )
-    phases: dict[str, Phase] = Field(
-        description="Map of phase IDs to phase definitions. "
-        "Single-stage analyses use a 'main' phase. "
-        "All decisions live under phases.",
+    chunks: dict[str, Chunk] = Field(
+        description="Map of chunk IDs to chunk definitions. "
+        "Single-stage analyses use a 'main' chunk. "
+        "All decisions live under chunks.",
     )
 
     @classmethod
@@ -283,17 +283,17 @@ class Analysis(BaseModel):
                 return out
         return None
 
-    def get_decision(self, decision_id: str, phase_id: str | None = None) -> Decision | None:
-        """Get a decision by ID, searching across phases or within a specific phase."""
-        if phase_id is not None:
-            phase = self.phases.get(phase_id)
-            if phase:
-                return phase.decisions.get(decision_id)
+    def get_decision(self, decision_id: str, chunk_id: str | None = None) -> Decision | None:
+        """Get a decision by ID, searching across chunks or within a specific chunk."""
+        if chunk_id is not None:
+            chunk = self.chunks.get(chunk_id)
+            if chunk:
+                return chunk.decisions.get(decision_id)
             return None
-        # Search all phases
-        for phase in self.phases.values():
-            if decision_id in phase.decisions:
-                return phase.decisions[decision_id]
+        # Search all chunks
+        for chunk in self.chunks.values():
+            if decision_id in chunk.decisions:
+                return chunk.decisions[decision_id]
         return None
 
     def get_insight(self, insight_id: str) -> Insight | None:
@@ -301,13 +301,13 @@ class Analysis(BaseModel):
         return self.insights.get(insight_id)
 
     def get_default_universe(self) -> dict[str, dict[str, str]]:
-        """Get the default universe based on decision defaults across all phases."""
+        """Get the default universe based on decision defaults across all chunks."""
         result: dict[str, dict[str, str]] = {}
-        for phase_id, phase in self.phases.items():
-            phase_defaults: dict[str, str] = {}
-            for decision_id, decision in phase.decisions.items():
+        for chunk_id, chunk in self.chunks.items():
+            chunk_defaults: dict[str, str] = {}
+            for decision_id, decision in chunk.decisions.items():
                 if decision.default is not None:
-                    phase_defaults[decision_id] = decision.default
-            if phase_defaults:
-                result[phase_id] = phase_defaults
+                    chunk_defaults[decision_id] = decision.default
+            if chunk_defaults:
+                result[chunk_id] = chunk_defaults
         return result

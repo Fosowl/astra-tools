@@ -11,5 +11,5 @@ analysis:
     - id: result
       type: invalid_type  # Should be metric, figure, table, data, model, or report
 
-phases:
+chunks:
   main: {}

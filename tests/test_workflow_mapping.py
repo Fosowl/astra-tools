@@ -66,7 +66,7 @@ class TestExtractDecisionValues:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "test_size": {
@@ -96,7 +96,7 @@ class TestExtractDecisionValues:
         """Options with value field return the value."""
         universe = {
             "id": "test",
-            "phases": {"main": {"test_size": "split_20", "model": "rf"}},
+            "chunks": {"main": {"test_size": "split_20", "model": "rf"}},
         }
         values = extract_decision_values(analysis_with_values, universe)
         assert values["test_size"] == 0.2
@@ -105,7 +105,7 @@ class TestExtractDecisionValues:
         """Options without value field return option_id as string."""
         universe = {
             "id": "test",
-            "phases": {"main": {"test_size": "split_20", "model": "rf"}},
+            "chunks": {"main": {"test_size": "split_20", "model": "rf"}},
         }
         values = extract_decision_values(analysis_with_values, universe)
         assert values["model"] == "rf"
@@ -114,7 +114,7 @@ class TestExtractDecisionValues:
         """Unknown decisions in universe are ignored."""
         universe = {
             "id": "test",
-            "phases": {
+            "chunks": {
                 "main": {
                     "test_size": "split_20",
                     "model": "rf",
@@ -140,7 +140,7 @@ class TestGenerateCWLParams:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "test_size": {
@@ -179,7 +179,7 @@ class TestGenerateCWLParams:
         """Generate params with mixed value types."""
         universe = {
             "id": "test",
-            "phases": {
+            "chunks": {
                 "main": {
                     "test_size": "split_20",
                     "scaling": "standard",
@@ -325,7 +325,7 @@ class TestGenerateCWLParamsWithInputs:
                 "inputs": [{"id": "data", "type": "data", "source": "train.csv"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "phases": {
+            "chunks": {
                 "main": {
                     "decisions": {
                         "model": {
@@ -338,7 +338,7 @@ class TestGenerateCWLParamsWithInputs:
                 }
             },
         }
-        universe = {"id": "test", "phases": {"main": {"model": "rf"}}}
+        universe = {"id": "test", "chunks": {"main": {"model": "rf"}}}
         params = generate_cwl_params(analysis, universe, include_inputs=True)
 
         assert params["model"] == "rf"

@@ -16,10 +16,10 @@ from rich.tree import Tree
 
 from asp.helpers import (
     create_universe_from_defaults,
+    get_chunk_decisions,
     get_decisions,
     get_inputs,
     get_outputs,
-    get_phase_decisions,
     load_yaml,
     save_yaml,
 )
@@ -179,7 +179,7 @@ analysis:
       type: report
       description: "Summary addressing the problem statement"
 
-phases:
+chunks:
   main:
     decisions:
       example_method:
@@ -205,7 +205,7 @@ phases:
 id: baseline
 description: "Default configuration using standard practices"
 
-phases:
+chunks:
   main:
     example_method: option_a
 """
@@ -568,14 +568,14 @@ def info(
             )
         console.print(table)
 
-    # Decisions (grouped by phase)
+    # Decisions (grouped by chunk)
     if decisions or show_all:
         console.print("\n[bold]Decisions:[/bold]")
-        phase_decisions = get_phase_decisions(data)
-        for phase_id, phase_decs in phase_decisions.items():
-            if len(phase_decisions) > 1:
-                console.print(f"\n  [bold magenta]Phase: {phase_id}[/bold magenta]")
-            for decision_id, decision in phase_decs.items():
+        chunk_decisions = get_chunk_decisions(data)
+        for chunk_id, chunk_decs in chunk_decisions.items():
+            if len(chunk_decisions) > 1:
+                console.print(f"\n  [bold magenta]Chunk: {chunk_id}[/bold magenta]")
+            for decision_id, decision in chunk_decs.items():
                 tree = Tree(f"[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
                 tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
                 tree.add(f"[dim]Importance:[/dim] {decision.get('importance', 3)}/5")
@@ -627,13 +627,13 @@ def generate_universe(
     analysis_path = _require_analysis(analysis)
     data = load_yaml(analysis_path)
 
-    # Check all decisions have defaults (across all phases)
-    phase_decs = get_phase_decisions(data)
+    # Check all decisions have defaults (across all chunks)
+    chunk_decs = get_chunk_decisions(data)
     missing_defaults: list[str] = []
-    for phase_id, decs in phase_decs.items():
+    for chunk_id, decs in chunk_decs.items():
         for d_id, d in decs.items():
             if d.get("default") is None:
-                missing_defaults.append(f"{phase_id}.{d_id}")
+                missing_defaults.append(f"{chunk_id}.{d_id}")
     if missing_defaults:
         console.print("[red]Error:[/red] Some decisions don't have defaults:")
         for d_id in missing_defaults:
@@ -650,10 +650,10 @@ def generate_universe(
 
     console.print(f"[green]✓[/green] Generated universe at [cyan]{output}[/cyan]")
     console.print("\nDecisions:")
-    for phase_id, phase_selections in uni.get("phases", {}).items():
-        if len(uni.get("phases", {})) > 1:
-            console.print(f"  [magenta]{phase_id}:[/magenta]")
-        for d_id, opt_id in phase_selections.items():
+    for chunk_id, chunk_selections in uni.get("chunks", {}).items():
+        if len(uni.get("chunks", {})) > 1:
+            console.print(f"  [magenta]{chunk_id}:[/magenta]")
+        for d_id, opt_id in chunk_selections.items():
             console.print(f"  {d_id}: {opt_id}")
 
 
@@ -709,12 +709,12 @@ def _viz_ascii(data: dict[str, Any]) -> None:
     analysis_name = data.get("analysis", {}).get("name", "Unknown")
     tree = Tree(f"[bold]{analysis_name}[/bold]")
 
-    for phase_id, decisions in get_phase_decisions(data).items():
-        phase_branch = tree.add(f"[bold magenta]{phase_id}[/bold magenta]")
+    for chunk_id, decisions in get_chunk_decisions(data).items():
+        chunk_branch = tree.add(f"[bold magenta]{chunk_id}[/bold magenta]")
         for decision_id, decision in decisions.items():
             importance = decision.get("importance", 3)
             importance_stars = "★" * importance + "☆" * (5 - importance)
-            branch = phase_branch.add(
+            branch = chunk_branch.add(
                 f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')}) [{importance_stars}]"
             )
 
@@ -740,12 +740,12 @@ def _viz_mermaid(data: dict[str, Any]) -> None:
     """Generate Mermaid diagram for decisions."""
     lines = ["graph TD"]
 
-    for phase_id, decisions in get_phase_decisions(data).items():
-        # Phase subgraph
-        lines.append(f"    subgraph {phase_id}[{phase_id}]")
+    for chunk_id, decisions in get_chunk_decisions(data).items():
+        # Chunk subgraph
+        lines.append(f"    subgraph {chunk_id}[{chunk_id}]")
         for decision_id, decision in decisions.items():
-            # Use phase-qualified node IDs to avoid collisions
-            node_prefix = f"{phase_id}__{decision_id}"
+            # Use chunk-qualified node IDs to avoid collisions
+            node_prefix = f"{chunk_id}__{decision_id}"
             # Decision node
             lines.append(f"        {node_prefix}[{decision.get('label', decision_id)}]")
 
@@ -761,13 +761,13 @@ def _viz_mermaid(data: dict[str, Any]) -> None:
                 # Constraints
                 if option.get("incompatible_with"):
                     for ref in option["incompatible_with"]:
-                        # Constraints are phase-scoped, qualify with current phase
-                        target = f"{phase_id}__{ref.replace('.', '_')}"
+                        # Constraints are chunk-scoped, qualify with current chunk
+                        target = f"{chunk_id}__{ref.replace('.', '_')}"
                         lines.append(f"        {node_id} -.->|incompatible| {target}")
 
                 if option.get("requires"):
                     for ref in option["requires"]:
-                        target = f"{phase_id}__{ref.replace('.', '_')}"
+                        target = f"{chunk_id}__{ref.replace('.', '_')}"
                         lines.append(f"        {node_id} -->|requires| {target}")
         lines.append("    end")
 

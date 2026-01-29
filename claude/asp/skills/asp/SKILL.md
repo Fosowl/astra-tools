@@ -13,24 +13,24 @@ Help users work with the Agentic Science Protocol (ASP) - a declarative specific
 | Command | Purpose |
 |---------|---------|
 | `/asp-new` | Create a new analysis project — scope research question, define `asp.yaml` (WHAT we want) |
-| `/asp-plan [phase]` | Plan how to implement the analysis or a specific phase (HOW to do it) |
-| `/asp-build [phase]` | Build universes, CWL workflows, and run the analysis (optionally target a phase) |
-| `/asp-verify [phase]` | Verify results meet success criteria (optionally target a phase) |
+| `/asp-plan [chunk]` | Plan how to implement the analysis or a specific chunk (HOW to do it) |
+| `/asp-build [chunk]` | Build universes, CWL workflows, and run the analysis (optionally target a chunk) |
+| `/asp-verify [chunk]` | Verify results meet success criteria (optionally target a chunk) |
 
 ### Workflow
 
 ```
-/asp-new  →  /asp-plan <phase>  →  /asp-build <phase>  →  /asp-verify <phase>
+/asp-new  →  /asp-plan <chunk>  →  /asp-build <chunk>  →  /asp-verify <chunk>
 ```
 
-Repeat plan/build/verify for each phase. Omit the argument to target all phases.
+Repeat plan/build/verify for each chunk. Omit the argument to target all chunks.
 
-## Phases
+## Chunks
 
-Every analysis has `phases` in `asp.yaml`. All decisions live under phases — there are no top-level decisions. A simple analysis uses a single `main` phase. Complex analyses have multiple phases:
+Every analysis has `chunks` in `asp.yaml`. All decisions live under chunks — there are no top-level decisions. A simple analysis uses a single `main` chunk. Complex analyses have multiple chunks:
 
 ```yaml
-phases:
+chunks:
   main:
     decisions:
       scaling:
@@ -44,10 +44,10 @@ phases:
             label: "MinMaxScaler"
 ```
 
-Multi-phase example:
+Multi-chunk example:
 
 ```yaml
-phases:
+chunks:
   build_mocks:
     problem: "Generate realistic mock catalogs matching survey properties."
     decisions:
@@ -78,9 +78,9 @@ phases:
             label: "Neural Posterior Estimation"
 ```
 
-A phase can have: `problem`, `success_criteria`, `decisions`, and `artefacts` (figures, tables, data, reports produced by the phase).
+A chunk can have: `problem`, `success_criteria`, `decisions`, and `artefacts` (figures, tables, data, reports produced by the chunk).
 
-The `main` phase is special — it inherits `problem` and `success_criteria` from the top-level `analysis`, and its outputs are the analysis-level `outputs`. Don't set `problem`, `success_criteria`, or `artefacts` on `main`; they belong on the analysis. Non-main phases should set their own `problem`, `success_criteria`, and `artefacts` as needed.
+The `main` chunk is special — it inherits `problem` and `success_criteria` from the top-level `analysis`, and its outputs are the analysis-level `outputs`. Don't set `problem`, `success_criteria`, or `artefacts` on `main`; they belong on the analysis. Non-main chunks should set their own `problem`, `success_criteria`, and `artefacts` as needed.
 
 ## Quick Reference
 
@@ -104,7 +104,7 @@ asp workflow show --cwl main.cwl             # Show parameter mapping table
 asp params universes/baseline.yaml           # Output CWL parameters to stdout
 ```
 
-**Phase note:** All phases are defined inline in the root `asp.yaml`. No separate directories or files needed for phase specifications.
+**Chunk note:** All chunks are defined inline in the root `asp.yaml`. No separate directories or files needed for chunk specifications.
 
 ## Core Concepts
 
@@ -112,7 +112,7 @@ asp params universes/baseline.yaml           # Output CWL parameters to stdout
 An ASP analysis (`asp.yaml`) contains:
 - **analysis**: name, problem statement, success criteria, inputs, outputs
 - **insights**: scientific knowledge from papers or prior analyses
-- **phases**: pipeline stages, each with its own decisions (every analysis has at least one — use `main` for single-stage analyses)
+- **chunks**: pipeline stages, each with its own decisions (every analysis has at least one — use `main` for single-stage analyses)
 
 ### Success Criteria
 Define concrete, verifiable conditions for success:
@@ -128,10 +128,10 @@ analysis:
 These criteria are used by `/asp-verify` to determine if the analysis succeeded.
 
 ### Universes
-A universe is a complete set of decisions organized by phase — one option per decision point. Decisions are nested under their phase:
+A universe is a complete set of decisions organized by chunk — one option per decision point. Decisions are nested under their chunk:
 
 ```yaml
-phases:
+chunks:
   main:
     scaling: standard
     model: random_forest
@@ -161,9 +161,9 @@ inputs:
 Use `/asp-new` to interactively scope your project:
 1. Define the research question
 2. Define top-level inputs, outputs, success criteria
-3. Define phases with wiring
+3. Define chunks with wiring
 
-Then use `/asp-plan <phase>` to plan the implementation for each phase.
+Then use `/asp-plan <chunk>` to plan the implementation for each chunk.
 
 Alternatively, scaffold manually:
 ```bash
@@ -274,9 +274,9 @@ Before finalizing an analysis, verify:
 ## Common Patterns
 
 ### Adding a New Decision
-Decisions live under `phases.<phase_name>.decisions`:
+Decisions live under `chunks.<chunk_name>.decisions`:
 ```yaml
-phases:
+chunks:
   main:
     decisions:
       new_decision:
@@ -316,20 +316,20 @@ Then edit `universes/experiment1.yaml` to customize decisions.
 
 ```
 my-analysis/
-├── asp.yaml              # Full spec with phases defined inline
+├── asp.yaml              # Full spec with chunks defined inline
 ├── universes/
-│   └── baseline.yaml     # Decision selections organized by phase
+│   └── baseline.yaml     # Decision selections organized by chunk
 ├── workflows/            # CWL workflow definitions
 │   └── main.cwl
-├── plans/                # Implementation plans per phase
+├── plans/                # Implementation plans per chunk
 ├── steps/                # Workflow implementation (created during /asp-build)
 ├── results/              # Execution outputs (gitignored)
 └── .claude/
 ```
 
-Phases are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is created during `/asp-build`:
-- **Single phase**: implementation goes directly in `steps/` (no subdirectory)
-- **Multiple phases**: each phase gets `steps/<phase_name>/`
+Chunks are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is created during `/asp-build`:
+- **Single chunk**: implementation goes directly in `steps/` (no subdirectory)
+- **Multiple chunks**: each chunk gets `steps/<chunk_name>/`
 
 **Important**:
 - Universes are the source of truth for CWL parameters. Use `asp workflow run` to execute workflows directly from universes, or `asp params` to inspect the generated parameters.

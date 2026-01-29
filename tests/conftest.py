@@ -63,7 +63,7 @@ def minimal_analysis_data() -> dict:
             "inputs": [{"id": "test_data", "type": "data"}],
             "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
         },
-        "phases": {
+        "chunks": {
             "main": {
                 "decisions": {
                     "method": {
@@ -84,5 +84,5 @@ def baseline_universe_data() -> dict:
     return {
         "id": "baseline",
         "description": "Test baseline",
-        "phases": {"main": {"method": "a"}},
+        "chunks": {"main": {"method": "a"}},
     }

@@ -99,14 +99,14 @@ agentic-science-protocol/
 
 ### Key Concepts
 
-- **Analysis**: Defines problem statement, inputs, outputs, and phases
-- **Phase**: A scoped stage with its own problem, decisions, and optional artefacts. Single-stage analyses use a `main` phase. All decisions live under phases.
+- **Analysis**: Defines problem statement, inputs, outputs, and chunks
+- **Chunk**: A scoped stage with its own problem, decisions, and optional artefacts. Single-stage analyses use a `main` chunk. All decisions live under chunks.
 - **Decision**: A choice point with multiple options (e.g., "which scaling method?")
-- **Artefact**: A typed output produced by a phase (figure, table, data, report)
-- **Universe**: One complete set of decisions organized by phase
+- **Artefact**: A typed output produced by a chunk (figure, table, data, report)
+- **Universe**: One complete set of decisions organized by chunk
 - **Multiverse**: The space of all valid decision combinations
 - **Insight**: Scientific knowledge from papers or prior analyses, with precise evidence
-- **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within a phase)
+- **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within a chunk)
 
 ## Development Commands
 
@@ -201,15 +201,15 @@ defaults = get_default_universe(data)
 ```
 
 ### 4. Constraint Validation
-Constraints are validated in `semantic.py`, scoped within each phase:
+Constraints are validated in `semantic.py`, scoped within each chunk:
 - `incompatible_with`: Lists of "decision.option" pairs that cannot coexist
 - `requires`: Lists of "decision.option" pairs that must be selected together
-- Universe validation checks these constraints per phase
+- Universe validation checks these constraints per chunk
 
 ### 5. Evidence-Based Decisions
 Decisions can reference insights as evidence:
 ```yaml
-phases:
+chunks:
   main:
     decisions:
       scaling:

@@ -62,7 +62,7 @@ analysis:
       type: report
       description: "Summary of classifier performance and suitability for the application"
 
-phases:
+chunks:
   main:
     decisions:
       scaling:

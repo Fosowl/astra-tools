@@ -12,7 +12,7 @@ analysis:
       type: metric
       dtype: float
 
-phases:
+chunks:
   main:
     decisions:
       method:

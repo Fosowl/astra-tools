@@ -92,9 +92,9 @@ A `report` type output is special: it should address the problem statement and s
 
 ### 4. Decisions
 
-All decisions live under phases (see [Phases](#phases)). Each decision has:
+All decisions live under chunks (see [Chunks](#chunks)). Each decision has:
 
-- **id**: Unique identifier for the decision (unique within its phase)
+- **id**: Unique identifier for the decision (unique within its chunk)
 - **label**: Human-readable name
 - **type**: Category (`data`, `method`, `parameter`)
 - **importance**: 1 (critical) to 5 (implementation detail)
@@ -103,16 +103,16 @@ All decisions live under phases (see [Phases](#phases)). Each decision has:
 - **default**: (optional) The default option for baseline universes
 
 Options can have:
-- **constraints**: `incompatible_with`, `requires` (scoped to the same phase)
+- **constraints**: `incompatible_with`, `requires` (scoped to the same chunk)
 - **evidence**: References to inputs that support this choice
 - **value**: Configuration parameters
 
 ### 5. Constraints
 
-Options can declare constraints on other options within the same phase:
+Options can declare constraints on other options within the same chunk:
 
 ```yaml
-phases:
+chunks:
   main:
     decisions:
       scaling:
@@ -132,18 +132,18 @@ phases:
 - `incompatible_with`: List of `decision.option` pairs that cannot be selected together
 - `requires`: List of `decision.option` pairs that must also be selected
 
-Constraints are scoped within a phase and validated when creating universes. Invalid combinations are rejected.
+Constraints are scoped within a chunk and validated when creating universes. Invalid combinations are rejected.
 
 ### Universe
 
-A **universe** is a complete set of decisions organized by phase: one option selected for each decision point. The set of all valid universes (respecting constraints) is the **multiverse**.
+A **universe** is a complete set of decisions organized by chunk: one option selected for each decision point. The set of all valid universes (respecting constraints) is the **multiverse**.
 
 ```yaml
 # universes/baseline.yaml
 id: baseline
 description: "Default configuration using standard practices"
 
-phases:
+chunks:
   main:
     scaling: standard
     model: random_forest
@@ -151,25 +151,25 @@ phases:
     random_seed: seed_42
 ```
 
-## Phases
+## Chunks
 
-All decisions live under phases. Single-stage analyses use a `main` phase. Multi-stage analyses decompose work into multiple phases, each with its own problem statement, decisions, and optional artefacts.
+All decisions live under chunks. Single-stage analyses use a `main` chunk. Multi-stage analyses decompose work into multiple chunks, each with its own problem statement, decisions, and optional artefacts.
 
 ### Design Principles
 
-1. **All decisions under phases.** There is no top-level `decisions:` key. Even simple analyses place decisions under `phases.main.decisions`. This provides a uniform structure.
+1. **All decisions under chunks.** There is no top-level `decisions:` key. Even simple analyses place decisions under `chunks.main.decisions`. This provides a uniform structure.
 
-2. **Inline definition.** Phases are defined directly within the parent `asp.yaml` — no separate files or directories. Each phase has its own problem statement, success criteria, decisions, and optional artefacts.
+2. **Inline definition.** Chunks are defined directly within the parent `asp.yaml` — no separate files or directories. Each chunk has its own problem statement, success criteria, decisions, and optional artefacts.
 
-3. **Scoped decisions.** Each phase has its own decisions that are independent from other phases. Decision IDs only need to be unique within their phase — two phases can both have a `method` decision. Constraints are also scoped within a phase.
+3. **Scoped decisions.** Each chunk has its own decisions that are independent from other chunks. Decision IDs only need to be unique within their chunk — two chunks can both have a `method` decision. Constraints are also scoped within a chunk.
 
-4. **Universe selections by phase.** The universe file maps each phase's decisions to selected options under a `phases:` key.
+4. **Universe selections by chunk.** The universe file maps each chunk's decisions to selected options under a `chunks:` key.
 
-5. **Artefacts.** Phases can declare typed artefacts they produce (figure, table, data, report). Artefact IDs must be unique within a phase.
+5. **Artefacts.** Chunks can declare typed artefacts they produce (figure, table, data, report). Artefact IDs must be unique within a chunk.
 
-6. **Agent-determined ordering.** No explicit ordering or wiring. The agent determines execution order and data flow between phases based on the problem statements.
+6. **Agent-determined ordering.** No explicit ordering or wiring. The agent determines execution order and data flow between chunks based on the problem statements.
 
-### Analysis Structure with Phases
+### Analysis Structure with Chunks
 
 ```yaml
 version: "1.0"
@@ -193,7 +193,7 @@ analysis:
       type: table
       formats: [csv]
 
-phases:
+chunks:
   build_mocks:
     problem: "Generate realistic mock catalogs matching survey properties."
     success_criteria:
@@ -237,23 +237,23 @@ phases:
         description: "Parameter constraint summary"
 ```
 
-### Universe with Phase Decisions
+### Universe with Chunk Decisions
 
-The universe file selects options for each phase's decisions under a `phases:` key:
+The universe file selects options for each chunk's decisions under a `chunks:` key:
 
 ```yaml
 # universes/baseline.yaml
 id: baseline
 description: "Standard pipeline configuration"
 
-phases:
+chunks:
   build_mocks:
     noise_model: heteroscedastic
   train_network:
     architecture: maf
 ```
 
-Phase decisions are validated against the analysis — the universe must select a valid option for every decision in every phase.
+Chunk decisions are validated against the analysis — the universe must select a valid option for every decision in every chunk.
 
 ## What This Model Does NOT Include
 
@@ -280,7 +280,7 @@ The generated workflow should be versioned (in git) but is not part of the ASP s
 Decisions can reference inputs as evidence:
 
 ```yaml
-phases:
+chunks:
   main:
     decisions:
       scaling:
@@ -371,7 +371,7 @@ analysis:
       type: report
       description: "Summary of classifier performance and suitability for the application"
 
-phases:
+chunks:
   main:
     decisions:
       scaling:
@@ -546,7 +546,7 @@ Decisions have different impacts on workflow configuration:
 
 Analysis decision:
 ```yaml
-phases:
+chunks:
   main:
     decisions:
       scaling:
@@ -593,11 +593,11 @@ random_state: 42
 
 ### Universe to Parameters Mapping
 
-A universe file specifies decision selections by phase:
+A universe file specifies decision selections by chunk:
 
 ```yaml
 # universes/baseline.yaml
-phases:
+chunks:
   main:
     scaling: standard
     model: random_forest
@@ -612,10 +612,10 @@ The system extracts `value` fields from selected options to generate workflow pa
 # From universe: baseline
 # Generated at: 2025-01-15T10:00:00Z
 
-scaling_method: "standard"      # from phases.main.scaling -> options.standard.value.method
-model_type: "random_forest"     # from phases.main.model (option id)
-test_size: 0.2                  # from phases.main.test_size -> options.split_20.value
-random_state: 42                # from phases.main.random_seed -> options.seed_42.value
+scaling_method: "standard"      # from chunks.main.scaling -> options.standard.value.method
+model_type: "random_forest"     # from chunks.main.model (option id)
+test_size: 0.2                  # from chunks.main.test_size -> options.split_20.value
+random_state: 42                # from chunks.main.random_seed -> options.seed_42.value
 ```
 
 This mapping can be:
@@ -1075,11 +1075,11 @@ analysis:
       primary: boolean            # Main output for comparison
       description: string
 
-phases:                           # Required: Map of phases
-  phase_id:
+chunks:                           # Required: Map of chunks
+  chunk_id:
     problem: string               # Problem statement (optional for 'main')
-    success_criteria: [string]    # Optional: criteria for phase success
-    decisions:                    # Map of decisions for this phase
+    success_criteria: [string]    # Optional: criteria for chunk success
+    decisions:                    # Map of decisions for this chunk
       decision_id:
         label: string             # Human-readable name
         type: data|method|parameter
@@ -1092,9 +1092,9 @@ phases:                           # Required: Map of phases
             description: string
             value: any            # Configuration value
             evidence: [object]    # Supporting evidence
-            incompatible_with: [string]  # "decision.option" pairs (same phase)
-            requires: [string]    # "decision.option" pairs (same phase)
-    artefacts:                    # Optional: typed outputs from this phase
+            incompatible_with: [string]  # "decision.option" pairs (same chunk)
+            requires: [string]    # "decision.option" pairs (same chunk)
+    artefacts:                    # Optional: typed outputs from this chunk
       - id: string
         type: figure|table|data|report
         description: string
@@ -1108,7 +1108,7 @@ $schema: "https://asp-spec.org/v1/universe.schema.json"
 id: string                        # Unique identifier
 description: string               # What this universe represents
 
-phases:                           # Map of phase_id -> decision selections
+chunks:                           # Map of chunk_id -> decision selections
   main:
     scaling: standard
     model: random_forest

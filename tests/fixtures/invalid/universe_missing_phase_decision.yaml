@@ -1,7 +1,0 @@
-id: incomplete
-description: "Universe missing a phase decision"
-
-phases:
-  build_mocks:
-    noise_model: heteroscedastic
-  # train_network phase decisions are missing entirely

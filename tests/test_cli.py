@@ -281,7 +281,7 @@ class TestInitCommand:
         assert "content-test" in content  # Directory name used as analysis name
         assert "version:" in content
         assert "analysis:" in content
-        assert "phases:" in content
+        assert "chunks:" in content
         assert "decisions:" in content
 
     def test_init_gitignore_content(self, runner: CliRunner, tmp_path: Path):

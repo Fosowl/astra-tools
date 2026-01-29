@@ -53,7 +53,7 @@ analysis:
       type: report
       description: "Analysis conclusion"
 
-phases:
+chunks:
   main:
     decisions:
       preprocessing:

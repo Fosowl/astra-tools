@@ -31,8 +31,8 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
 
     Checks:
     - Input/output IDs are unique
-    - Phase decisions: defaults exist, evidence refs valid, constraint refs valid
-    - Artefact IDs unique within phases
+    - Chunk decisions: defaults exist, evidence refs valid, constraint refs valid
+    - Artefact IDs unique within chunks
 
     Args:
         data: The analysis data as a dict.
@@ -73,28 +73,28 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
         if out_id:
             output_ids.add(out_id)
 
-    # Validate phases (all decisions live under phases now)
-    phases = data.get("phases", {})
-    for phase_id, phase in phases.items():
-        errors.extend(_validate_phase(phase_id, phase, input_ids, insights))
+    # Validate chunks (all decisions live under chunks now)
+    chunks = data.get("chunks", {})
+    for chunk_id, chunk in chunks.items():
+        errors.extend(_validate_chunk(chunk_id, chunk, input_ids, insights))
 
     return errors
 
 
-def _validate_phase(
-    phase_id: str,
-    phase: dict[str, Any],
+def _validate_chunk(
+    chunk_id: str,
+    chunk: dict[str, Any],
     input_ids: set[str],
     insights: dict[str, Any],
 ) -> list[SemanticError]:
-    """Validate a single phase's decisions and artefacts."""
+    """Validate a single chunk's decisions and artefacts."""
     errors: list[SemanticError] = []
-    phase_path = f"phases.{phase_id}"
+    chunk_path = f"chunks.{chunk_id}"
 
-    # Validate phase decisions
-    phase_decisions = phase.get("decisions") or {}
-    for decision_id, decision in phase_decisions.items():
-        decision_path = f"{phase_path}.decisions.{decision_id}"
+    # Validate chunk decisions
+    chunk_decisions = chunk.get("decisions") or {}
+    for decision_id, decision in chunk_decisions.items():
+        decision_path = f"{chunk_path}.decisions.{decision_id}"
         options = decision.get("options", {})
 
         # Check default option exists
@@ -140,18 +140,18 @@ def _validate_phase(
                                 )
                             )
 
-            # Check incompatible_with refs (scoped to this phase's decisions)
+            # Check incompatible_with refs (scoped to this chunk's decisions)
             incompatible_with = option.get("incompatible_with") or []
             for ref in incompatible_with:
-                errors.extend(_validate_constraint_ref(ref, phase_decisions, option_path))
+                errors.extend(_validate_constraint_ref(ref, chunk_decisions, option_path))
 
-            # Check requires refs (scoped to this phase's decisions)
+            # Check requires refs (scoped to this chunk's decisions)
             requires = option.get("requires") or []
             for ref in requires:
-                errors.extend(_validate_constraint_ref(ref, phase_decisions, option_path))
+                errors.extend(_validate_constraint_ref(ref, chunk_decisions, option_path))
 
-    # Validate artefact IDs are unique within the phase
-    artefacts = phase.get("artefacts") or []
+    # Validate artefact IDs are unique within the chunk
+    artefacts = chunk.get("artefacts") or []
     artefact_ids: set[str] = set()
     for artefact in artefacts:
         art_id = artefact.get("id")
@@ -159,8 +159,8 @@ def _validate_phase(
             errors.append(
                 SemanticError(
                     "DUPLICATE_ARTEFACT",
-                    f"Duplicate artefact ID in phase: {art_id}",
-                    f"{phase_path}.artefacts.{art_id}",
+                    f"Duplicate artefact ID in chunk: {art_id}",
+                    f"{chunk_path}.artefacts.{art_id}",
                 )
             )
         if art_id:
@@ -213,10 +213,10 @@ def validate_universe(
 ) -> list[SemanticError]:
     """Validate a universe against an analysis specification.
 
-    All decisions live under phases, so universe validation checks phase selections.
+    All decisions live under chunks, so universe validation checks chunk selections.
 
     Checks:
-    - All phase decisions in the analysis have a selection in the universe
+    - All chunk decisions in the analysis have a selection in the universe
     - All selections point to valid options
     - No constraint violations (requires, incompatible_with)
 
@@ -229,72 +229,72 @@ def validate_universe(
     """
     errors: list[SemanticError] = []
 
-    universe_phases = universe_data.get("phases", {})
-    analysis_phases = analysis_data.get("phases", {})
+    universe_chunks = universe_data.get("chunks", {})
+    analysis_chunks = analysis_data.get("chunks", {})
 
-    # Check for unknown phases in universe
-    for phase_id in universe_phases:
-        if phase_id not in analysis_phases:
+    # Check for unknown chunks in universe
+    for chunk_id in universe_chunks:
+        if chunk_id not in analysis_chunks:
             errors.append(
                 SemanticError(
-                    "UNKNOWN_PHASE",
-                    f"Universe references unknown phase: {phase_id}",
-                    f"phases.{phase_id}",
+                    "UNKNOWN_CHUNK",
+                    f"Universe references unknown chunk: {chunk_id}",
+                    f"chunks.{chunk_id}",
                 )
             )
             continue
 
-        # Validate decision selections within this phase
-        phase_decisions = analysis_phases[phase_id].get("decisions", {})
-        phase_selections = universe_phases[phase_id]
+        # Validate decision selections within this chunk
+        chunk_decisions = analysis_chunks[chunk_id].get("decisions", {})
+        chunk_selections = universe_chunks[chunk_id]
 
-        for decision_id, option_id in phase_selections.items():
-            if decision_id not in phase_decisions:
+        for decision_id, option_id in chunk_selections.items():
+            if decision_id not in chunk_decisions:
                 errors.append(
                     SemanticError(
                         "UNKNOWN_DECISION",
                         f"Universe references unknown decision '{decision_id}' "
-                        f"in phase '{phase_id}'",
-                        f"phases.{phase_id}.{decision_id}",
+                        f"in chunk '{chunk_id}'",
+                        f"chunks.{chunk_id}.{decision_id}",
                     )
                 )
                 continue
 
-            options = phase_decisions[decision_id].get("options", {})
+            options = chunk_decisions[decision_id].get("options", {})
             if option_id not in options:
                 errors.append(
                     SemanticError(
                         "UNKNOWN_OPTION",
                         f"Universe selects unknown option '{option_id}' for "
-                        f"decision '{decision_id}' in phase '{phase_id}'",
-                        f"phases.{phase_id}.{decision_id}",
+                        f"decision '{decision_id}' in chunk '{chunk_id}'",
+                        f"chunks.{chunk_id}.{decision_id}",
                     )
                 )
 
-    # Check all phase decisions are covered
-    for phase_id, phase in analysis_phases.items():
-        phase_decisions = phase.get("decisions", {})
-        if not phase_decisions:
+    # Check all chunk decisions are covered
+    for chunk_id, chunk in analysis_chunks.items():
+        chunk_decisions = chunk.get("decisions", {})
+        if not chunk_decisions:
             continue
-        phase_selections = universe_phases.get(phase_id, {})
-        for decision_id in phase_decisions:
-            if decision_id not in phase_selections:
+        chunk_selections = universe_chunks.get(chunk_id, {})
+        for decision_id in chunk_decisions:
+            if decision_id not in chunk_selections:
                 errors.append(
                     SemanticError(
-                        "MISSING_PHASE_DECISION",
-                        f"Universe missing decision '{decision_id}' for phase '{phase_id}'",
-                        f"phases.{phase_id}.{decision_id}",
+                        "MISSING_CHUNK_DECISION",
+                        f"Universe missing decision '{decision_id}' for chunk '{chunk_id}'",
+                        f"chunks.{chunk_id}.{decision_id}",
                     )
                 )
 
-    # Check phase-level constraints
-    for phase_id in universe_phases:
-        if phase_id not in analysis_phases:
+    # Check chunk-level constraints
+    for chunk_id in universe_chunks:
+        if chunk_id not in analysis_chunks:
             continue
-        phase_decisions = analysis_phases[phase_id].get("decisions", {})
-        phase_selections = universe_phases[phase_id]
+        chunk_decisions = analysis_chunks[chunk_id].get("decisions", {})
+        chunk_selections = universe_chunks[chunk_id]
         errors.extend(
-            _validate_phase_universe_constraints(phase_selections, phase_decisions, phase_id)
+            _validate_chunk_universe_constraints(chunk_selections, chunk_decisions, chunk_id)
         )
 
     return errors
@@ -308,16 +308,16 @@ def _parse_constraint_ref(ref: str) -> tuple[str, str] | None:
     return None
 
 
-def _validate_phase_universe_constraints(
-    phase_selections: dict[str, str],
-    phase_decisions: dict[str, Any],
-    phase_id: str,
+def _validate_chunk_universe_constraints(
+    chunk_selections: dict[str, str],
+    chunk_decisions: dict[str, Any],
+    chunk_id: str,
 ) -> list[SemanticError]:
-    """Validate that phase decision selections respect constraints."""
+    """Validate that chunk decision selections respect constraints."""
     errors: list[SemanticError] = []
 
-    for decision_id, option_id in phase_selections.items():
-        decision = phase_decisions.get(decision_id)
+    for decision_id, option_id in chunk_selections.items():
+        decision = chunk_decisions.get(decision_id)
         if not decision:
             continue
 
@@ -325,12 +325,12 @@ def _validate_phase_universe_constraints(
         if not option:
             continue
 
-        path = f"phases.{phase_id}.{decision_id}"
+        path = f"chunks.{chunk_id}.{decision_id}"
 
         # Check incompatible_with
         for ref in option.get("incompatible_with") or []:
             parsed = _parse_constraint_ref(ref)
-            if parsed and phase_selections.get(parsed[0]) == parsed[1]:
+            if parsed and chunk_selections.get(parsed[0]) == parsed[1]:
                 errors.append(
                     SemanticError(
                         "INCOMPATIBLE_OPTIONS",
@@ -342,8 +342,8 @@ def _validate_phase_universe_constraints(
         # Check requires
         for ref in option.get("requires") or []:
             parsed = _parse_constraint_ref(ref)
-            if parsed and phase_selections.get(parsed[0]) != parsed[1]:
-                actual = phase_selections.get(parsed[0], "(not set)")
+            if parsed and chunk_selections.get(parsed[0]) != parsed[1]:
+                actual = chunk_selections.get(parsed[0], "(not set)")
                 errors.append(
                     SemanticError(
                         "MISSING_REQUIRED_OPTION",

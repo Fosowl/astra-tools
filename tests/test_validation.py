@@ -104,7 +104,7 @@ class TestUniverseValidation:
             invalid_dir / "universe_missing_decision.yaml",
             full_analysis_path,
         )
-        assert any(e.code == "MISSING_PHASE_DECISION" for e in errors)
+        assert any(e.code == "MISSING_CHUNK_DECISION" for e in errors)
 
     def test_invalid_option(self, full_analysis_path: Path, invalid_dir: Path):
         errors = validate_universe_file(
@@ -128,24 +128,24 @@ class TestUniverseValidation:
         assert any(e.code == "MISSING_REQUIRED_OPTION" for e in errors)
 
 
-class TestPhaseValidation:
-    """Tests for phase semantic validation."""
+class TestChunkValidation:
+    """Tests for chunk semantic validation."""
 
-    def test_valid_phases_parent(self, valid_dir: Path):
-        errors = validate_analysis_file(valid_dir / "phases_parent.yaml")
+    def test_valid_chunks_parent(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "chunks_parent.yaml")
         assert errors == []
 
-    def test_valid_phases_universe(self, valid_dir: Path):
-        analysis_data = load_yaml(valid_dir / "phases_parent.yaml")
-        universe_data = load_yaml(valid_dir / "phases_universe.yaml")
+    def test_valid_chunks_universe(self, valid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "chunks_parent.yaml")
+        universe_data = load_yaml(valid_dir / "chunks_universe.yaml")
         errors = validate_universe(universe_data, analysis_data)
         assert errors == []
 
-    def test_missing_phase_decision_in_universe(self, valid_dir: Path, invalid_dir: Path):
-        analysis_data = load_yaml(valid_dir / "phases_parent.yaml")
-        universe_data = load_yaml(invalid_dir / "universe_missing_phase_decision.yaml")
+    def test_missing_chunk_decision_in_universe(self, valid_dir: Path, invalid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "chunks_parent.yaml")
+        universe_data = load_yaml(invalid_dir / "universe_missing_chunk_decision.yaml")
         errors = validate_universe(universe_data, analysis_data)
-        assert any(e.code == "MISSING_PHASE_DECISION" for e in errors)
+        assert any(e.code == "MISSING_CHUNK_DECISION" for e in errors)
 
 
 class TestSemanticError:

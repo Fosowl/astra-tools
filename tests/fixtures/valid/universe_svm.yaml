@@ -1,7 +1,7 @@
 id: svm-config
 description: "SVM configuration with required preprocessing"
 
-phases:
+chunks:
   main:
     preprocessing: standard
     model: svm

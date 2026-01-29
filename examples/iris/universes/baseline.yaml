@@ -3,7 +3,7 @@ $schema: "https://asp-spec.org/v1/universe.schema.json"
 id: baseline
 description: "Default configuration using standard practices"
 
-phases:
+chunks:
   main:
     scaling: standard
     model: random_forest

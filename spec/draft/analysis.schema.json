@@ -145,7 +145,7 @@
     },
     "Artefact": {
       "additionalProperties": false,
-      "description": "An artefact produced by a phase.",
+      "description": "An artefact produced by a chunk.",
       "properties": {
         "id": {
           "description": "Unique identifier for the artefact",
@@ -210,6 +210,67 @@
         "value"
       ],
       "title": "Checksum",
+      "type": "object"
+    },
+    "Chunk": {
+      "additionalProperties": false,
+      "description": "An inline chunk within an analysis \u2014 a scoped stage with its own problem,\ndecisions, and optional artefacts.",
+      "properties": {
+        "problem": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Problem statement for this chunk (optional for 'main' chunk, which inherits from analysis)",
+          "title": "Problem"
+        },
+        "success_criteria": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Concrete criteria for determining if this chunk succeeded.",
+          "title": "Success Criteria"
+        },
+        "decisions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Decision"
+          },
+          "description": "Map of decision IDs to decision specifications scoped to this chunk",
+          "title": "Decisions",
+          "type": "object"
+        },
+        "artefacts": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Artefact"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "List of artefacts produced by this chunk",
+          "title": "Artefacts"
+        }
+      },
+      "title": "Chunk",
       "type": "object"
     },
     "Decision": {
@@ -821,67 +882,6 @@
       "title": "PaperSource",
       "type": "object"
     },
-    "Phase": {
-      "additionalProperties": false,
-      "description": "An inline phase within an analysis \u2014 a scoped stage with its own problem,\ndecisions, and optional artefacts.",
-      "properties": {
-        "problem": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Problem statement for this phase (optional for 'main' phase, which inherits from analysis)",
-          "title": "Problem"
-        },
-        "success_criteria": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Concrete criteria for determining if this phase succeeded.",
-          "title": "Success Criteria"
-        },
-        "decisions": {
-          "additionalProperties": {
-            "$ref": "#/$defs/Decision"
-          },
-          "description": "Map of decision IDs to decision specifications scoped to this phase",
-          "title": "Decisions",
-          "type": "object"
-        },
-        "artefacts": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/Artefact"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "List of artefacts produced by this phase",
-          "title": "Artefacts"
-        }
-      },
-      "title": "Phase",
-      "type": "object"
-    },
     "QuoteEvidence": {
       "additionalProperties": false,
       "description": "Evidence from a direct quote.",
@@ -1208,19 +1208,19 @@
       "title": "Insights",
       "type": "object"
     },
-    "phases": {
+    "chunks": {
       "additionalProperties": {
-        "$ref": "#/$defs/Phase"
+        "$ref": "#/$defs/Chunk"
       },
-      "description": "Map of phase IDs to phase definitions. Single-stage analyses use a 'main' phase. All decisions live under phases.",
-      "title": "Phases",
+      "description": "Map of chunk IDs to chunk definitions. Single-stage analyses use a 'main' chunk. All decisions live under chunks.",
+      "title": "Chunks",
       "type": "object"
     }
   },
   "required": [
     "version",
     "analysis",
-    "phases"
+    "chunks"
   ],
   "title": "ASP Analysis Specification",
   "type": "object"

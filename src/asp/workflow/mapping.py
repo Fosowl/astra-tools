@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from asp.helpers import get_inputs, get_option, get_phase_decisions
+from asp.helpers import get_chunk_decisions, get_inputs, get_option
 
 
 def extract_decision_values(analysis: dict[str, Any], universe: dict[str, Any]) -> dict[str, Any]:
@@ -32,14 +32,14 @@ def extract_decision_values(analysis: dict[str, Any], universe: dict[str, Any]) 
         If option has no value field, the value is the option_id string.
     """
     values: dict[str, Any] = {}
-    phase_decisions = get_phase_decisions(analysis)
+    chunk_decisions = get_chunk_decisions(analysis)
 
-    # Iterate phase-by-phase to look up each decision in its correct phase
-    universe_phases = universe.get("phases", {})
-    for phase_id, phase_selections in universe_phases.items():
-        decisions_in_phase = phase_decisions.get(phase_id, {})
-        for decision_id, option_id in phase_selections.items():
-            decision = decisions_in_phase.get(decision_id)
+    # Iterate chunk-by-chunk to look up each decision in its correct chunk
+    universe_chunks = universe.get("chunks", {})
+    for chunk_id, chunk_selections in universe_chunks.items():
+        decisions_in_chunk = chunk_decisions.get(chunk_id, {})
+        for decision_id, option_id in chunk_selections.items():
+            decision = decisions_in_chunk.get(decision_id)
             if decision is None:
                 continue
 

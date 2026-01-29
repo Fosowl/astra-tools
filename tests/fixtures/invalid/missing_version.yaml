@@ -9,5 +9,5 @@ analysis:
     - id: result
       type: metric
 
-phases:
+chunks:
   main: {}

@@ -20,7 +20,7 @@ analysis:
       type: table
       formats: [csv]
 
-phases:
+chunks:
   build_mocks:
     problem: "Generate realistic mock catalogs matching survey properties."
     success_criteria:

@@ -1,6 +1,6 @@
 ---
 name: asp-new
-description: Create a new ASP analysis project - scope research question, identify phases, define the full spec
+description: Create a new ASP analysis project - scope research question, identify chunks, define the full spec
 allowed-tools: Read, Write(asp.yaml), Write(universes/*), Edit(asp.yaml), Edit(universes/*), Glob, Grep, Bash(asp validate:*), Bash(asp info:*), Bash(asp init:*), Bash(asp universe:*), Bash(mkdir:*), WebFetch, AskUserQuestion
 ---
 
@@ -38,7 +38,7 @@ Keep a mental checklist — don't walk through it out loud:
 - What data exists (or needs to be created)
 - What a "clear answer" looks like (this becomes success criteria)
 - What scientific choices matter (algorithm families, priors, domain constraints — these become decisions)
-- What phases the analysis needs (even a simple analysis has a `main` phase)
+- What chunks the analysis needs (even a simple analysis has a `main` chunk)
 
 You have enough when every item has at least a rough answer.
 
@@ -51,7 +51,7 @@ You have enough when every item has at least a rough answer.
 - Checklist walking — asking every question in order regardless of what the user said
 - Accepting vague goals — "Analyze this dataset" is not a research question
 - Rushing past the question — a clear problem is worth more than a complete spec
-- Over-splitting — don't create many phases when one would do. A single phase is fine
+- Over-splitting — don't create many chunks when one would do. A single chunk is fine
 - Jargon dumping — don't explain ASP concepts unless the user asks
 - One-at-a-time questions — batch them. The user shouldn't need 5 round trips when 2 would do
 - Asking implementation questions — "what preprocessing?" or "what test split?" belongs in `/asp-plan`, not here
@@ -66,31 +66,31 @@ Any decision the user explicitly weighed in on during Step 1 gets `reviewed: tru
 
 Structure:
 - **analysis**: problem, success_criteria, inputs, outputs
-- **phases**: use a single `main` phase unless the conversation clearly called for multiple stages. All decisions live under phases — there are no top-level decisions.
-  - The `main` phase only needs `decisions` — it inherits `problem` and `success_criteria` from the analysis, and its outputs are the analysis-level `outputs`.
-  - Non-main phases should set their own `problem`, `success_criteria`, and `artefacts` as needed.
+- **chunks**: use a single `main` chunk unless the conversation clearly called for multiple stages. All decisions live under chunks — there are no top-level decisions.
+  - The `main` chunk only needs `decisions` — it inherits `problem` and `success_criteria` from the analysis, and its outputs are the analysis-level `outputs`.
+  - Non-main chunks should set their own `problem`, `success_criteria`, and `artefacts` as needed.
 
 Then:
 1. Write `asp.yaml`
 2. Generate baseline universe: `asp universe generate -n baseline`
 3. Validate: `asp validate asp.yaml`
 
-**Universe structure**: The baseline universe organizes all decisions under their phase:
+**Universe structure**: The baseline universe organizes all decisions under their chunk:
 
 ```yaml
 id: baseline
 description: "Standard configuration"
 
-phases:
+chunks:
   build_mocks:
     noise_model: heteroscedastic
   train_network:
     architecture: maf
 ```
 
-After writing, present a brief summary of what you wrote (problem, inputs, outputs, phases, key decisions) and ask the user:
+After writing, present a brief summary of what you wrote (problem, inputs, outputs, chunks, key decisions) and ask the user:
 
-"Want to continue to `/asp-plan <first_phase>`? Or tell me what to change."
+"Want to continue to `/asp-plan <first_chunk>`? Or tell me what to change."
 
 If the user gives edit instructions, apply them to `asp.yaml`, re-validate, and ask again.
 
@@ -114,4 +114,4 @@ When the user confirms they want to continue, print:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-"Analysis project created with [N] phase(s)." List the phases, then: "Run `/asp-plan <first_phase_name>` to start planning."
+"Analysis project created with [N] chunk(s)." List the chunks, then: "Run `/asp-plan <first_chunk_name>` to start planning."

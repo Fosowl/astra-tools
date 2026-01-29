@@ -3,7 +3,7 @@
 id: incompatible
 description: "Violates incompatible_with"
 
-phases:
+chunks:
   main:
     preprocessing: minmax
     model: svm  # minmax is incompatible with svm

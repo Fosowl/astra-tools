@@ -35,7 +35,7 @@ flowchart LR
 
 **Multiverse**: The space of all valid decision combinations. Its purpose is transparency and traceability, not exhaustive search. Document the path taken, the paths not taken, and optionally check robustness.
 
-**Phases**: All decisions live under phases. Single-stage analyses use a `main` phase. Complex analyses decompose into multiple phases — each with its own problem statement, decisions, and optional artefacts.
+**Chunks**: All decisions live under chunks. Single-stage analyses use a `main` chunk. Complex analyses decompose into multiple chunks — each with its own problem statement, decisions, and optional artefacts.
 
 **Evidence-based decisions**: Link decisions to supporting evidence from previous analyses or literature.
 
@@ -132,7 +132,7 @@ analysis:
       type: figure
       formats: [png]
 
-phases:
+chunks:
   main:
     decisions:
       scaling:
@@ -165,9 +165,9 @@ phases:
 
 See [examples/iris/](examples/iris/) for a complete working example.
 
-## Phases
+## Chunks
 
-Complex analyses have intermediate stages — building mocks, training models, validating results — each with their own decisions. Phases let you decompose an analysis into scoped stages defined inline within a single `asp.yaml`. Single-stage analyses use a `main` phase; all decisions live under phases.
+Complex analyses have intermediate stages — building mocks, training models, validating results — each with their own decisions. Chunks let you decompose an analysis into scoped stages defined inline within a single `asp.yaml`. Single-stage analyses use a `main` chunk; all decisions live under chunks.
 
 ```yaml
 version: "1.0"
@@ -186,7 +186,7 @@ analysis:
       type: figure
       formats: [png]
 
-phases:
+chunks:
   build_mocks:
     problem: "Generate realistic mock catalogs matching survey properties."
     success_criteria:
@@ -223,21 +223,21 @@ phases:
         description: "Posterior contour plots"
 ```
 
-Each phase has its own problem statement, decisions, and optional artefacts. The agent determines execution order and data flow between phases.
+Each chunk has its own problem statement, decisions, and optional artefacts. The agent determines execution order and data flow between chunks.
 
-**Universe selections by phase**: The universe file selects options for each phase's decisions:
+**Universe selections by chunk**: The universe file selects options for each chunk's decisions:
 
 ```yaml
 # universes/baseline.yaml
 id: baseline
-phases:
+chunks:
   build_mocks:
     noise_model: heteroscedastic
   train_network:
     architecture: maf
 ```
 
-See [DESIGN.md](DESIGN.md#phases) for full details.
+See [DESIGN.md](DESIGN.md#chunks) for full details.
 
 ## CLI Commands
 
