@@ -126,7 +126,7 @@ analysis:
       type: metric
       dtype: float
       range: [0, 1]
-      primary: true
+
 
     - id: confusion_matrix
       type: figure

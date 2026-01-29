@@ -30,7 +30,6 @@ analysis:
       type: metric
       dtype: float
       range: [0, 1]
-      primary: true
       description: "Model accuracy"
     - id: f1_score
       type: metric

@@ -172,7 +172,6 @@ analysis:
     - id: main_result
       type: metric
       dtype: float
-      primary: true
       description: "TODO: Describe your primary output metric"
 
     - id: conclusion
@@ -558,13 +557,11 @@ def info(
         table = Table(show_header=True)
         table.add_column("ID")
         table.add_column("Type")
-        table.add_column("Primary")
         table.add_column("Description")
 
         for out in output_list:
-            primary = "✓" if out.get("primary") else ""
             table.add_row(
-                out.get("id", ""), out.get("type", ""), primary, out.get("description", "")
+                out.get("id", ""), out.get("type", ""), out.get("description", "")
             )
         console.print(table)
 

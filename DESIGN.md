@@ -86,7 +86,7 @@ What the analysis should produce. All outputs are declared upfront so we know wh
 | `model` | Trained model artifacts | Serialized classifier |
 | `report` | Text/document output | Summary, conclusion |
 
-One output can be marked as `primary: true` to indicate it's the main result for multiverse comparison.
+
 
 A `report` type output is special: it should address the problem statement and synthesize findings.
 
@@ -343,7 +343,6 @@ analysis:
       type: metric
       dtype: float
       range: [0, 1]
-      primary: true
       description: "Classification accuracy on held-out test set"
 
     - id: f1_score
@@ -1072,7 +1071,7 @@ analysis:
       dtype: float|int|bool|string  # For metrics
       range: [min, max]           # For numeric metrics
       formats: [string]           # For artifacts
-      primary: boolean            # Main output for comparison
+
       description: string
 
 chunks:                           # Required: Map of chunks

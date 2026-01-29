@@ -34,7 +34,6 @@ analysis:
       type: metric
       dtype: float
       range: [0, 1]
-      primary: true
       description: "Classification accuracy on held-out test set"
 
     - id: f1_score

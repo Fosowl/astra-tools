@@ -84,9 +84,6 @@ class Output(BaseModel):
     formats: list[str] | None = Field(
         default=None, description="Supported file formats for artifacts"
     )
-    primary: bool = Field(
-        default=False, description="Whether this is the primary output for comparison"
-    )
     description: str | None = Field(default=None, description="Description of the output")
 
 

@@ -190,7 +190,6 @@ analysis:
     - id: accuracy
       type: metric
       dtype: float
-      primary: true
     - id: model
       type: model
 

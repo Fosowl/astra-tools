@@ -934,12 +934,6 @@
           "description": "Supported file formats for artifacts",
           "title": "Formats"
         },
-        "primary": {
-          "default": false,
-          "description": "Whether this is the primary output for comparison",
-          "title": "Primary",
-          "type": "boolean"
-        },
         "description": {
           "anyOf": [
             {

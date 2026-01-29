@@ -129,7 +129,7 @@ class TestGenerateCWLSkeleton:
                 "problem": "Test",
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [
-                    {"id": "accuracy", "type": "metric", "dtype": "float", "primary": True},
+                    {"id": "accuracy", "type": "metric", "dtype": "float"},
                     {"id": "model_file", "type": "model"},
                 ],
             },
