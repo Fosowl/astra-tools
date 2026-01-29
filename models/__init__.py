@@ -25,12 +25,12 @@ __all__ = [
     # Analysis
     "Analysis",
     "Artefact",
+    "Chunk",
     "Decision",
     "Evidence",
     "Input",
     "Option",
     "Output",
-    "Phase",
     # Universe
     "Universe",
     # Insight - Sources
@@ -46,12 +46,4 @@ __all__ = [
     "Insight",
     "InsightCollection",
     "InsightEvidence",
-<<<<<<< HEAD
-    "Option",
-    "Output",
-    "PaperSource",
-    "Chunk",
-    "Universe",
-=======
->>>>>>> 599d5b6929d44bb9dcc817323a84aff336e474ba
 ]
