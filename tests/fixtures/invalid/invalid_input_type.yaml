@@ -10,3 +10,6 @@ analysis:
   outputs:
     - id: result
       type: metric
+
+chunks:
+  main: {}

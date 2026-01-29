@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from asp.helpers import get_decisions, get_inputs, get_option
+from asp.helpers import get_chunk_decisions, get_inputs, get_option
 
 
 def extract_decision_values(analysis: dict[str, Any], universe: dict[str, Any]) -> dict[str, Any]:
@@ -32,23 +32,26 @@ def extract_decision_values(analysis: dict[str, Any], universe: dict[str, Any]) 
         If option has no value field, the value is the option_id string.
     """
     values: dict[str, Any] = {}
-    decisions = get_decisions(analysis)
-    universe_decisions = universe.get("decisions", {})
+    chunk_decisions = get_chunk_decisions(analysis)
 
-    for decision_id, option_id in universe_decisions.items():
-        decision = decisions.get(decision_id)
-        if decision is None:
-            continue
+    # Iterate chunk-by-chunk to look up each decision in its correct chunk
+    universe_chunks = universe.get("chunks", {})
+    for chunk_id, chunk_selections in universe_chunks.items():
+        decisions_in_chunk = chunk_decisions.get(chunk_id, {})
+        for decision_id, option_id in chunk_selections.items():
+            decision = decisions_in_chunk.get(decision_id)
+            if decision is None:
+                continue
 
-        option = get_option(decision, option_id)
-        if option is None:
-            continue
+            option = get_option(decision, option_id)
+            if option is None:
+                continue
 
-        # Use value if present, otherwise use option_id as string
-        if option.get("value") is not None:
-            values[decision_id] = option["value"]
-        else:
-            values[decision_id] = option_id
+            # Use value if present, otherwise use option_id as string
+            if option.get("value") is not None:
+                values[decision_id] = option["value"]
+            else:
+                values[decision_id] = option_id
 
     return values
 

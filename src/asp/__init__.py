@@ -7,6 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from asp.helpers import (
     create_universe_from_defaults,
+    get_chunk_decisions,
     get_decision,
     get_decisions,
     get_default_universe,
@@ -39,6 +40,7 @@ except PackageNotFoundError:
 __all__ = [
     # Dict-based helpers
     "create_universe_from_defaults",
+    "get_chunk_decisions",
     "get_decision",
     "get_decisions",
     "get_default_universe",

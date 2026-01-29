@@ -70,41 +70,45 @@ class TestValidateDecisionCoverage:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "accuracy", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {
-                        "rf": {"label": "Random Forest"},
-                        "svm": {"label": "SVM"},
-                    },
-                },
-                "test_split": {
-                    "label": "Test Split",
-                    "type": "parameter",
-                    "default": "split_20",
-                    "options": {
-                        "split_20": {"label": "20%", "value": 0.2},
-                    },
-                },
-                "seed": {
-                    "label": "Seed",
-                    "type": "parameter",
-                    "default": "seed_42",
-                    "options": {
-                        "seed_42": {"label": "42", "value": 42},
-                    },
-                },
-                "preprocessing": {
-                    "label": "Preprocessing",
-                    "type": "method",
-                    "default": "none",
-                    "options": {
-                        "none": {"label": "None"},
-                        "standard": {"label": "Standard"},
-                    },
-                },
+            "chunks": {
+                "main": {
+                    "decisions": {
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {
+                                "rf": {"label": "Random Forest"},
+                                "svm": {"label": "SVM"},
+                            },
+                        },
+                        "test_split": {
+                            "label": "Test Split",
+                            "type": "parameter",
+                            "default": "split_20",
+                            "options": {
+                                "split_20": {"label": "20%", "value": 0.2},
+                            },
+                        },
+                        "seed": {
+                            "label": "Seed",
+                            "type": "parameter",
+                            "default": "seed_42",
+                            "options": {
+                                "seed_42": {"label": "42", "value": 42},
+                            },
+                        },
+                        "preprocessing": {
+                            "label": "Preprocessing",
+                            "type": "method",
+                            "default": "none",
+                            "options": {
+                                "none": {"label": "None"},
+                                "standard": {"label": "Standard"},
+                            },
+                        },
+                    }
+                }
             },
         }
 
@@ -124,19 +128,23 @@ class TestValidateDecisionCoverage:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "RF"}},
-                },
-                "extra_decision": {
-                    "label": "Extra",
-                    "type": "parameter",
-                    "default": "a",
-                    "options": {"a": {"label": "A"}},
-                },
+            "chunks": {
+                "main": {
+                    "decisions": {
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "RF"}},
+                        },
+                        "extra_decision": {
+                            "label": "Extra",
+                            "type": "parameter",
+                            "default": "a",
+                            "options": {"a": {"label": "A"}},
+                        },
+                    }
+                }
             },
         }
         errors = validate_decision_coverage(analysis, WORKFLOWS_DIR / "simple.cwl")
@@ -154,13 +162,17 @@ class TestValidateDecisionCoverage:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "RF"}},
-                },
+            "chunks": {
+                "main": {
+                    "decisions": {
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "RF"}},
+                        },
+                    }
+                }
             },
         }
         errors = validate_decision_coverage(analysis, WORKFLOWS_DIR / "partial.cwl")
@@ -183,36 +195,40 @@ class TestDictValueMapping:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "scaling": {
-                    "label": "Scaling",
-                    "type": "method",
-                    "default": "standard",
-                    "options": {
-                        "standard": {
-                            "label": "Standard",
-                            "value": {"method": "standard", "with_mean": True},
+            "chunks": {
+                "main": {
+                    "decisions": {
+                        "scaling": {
+                            "label": "Scaling",
+                            "type": "method",
+                            "default": "standard",
+                            "options": {
+                                "standard": {
+                                    "label": "Standard",
+                                    "value": {"method": "standard", "with_mean": True},
+                                },
+                                "minmax": {
+                                    "label": "MinMax",
+                                    "value": {"method": "minmax", "with_mean": False},
+                                },
+                            },
                         },
-                        "minmax": {
-                            "label": "MinMax",
-                            "value": {"method": "minmax", "with_mean": False},
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "RF"}},
                         },
-                    },
-                },
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "RF"}},
-                },
-                "test_size": {
-                    "label": "Test Size",
-                    "type": "parameter",
-                    "default": "split_20",
-                    "options": {
-                        "split_20": {"label": "20%", "value": 0.2},
-                    },
-                },
+                        "test_size": {
+                            "label": "Test Size",
+                            "type": "parameter",
+                            "default": "split_20",
+                            "options": {
+                                "split_20": {"label": "20%", "value": 0.2},
+                            },
+                        },
+                    }
+                }
             },
         }
 
@@ -245,13 +261,17 @@ class TestGetUnmappedCWLParams:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "RF"}},
-                },
+            "chunks": {
+                "main": {
+                    "decisions": {
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "RF"}},
+                        },
+                    }
+                }
             },
         }
         unmapped = get_unmapped_cwl_params(analysis, WORKFLOWS_DIR / "partial.cwl")

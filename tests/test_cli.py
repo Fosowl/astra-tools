@@ -260,10 +260,6 @@ class TestInitCommand:
         assert (project_dir / "results").is_dir()
         assert (project_dir / "workflows").is_dir()
         assert (project_dir / "steps").is_dir()
-        assert (project_dir / "steps" / "io").is_dir()
-        assert (project_dir / "steps" / "preprocessing").is_dir()
-        assert (project_dir / "steps" / "models").is_dir()
-        assert (project_dir / "steps" / "evaluation").is_dir()
 
         # scripts/ no longer created
         assert not (project_dir / "scripts").exists()
@@ -285,6 +281,7 @@ class TestInitCommand:
         assert "content-test" in content  # Directory name used as analysis name
         assert "version:" in content
         assert "analysis:" in content
+        assert "chunks:" in content
         assert "decisions:" in content
 
     def test_init_gitignore_content(self, runner: CliRunner, tmp_path: Path):
@@ -319,15 +316,6 @@ class TestInitCommand:
 
         # Check settings content
         settings = json.loads(settings_path.read_text())
-        assert "extraKnownMarketplaces" in settings
-        assert "asp" in settings["extraKnownMarketplaces"]
-        assert "enabledPlugins" in settings
-        assert settings["enabledPlugins"].get("asp@asp") is True
-
-        # Check marketplace source (GitHub)
-        marketplace = settings["extraKnownMarketplaces"]["asp"]
-        assert marketplace["source"]["source"] == "github"
-        assert marketplace["source"]["repo"] == "LightconeResearch/ASP"
 
         # Check permissions
         assert "permissions" in settings

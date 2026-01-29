@@ -8,6 +8,78 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(asp:*), Bash(python:*)
 
 Help users work with the Agentic Science Protocol (ASP) - a declarative specification format for scientific analyses.
 
+## Agent Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/asp-new` | Create a new analysis project — scope research question, define `asp.yaml` (WHAT we want) |
+| `/asp-build [chunk]` | Plan, build, and run the analysis or a specific chunk (HOW to do it) |
+
+### Workflow
+
+```
+/asp-new  →  /asp-build <chunk>  →  /asp-build <next_chunk>  → ...
+```
+
+Run `/asp-build` for each chunk in turn. Omit the argument to target all chunks.
+
+## Chunks
+
+Every analysis has `chunks` in `asp.yaml`. All decisions live under chunks — there are no top-level decisions. A simple analysis uses a single `main` chunk. Complex analyses have multiple chunks:
+
+```yaml
+chunks:
+  main:
+    decisions:
+      scaling:
+        label: "Feature Scaling"
+        type: method
+        default: standard
+        options:
+          standard:
+            label: "StandardScaler"
+          minmax:
+            label: "MinMaxScaler"
+```
+
+Multi-chunk example:
+
+```yaml
+chunks:
+  build_mocks:
+    problem: "Generate realistic mock catalogs matching survey properties."
+    decisions:
+      noise_model:
+        label: "Noise Model"
+        type: method
+        default: heteroscedastic
+        options:
+          homoscedastic:
+            label: "Homoscedastic"
+          heteroscedastic:
+            label: "Heteroscedastic"
+    artefacts:
+      - id: mock_catalog
+        type: data
+
+  train_network:
+    problem: "Train SBI neural network on mock catalog."
+    decisions:
+      architecture:
+        label: "Network Architecture"
+        type: method
+        default: maf
+        options:
+          maf:
+            label: "Masked Autoregressive Flow"
+          npe:
+            label: "Neural Posterior Estimation"
+```
+
+A chunk can have: `problem`, `success_criteria`, `decisions`, and `artefacts` (figures, tables, data, reports produced by the chunk).
+
+The `main` chunk is special — it inherits `problem` and `success_criteria` from the top-level `analysis`, and its outputs are the analysis-level `outputs`. Don't set `problem`, `success_criteria`, or `artefacts` on `main`; they belong on the analysis. Non-main chunks should set their own `problem`, `success_criteria`, and `artefacts` as needed.
+
 ## Quick Reference
 
 ### CLI Commands
@@ -30,16 +102,37 @@ asp workflow show --cwl main.cwl             # Show parameter mapping table
 asp params universes/baseline.yaml           # Output CWL parameters to stdout
 ```
 
+**Chunk note:** All chunks are defined inline in the root `asp.yaml`. No separate directories or files needed for chunk specifications.
+
 ## Core Concepts
 
 ### Analysis Structure
 An ASP analysis (`asp.yaml`) contains:
-- **analysis**: name, problem statement, inputs, outputs
-- **decisions**: choices that define the analysis methodology
+- **analysis**: name, problem statement, success criteria, inputs, outputs
 - **insights**: scientific knowledge from papers or prior analyses
+- **chunks**: pipeline stages, each with its own decisions (every analysis has at least one — use `main` for single-stage analyses)
+
+### Success Criteria
+Define concrete, verifiable conditions for success:
+```yaml
+analysis:
+  problem: |
+    Build a classifier for the Iris dataset...
+  success_criteria:
+    - "Achieve >95% classification accuracy on held-out test set"
+    - "Model size under 10MB for mobile deployment"
+    - "Prediction time under 100ms per sample"
+```
 
 ### Universes
-A universe is a complete set of decisions - one option per decision point.
+A universe is a complete set of decisions organized by chunk — one option per decision point. Decisions are nested under their chunk:
+
+```yaml
+chunks:
+  main:
+    scaling: standard
+    model: random_forest
+```
 
 ### Inputs
 Inputs define the data sources for an analysis:
@@ -62,19 +155,17 @@ inputs:
 
 ## Creating a New Analysis
 
-1. Use `asp init` to scaffold the project:
+Use `/asp-new` to interactively scope your project:
+1. Define the research question
+2. Define top-level inputs, outputs, success criteria
+3. Define chunks with wiring
+
+Then use `/asp-build <chunk>` to plan and build each chunk.
+
+Alternatively, scaffold manually:
 ```bash
 asp init my-analysis -n "Analysis Name" -p "Problem statement"
 ```
-
-2. Edit `asp.yaml` to define:
-   - Inputs (data sources, literature)
-   - Outputs (metrics, figures, reports)
-   - Decisions (methodology choices)
-
-3. Add insights from relevant papers to support decisions
-
-4. Validate with `asp validate asp.yaml`
 
 ## Extracting Insights from Papers
 
@@ -180,22 +271,26 @@ Before finalizing an analysis, verify:
 ## Common Patterns
 
 ### Adding a New Decision
+Decisions live under `chunks.<chunk_name>.decisions`:
 ```yaml
-decisions:
-  new_decision:
-    label: "Human-readable Label"
-    type: method  # or: data, parameter
-    importance: 3  # 1=critical, 5=minor
-    rationale: "Why this decision matters"
-    default: option_a
-    options:
-      option_a:
-        label: "Option A"
-        description: "What this option does"
-      option_b:
-        label: "Option B"
-        description: "Alternative approach"
-        incompatible_with: ["other_decision.some_option"]
+chunks:
+  main:
+    decisions:
+      new_decision:
+        label: "Human-readable Label"
+        type: method  # or: data, parameter
+        importance: 3  # 1=critical, 5=minor
+        reviewed: true  # Has a human weighed in on this decision?
+        rationale: "Why this decision matters"
+        default: option_a
+        options:
+          option_a:
+            label: "Option A"
+            description: "What this option does"
+          option_b:
+            label: "Option B"
+            description: "Alternative approach"
+            incompatible_with: ["other_decision.some_option"]
 ```
 
 ### Adding Literature Input
@@ -218,23 +313,22 @@ Then edit `universes/experiment1.yaml` to customize decisions.
 
 ```
 my-analysis/
-├── asp.yaml              # Main analysis specification
-├── universes/            # Decision selections (source of truth for CWL params)
-│   ├── baseline.yaml     # Default configuration
-│   └── experiment1.yaml  # Alternative configuration
+├── asp.yaml              # Full spec with chunks defined inline
+├── universes/
+│   └── baseline.yaml     # Decision selections organized by chunk
 ├── workflows/            # CWL workflow definitions
-│   └── main.cwl          # Main workflow
-├── steps/                # ALL workflow implementation goes here
-│   ├── io/               # Data loading steps (.cwl + scripts)
-│   ├── preprocessing/    # Preprocessing steps
-│   ├── models/           # Model training steps
-│   └── evaluation/       # Evaluation steps
-├── insights/             # Optional: separate insight files
-└── results/              # Execution outputs (gitignored)
+│   └── main.cwl
+├── plans/                # Implementation plans per chunk
+├── steps/                # Workflow implementation (created during /asp-build)
+├── results/              # Execution outputs (gitignored)
+└── .claude/
 ```
 
+Chunks are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is created during `/asp-build`:
+- **Single chunk**: implementation goes directly in `steps/` (no subdirectory)
+- **Multiple chunks**: each chunk gets `steps/<chunk_name>/`
+
 **Important**:
-- All implementation code (Python, R, shell scripts) must be placed in the `steps/` folder alongside their CWL definitions. Do not create a separate `scripts/` folder.
 - Universes are the source of truth for CWL parameters. Use `asp workflow run` to execute workflows directly from universes, or `asp params` to inspect the generated parameters.
 
 ## Building CWL Workflows

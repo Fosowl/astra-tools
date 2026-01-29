@@ -30,10 +30,9 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     """Validate an analysis specification semantically.
 
     Checks:
-    - Default options exist in their decision's options
-    - Evidence refs point to valid inputs
-    - Constraint refs (requires, incompatible_with) point to valid decision.option pairs
     - Input/output IDs are unique
+    - Chunk decisions: defaults exist, evidence refs valid, constraint refs valid
+    - Artefact IDs unique within chunks
 
     Args:
         data: The analysis data as a dict.
@@ -46,7 +45,6 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     analysis_content = data.get("analysis", {})
     inputs = analysis_content.get("inputs", [])
     outputs = analysis_content.get("outputs", [])
-    decisions = data.get("decisions", {})
     insights = data.get("insights", {})
 
     # Check for duplicate input IDs
@@ -75,9 +73,28 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
         if out_id:
             output_ids.add(out_id)
 
-    # Validate decisions
-    for decision_id, decision in decisions.items():
-        decision_path = f"decisions.{decision_id}"
+    # Validate chunks (all decisions live under chunks now)
+    chunks = data.get("chunks", {})
+    for chunk_id, chunk in chunks.items():
+        errors.extend(_validate_chunk(chunk_id, chunk, input_ids, insights))
+
+    return errors
+
+
+def _validate_chunk(
+    chunk_id: str,
+    chunk: dict[str, Any],
+    input_ids: set[str],
+    insights: dict[str, Any],
+) -> list[SemanticError]:
+    """Validate a single chunk's decisions and artefacts."""
+    errors: list[SemanticError] = []
+    chunk_path = f"chunks.{chunk_id}"
+
+    # Validate chunk decisions
+    chunk_decisions = chunk.get("decisions") or {}
+    for decision_id, decision in chunk_decisions.items():
+        decision_path = f"{chunk_path}.decisions.{decision_id}"
         options = decision.get("options", {})
 
         # Check default option exists
@@ -123,15 +140,31 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
                                 )
                             )
 
-            # Check incompatible_with refs
+            # Check incompatible_with refs (scoped to this chunk's decisions)
             incompatible_with = option.get("incompatible_with") or []
             for ref in incompatible_with:
-                errors.extend(_validate_constraint_ref(ref, decisions, option_path))
+                errors.extend(_validate_constraint_ref(ref, chunk_decisions, option_path))
 
-            # Check requires refs
+            # Check requires refs (scoped to this chunk's decisions)
             requires = option.get("requires") or []
             for ref in requires:
-                errors.extend(_validate_constraint_ref(ref, decisions, option_path))
+                errors.extend(_validate_constraint_ref(ref, chunk_decisions, option_path))
+
+    # Validate artefact IDs are unique within the chunk
+    artefacts = chunk.get("artefacts") or []
+    artefact_ids: set[str] = set()
+    for artefact in artefacts:
+        art_id = artefact.get("id")
+        if art_id in artefact_ids:
+            errors.append(
+                SemanticError(
+                    "DUPLICATE_ARTEFACT",
+                    f"Duplicate artefact ID in chunk: {art_id}",
+                    f"{chunk_path}.artefacts.{art_id}",
+                )
+            )
+        if art_id:
+            artefact_ids.add(art_id)
 
     return errors
 
@@ -180,8 +213,10 @@ def validate_universe(
 ) -> list[SemanticError]:
     """Validate a universe against an analysis specification.
 
+    All decisions live under chunks, so universe validation checks chunk selections.
+
     Checks:
-    - All decisions in the analysis have a selection in the universe
+    - All chunk decisions in the analysis have a selection in the universe
     - All selections point to valid options
     - No constraint violations (requires, incompatible_with)
 
@@ -194,45 +229,73 @@ def validate_universe(
     """
     errors: list[SemanticError] = []
 
-    universe_decisions = universe_data.get("decisions", {})
-    analysis_decisions = analysis_data.get("decisions", {})
+    universe_chunks = universe_data.get("chunks", {})
+    analysis_chunks = analysis_data.get("chunks", {})
 
-    # Check all decisions are covered
-    for decision_id in analysis_decisions:
-        if decision_id not in universe_decisions:
+    # Check for unknown chunks in universe
+    for chunk_id in universe_chunks:
+        if chunk_id not in analysis_chunks:
             errors.append(
                 SemanticError(
-                    "MISSING_DECISION",
-                    f"Universe missing decision: {decision_id}",
-                    f"decisions.{decision_id}",
-                )
-            )
-
-    # Check all selections are valid
-    for decision_id, option_id in universe_decisions.items():
-        if decision_id not in analysis_decisions:
-            errors.append(
-                SemanticError(
-                    "UNKNOWN_DECISION",
-                    f"Universe references unknown decision: {decision_id}",
-                    f"decisions.{decision_id}",
+                    "UNKNOWN_CHUNK",
+                    f"Universe references unknown chunk: {chunk_id}",
+                    f"chunks.{chunk_id}",
                 )
             )
             continue
 
-        decision = analysis_decisions[decision_id]
-        options = decision.get("options", {})
-        if option_id not in options:
-            errors.append(
-                SemanticError(
-                    "UNKNOWN_OPTION",
-                    f"Universe selects unknown option '{option_id}' for decision '{decision_id}'",
-                    f"decisions.{decision_id}",
-                )
-            )
+        # Validate decision selections within this chunk
+        chunk_decisions = analysis_chunks[chunk_id].get("decisions", {})
+        chunk_selections = universe_chunks[chunk_id]
 
-    # Check constraints
-    errors.extend(_validate_universe_constraints(universe_data, analysis_data))
+        for decision_id, option_id in chunk_selections.items():
+            if decision_id not in chunk_decisions:
+                errors.append(
+                    SemanticError(
+                        "UNKNOWN_DECISION",
+                        f"Universe references unknown decision '{decision_id}' "
+                        f"in chunk '{chunk_id}'",
+                        f"chunks.{chunk_id}.{decision_id}",
+                    )
+                )
+                continue
+
+            options = chunk_decisions[decision_id].get("options", {})
+            if option_id not in options:
+                errors.append(
+                    SemanticError(
+                        "UNKNOWN_OPTION",
+                        f"Universe selects unknown option '{option_id}' for "
+                        f"decision '{decision_id}' in chunk '{chunk_id}'",
+                        f"chunks.{chunk_id}.{decision_id}",
+                    )
+                )
+
+    # Check all chunk decisions are covered
+    for chunk_id, chunk in analysis_chunks.items():
+        chunk_decisions = chunk.get("decisions", {})
+        if not chunk_decisions:
+            continue
+        chunk_selections = universe_chunks.get(chunk_id, {})
+        for decision_id in chunk_decisions:
+            if decision_id not in chunk_selections:
+                errors.append(
+                    SemanticError(
+                        "MISSING_CHUNK_DECISION",
+                        f"Universe missing decision '{decision_id}' for chunk '{chunk_id}'",
+                        f"chunks.{chunk_id}.{decision_id}",
+                    )
+                )
+
+    # Check chunk-level constraints
+    for chunk_id in universe_chunks:
+        if chunk_id not in analysis_chunks:
+            continue
+        chunk_decisions = analysis_chunks[chunk_id].get("decisions", {})
+        chunk_selections = universe_chunks[chunk_id]
+        errors.extend(
+            _validate_chunk_universe_constraints(chunk_selections, chunk_decisions, chunk_id)
+        )
 
     return errors
 
@@ -245,17 +308,16 @@ def _parse_constraint_ref(ref: str) -> tuple[str, str] | None:
     return None
 
 
-def _validate_universe_constraints(
-    universe_data: dict[str, Any], analysis_data: dict[str, Any]
+def _validate_chunk_universe_constraints(
+    chunk_selections: dict[str, str],
+    chunk_decisions: dict[str, Any],
+    chunk_id: str,
 ) -> list[SemanticError]:
-    """Validate that the universe respects all constraints."""
+    """Validate that chunk decision selections respect constraints."""
     errors: list[SemanticError] = []
 
-    universe_decisions = universe_data.get("decisions", {})
-    analysis_decisions = analysis_data.get("decisions", {})
-
-    for decision_id, option_id in universe_decisions.items():
-        decision = analysis_decisions.get(decision_id)
+    for decision_id, option_id in chunk_selections.items():
+        decision = chunk_decisions.get(decision_id)
         if not decision:
             continue
 
@@ -263,12 +325,12 @@ def _validate_universe_constraints(
         if not option:
             continue
 
-        path = f"decisions.{decision_id}"
+        path = f"chunks.{chunk_id}.{decision_id}"
 
         # Check incompatible_with
         for ref in option.get("incompatible_with") or []:
             parsed = _parse_constraint_ref(ref)
-            if parsed and universe_decisions.get(parsed[0]) == parsed[1]:
+            if parsed and chunk_selections.get(parsed[0]) == parsed[1]:
                 errors.append(
                     SemanticError(
                         "INCOMPATIBLE_OPTIONS",
@@ -280,8 +342,8 @@ def _validate_universe_constraints(
         # Check requires
         for ref in option.get("requires") or []:
             parsed = _parse_constraint_ref(ref)
-            if parsed and universe_decisions.get(parsed[0]) != parsed[1]:
-                actual = universe_decisions.get(parsed[0], "(not set)")
+            if parsed and chunk_selections.get(parsed[0]) != parsed[1]:
+                actual = chunk_selections.get(parsed[0], "(not set)")
                 errors.append(
                     SemanticError(
                         "MISSING_REQUIRED_OPTION",

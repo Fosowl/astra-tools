@@ -16,6 +16,7 @@ from rich.tree import Tree
 
 from asp.helpers import (
     create_universe_from_defaults,
+    get_chunk_decisions,
     get_decisions,
     get_inputs,
     get_outputs,
@@ -78,12 +79,7 @@ def main() -> None:
 @click.argument("directory", type=click.Path(path_type=Path), default=".")
 @click.option("--no-git", is_flag=True, help="Don't initialize git repository")
 @click.option("--no-venv", is_flag=True, help="Don't create Python virtual environment")
-@click.option(
-    "--local",
-    is_flag=True,
-    help="Copy Claude skills locally instead of using marketplace (useful for development)",
-)
-def init(directory: Path, no_git: bool, no_venv: bool, local: bool) -> None:
+def init(directory: Path, no_git: bool, no_venv: bool) -> None:
     """Create a new ASP analysis project.
 
     Creates the project scaffolding for an ASP analysis with Claude Code
@@ -95,7 +91,6 @@ def init(directory: Path, no_git: bool, no_venv: bool, local: bool) -> None:
         asp init my-analysis
         asp init my-analysis --no-git    # Without git initialization
         asp init my-analysis --no-venv   # Without virtual environment
-        asp init my-analysis --local     # Copy skills locally for development
     """
     # Create project directory
     if directory != Path("."):
@@ -110,10 +105,7 @@ def init(directory: Path, no_git: bool, no_venv: bool, local: bool) -> None:
     subdirs = [
         "universes",
         "workflows",
-        "steps/io",
-        "steps/preprocessing",
-        "steps/models",
-        "steps/evaluation",
+        "steps",
         "results",
     ]
     for subdir in subdirs:
@@ -133,11 +125,8 @@ __pycache__/
     # Create boilerplate asp.yaml
     _create_boilerplate_asp_yaml(directory)
 
-    # Create Claude Code settings (either marketplace or local)
-    if local:
-        _create_local_claude_settings(directory)
-    else:
-        _create_claude_settings(directory)
+    # Create Claude Code settings with local skills
+    _create_claude_settings(directory)
 
     # Create virtual environment
     venv_created = _create_venv(directory, no_venv)
@@ -151,19 +140,13 @@ __pycache__/
     if venv_created:
         includes += ", .venv/"
     console.print(f"[dim]  Includes: {includes}[/dim]")
-    if local:
-        console.print("[dim]  Mode: local (skills copied into project)[/dim]")
-    else:
-        console.print("[dim]  Mode: marketplace (skills fetched from GitHub)[/dim]")
 
     console.print("\n[bold]Next steps:[/bold]")
     console.print(f"  1. [cyan]cd {directory}[/cyan]")
-    if local:
-        console.print("  2. Run [cyan]claude[/cyan] to launch Claude Code (skills are local)")
-    else:
-        console.print("  2. Run [cyan]claude[/cyan] to launch Claude Code (plugin auto-installs)")
-    console.print("  3. Edit [cyan]asp.yaml[/cyan] to define inputs, outputs, and decisions")
-    console.print("  4. Run [cyan]asp validate asp.yaml[/cyan] to check your spec")
+    console.print("  2. Run [cyan]claude[/cyan] to launch Claude Code")
+    console.print(
+        "  3. Run [cyan]/asp:new[/cyan] to scope your research question and define the analysis"
+    )
 
 
 def _create_boilerplate_asp_yaml(directory: Path) -> None:
@@ -189,27 +172,28 @@ analysis:
     - id: main_result
       type: metric
       dtype: float
-      primary: true
       description: "TODO: Describe your primary output metric"
 
     - id: conclusion
       type: report
       description: "Summary addressing the problem statement"
 
-decisions:
-  example_method:
-    label: "Example Method Choice"
-    type: method
-    importance: 3
-    rationale: "TODO: Explain why this decision matters"
-    default: option_a
-    options:
-      option_a:
-        label: "Option A"
-        description: "TODO: Describe option A"
-      option_b:
-        label: "Option B"
-        description: "TODO: Describe option B"
+chunks:
+  main:
+    decisions:
+      example_method:
+        label: "Example Method Choice"
+        type: method
+        importance: 3
+        rationale: "TODO: Explain why this decision matters"
+        default: option_a
+        options:
+          option_a:
+            label: "Option A"
+            description: "TODO: Describe option A"
+          option_b:
+            label: "Option B"
+            description: "TODO: Describe option B"
 '''
     (directory / "asp.yaml").write_text(asp_yaml)
 
@@ -220,8 +204,9 @@ decisions:
 id: baseline
 description: "Default configuration using standard practices"
 
-decisions:
-  example_method: option_a
+chunks:
+  main:
+    example_method: option_a
 """
     (directory / "universes" / "baseline.yaml").write_text(baseline_universe)
 
@@ -263,37 +248,6 @@ See [ASP documentation](https://github.com/LightconeResearch/ASP) for more infor
     (directory / "README.md").write_text(readme)
 
 
-def _create_claude_settings(directory: Path) -> None:
-    """Create Claude Code settings to auto-install ASP plugin."""
-    claude_dir = directory / ".claude"
-    claude_dir.mkdir(parents=True, exist_ok=True)
-
-    settings = {
-        "permissions": {
-            "allow": [
-                "Bash(asp:*)",
-                "Bash(python:*)",
-                "Bash(cwltool:*)",
-                "Edit",
-                "WebSearch",
-                "WebFetch",
-            ],
-        },
-        "extraKnownMarketplaces": {
-            "asp": {
-                "source": {
-                    "source": "github",
-                    "repo": "LightconeResearch/ASP",
-                }
-            }
-        },
-        "enabledPlugins": {"asp@asp": True},
-    }
-
-    settings_file = claude_dir / "settings.json"
-    settings_file.write_text(json.dumps(settings, indent=2) + "\n")
-
-
 def _get_plugin_source_dir() -> Path | None:
     """Find the ASP plugin source directory.
 
@@ -319,12 +273,8 @@ def _get_plugin_source_dir() -> Path | None:
     return None
 
 
-def _create_local_claude_settings(directory: Path) -> None:
-    """Create Claude Code settings with skills copied locally.
-
-    Instead of using the marketplace, this copies the plugin files directly
-    into the project's .claude/ directory for local development.
-    """
+def _create_claude_settings(directory: Path) -> None:
+    """Create Claude Code settings with ASP skills and agents."""
     claude_dir = directory / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
 
@@ -333,9 +283,8 @@ def _create_local_claude_settings(directory: Path) -> None:
     if plugin_source is None:
         console.print(
             "[yellow]Warning:[/yellow] Could not find ASP plugin source files. "
-            "Falling back to marketplace mode."
+            "Claude Code skills will not be available."
         )
-        _create_claude_settings(directory)
         return
 
     # Copy scripts
@@ -356,6 +305,14 @@ def _create_local_claude_settings(directory: Path) -> None:
         if skills_dst.exists():
             shutil.rmtree(skills_dst)
         shutil.copytree(skills_src, skills_dst)
+
+    # Copy agents (for sub-agent spawning)
+    agents_src = plugin_source / "agents"
+    agents_dst = claude_dir / "agents"
+    if agents_src.exists():
+        if agents_dst.exists():
+            shutil.rmtree(agents_dst)
+        shutil.copytree(agents_src, agents_dst)
 
     # Create settings.json with hooks configured directly (no marketplace)
     settings = {
@@ -600,38 +557,38 @@ def info(
         table = Table(show_header=True)
         table.add_column("ID")
         table.add_column("Type")
-        table.add_column("Primary")
         table.add_column("Description")
 
         for out in output_list:
-            primary = "✓" if out.get("primary") else ""
-            table.add_row(
-                out.get("id", ""), out.get("type", ""), primary, out.get("description", "")
-            )
+            table.add_row(out.get("id", ""), out.get("type", ""), out.get("description", ""))
         console.print(table)
 
-    # Decisions
+    # Decisions (grouped by chunk)
     if decisions or show_all:
         console.print("\n[bold]Decisions:[/bold]")
-        for decision_id, decision in decision_dict.items():
-            tree = Tree(f"[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
-            tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
-            tree.add(f"[dim]Importance:[/dim] {decision.get('importance', 3)}/5")
-            if decision.get("rationale"):
-                tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
+        chunk_decisions = get_chunk_decisions(data)
+        for chunk_id, chunk_decs in chunk_decisions.items():
+            if len(chunk_decisions) > 1:
+                console.print(f"\n  [bold magenta]Chunk: {chunk_id}[/bold magenta]")
+            for decision_id, decision in chunk_decs.items():
+                tree = Tree(f"[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
+                tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
+                tree.add(f"[dim]Importance:[/dim] {decision.get('importance', 3)}/5")
+                if decision.get("rationale"):
+                    tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
 
-            options_branch = tree.add("[dim]Options:[/dim]")
-            options = decision.get("options", {})
-            default = decision.get("default")
-            for option_id, option in options.items():
-                default_marker = " [yellow](default)[/yellow]" if option_id == default else ""
-                option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
-                if option.get("description"):
-                    option_text += f" - [dim]{option['description']}[/dim]"
-                options_branch.add(option_text)
+                options_branch = tree.add("[dim]Options:[/dim]")
+                options = decision.get("options", {})
+                default = decision.get("default")
+                for option_id, option in options.items():
+                    default_marker = " [yellow](default)[/yellow]" if option_id == default else ""
+                    option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
+                    if option.get("description"):
+                        option_text += f" - [dim]{option['description']}[/dim]"
+                    options_branch.add(option_text)
 
-            console.print(tree)
-            console.print()
+                console.print(tree)
+                console.print()
 
 
 @main.group()
@@ -665,9 +622,13 @@ def generate_universe(
     analysis_path = _require_analysis(analysis)
     data = load_yaml(analysis_path)
 
-    # Check all decisions have defaults
-    decisions = get_decisions(data)
-    missing_defaults = [d_id for d_id, d in decisions.items() if d.get("default") is None]
+    # Check all decisions have defaults (across all chunks)
+    chunk_decs = get_chunk_decisions(data)
+    missing_defaults: list[str] = []
+    for chunk_id, decs in chunk_decs.items():
+        for d_id, d in decs.items():
+            if d.get("default") is None:
+                missing_defaults.append(f"{chunk_id}.{d_id}")
     if missing_defaults:
         console.print("[red]Error:[/red] Some decisions don't have defaults:")
         for d_id in missing_defaults:
@@ -684,8 +645,11 @@ def generate_universe(
 
     console.print(f"[green]✓[/green] Generated universe at [cyan]{output}[/cyan]")
     console.print("\nDecisions:")
-    for d_id, opt_id in uni["decisions"].items():
-        console.print(f"  {d_id}: {opt_id}")
+    for chunk_id, chunk_selections in uni.get("chunks", {}).items():
+        if len(uni.get("chunks", {})) > 1:
+            console.print(f"  [magenta]{chunk_id}:[/magenta]")
+        for d_id, opt_id in chunk_selections.items():
+            console.print(f"  {d_id}: {opt_id}")
 
 
 @universe.command("check")
@@ -740,27 +704,29 @@ def _viz_ascii(data: dict[str, Any]) -> None:
     analysis_name = data.get("analysis", {}).get("name", "Unknown")
     tree = Tree(f"[bold]{analysis_name}[/bold]")
 
-    for decision_id, decision in get_decisions(data).items():
-        importance = decision.get("importance", 3)
-        importance_stars = "★" * importance + "☆" * (5 - importance)
-        branch = tree.add(
-            f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')}) [{importance_stars}]"
-        )
+    for chunk_id, decisions in get_chunk_decisions(data).items():
+        chunk_branch = tree.add(f"[bold magenta]{chunk_id}[/bold magenta]")
+        for decision_id, decision in decisions.items():
+            importance = decision.get("importance", 3)
+            importance_stars = "★" * importance + "☆" * (5 - importance)
+            branch = chunk_branch.add(
+                f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')}) [{importance_stars}]"
+            )
 
-        options = decision.get("options", {})
-        default = decision.get("default")
-        for option_id, option in options.items():
-            default_marker = " [default]" if option_id == default else ""
-            constraints = []
-            if option.get("incompatible_with"):
-                constraints.append(f"✗ {', '.join(option['incompatible_with'])}")
-            if option.get("requires"):
-                constraints.append(f"→ {', '.join(option['requires'])}")
+            options = decision.get("options", {})
+            default = decision.get("default")
+            for option_id, option in options.items():
+                default_marker = " [default]" if option_id == default else ""
+                constraints = []
+                if option.get("incompatible_with"):
+                    constraints.append(f"✗ {', '.join(option['incompatible_with'])}")
+                if option.get("requires"):
+                    constraints.append(f"→ {', '.join(option['requires'])}")
 
-            option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
-            if constraints:
-                option_text += f" [dim]({'; '.join(constraints)})[/dim]"
-            branch.add(option_text)
+                option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
+                if constraints:
+                    option_text += f" [dim]({'; '.join(constraints)})[/dim]"
+                branch.add(option_text)
 
     console.print(tree)
 
@@ -769,29 +735,36 @@ def _viz_mermaid(data: dict[str, Any]) -> None:
     """Generate Mermaid diagram for decisions."""
     lines = ["graph TD"]
 
-    for decision_id, decision in get_decisions(data).items():
-        # Decision node
-        lines.append(f"    {decision_id}[{decision.get('label', decision_id)}]")
+    for chunk_id, decisions in get_chunk_decisions(data).items():
+        # Chunk subgraph
+        lines.append(f"    subgraph {chunk_id}[{chunk_id}]")
+        for decision_id, decision in decisions.items():
+            # Use chunk-qualified node IDs to avoid collisions
+            node_prefix = f"{chunk_id}__{decision_id}"
+            # Decision node
+            lines.append(f"        {node_prefix}[{decision.get('label', decision_id)}]")
 
-        # Option nodes
-        options = decision.get("options", {})
-        default = decision.get("default")
-        for option_id, option in options.items():
-            node_id = f"{decision_id}_{option_id}"
-            style = ":::default" if option_id == default else ""
-            lines.append(f"    {node_id}(({option.get('label', option_id)})){style}")
-            lines.append(f"    {decision_id} --> {node_id}")
+            # Option nodes
+            options = decision.get("options", {})
+            default = decision.get("default")
+            for option_id, option in options.items():
+                node_id = f"{node_prefix}_{option_id}"
+                style = ":::default" if option_id == default else ""
+                lines.append(f"        {node_id}(({option.get('label', option_id)})){style}")
+                lines.append(f"        {node_prefix} --> {node_id}")
 
-            # Constraints
-            if option.get("incompatible_with"):
-                for ref in option["incompatible_with"]:
-                    target = ref.replace(".", "_")
-                    lines.append(f"    {node_id} -.->|incompatible| {target}")
+                # Constraints
+                if option.get("incompatible_with"):
+                    for ref in option["incompatible_with"]:
+                        # Constraints are chunk-scoped, qualify with current chunk
+                        target = f"{chunk_id}__{ref.replace('.', '_')}"
+                        lines.append(f"        {node_id} -.->|incompatible| {target}")
 
-            if option.get("requires"):
-                for ref in option["requires"]:
-                    target = ref.replace(".", "_")
-                    lines.append(f"    {node_id} -->|requires| {target}")
+                if option.get("requires"):
+                    for ref in option["requires"]:
+                        target = f"{chunk_id}__{ref.replace('.', '_')}"
+                        lines.append(f"        {node_id} -->|requires| {target}")
+        lines.append("    end")
 
     lines.append("")
     lines.append("    classDef default fill:#90EE90")

@@ -11,10 +11,12 @@ analysis:
     - id: result
       type: metric
 
-decisions:
-  method:
-    label: "Method"
-    type: invalid_type  # Should be data, method, or parameter
-    options:
-      a:
-        label: "A"
+chunks:
+  main:
+    decisions:
+      method:
+        label: "Method"
+        type: invalid_type  # Should be data, method, or parameter
+        options:
+          a:
+            label: "A"

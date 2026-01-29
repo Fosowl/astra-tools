@@ -11,13 +11,15 @@ analysis:
     - id: result
       type: metric
 
-decisions:
-  method:
-    label: "Method"
-    type: method
-    options:
-      a:
-        label: "A"
-        evidence:
-          - ref: inputs.nonexistent  # This input doesn't exist
-            finding: "Some finding"
+chunks:
+  main:
+    decisions:
+      method:
+        label: "Method"
+        type: method
+        options:
+          a:
+            label: "A"
+            evidence:
+              - ref: inputs.nonexistent  # This input doesn't exist
+                finding: "Some finding"

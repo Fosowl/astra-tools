@@ -15,14 +15,14 @@ class TestSchemaGeneration:
         assert "properties" in schema
         assert "version" in schema["properties"]
         assert "analysis" in schema["properties"]
-        assert "decisions" in schema["properties"]
+        assert "chunks" in schema["properties"]
 
     def test_get_universe_schema(self):
         schema = get_universe_schema()
         assert isinstance(schema, dict)
         assert "properties" in schema
         assert "id" in schema["properties"]
-        assert "decisions" in schema["properties"]
+        assert "chunks" in schema["properties"]
 
     def test_get_insights_schema(self):
         schema = get_insights_schema()

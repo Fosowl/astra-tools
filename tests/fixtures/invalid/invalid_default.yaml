@@ -11,13 +11,15 @@ analysis:
     - id: result
       type: metric
 
-decisions:
-  method:
-    label: "Method"
-    type: method
-    default: nonexistent  # This option doesn't exist
-    options:
-      a:
-        label: "A"
-      b:
-        label: "B"
+chunks:
+  main:
+    decisions:
+      method:
+        label: "Method"
+        type: method
+        default: nonexistent  # This option doesn't exist
+        options:
+          a:
+            label: "A"
+          b:
+            label: "B"

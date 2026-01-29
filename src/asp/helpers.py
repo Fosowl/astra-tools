@@ -71,18 +71,33 @@ def get_output(data: dict[str, Any], output_id: str) -> dict[str, Any] | None:
     return None
 
 
-def get_decision(data: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
+def get_decision(
+    data: dict[str, Any], decision_id: str, chunk_id: str | None = None
+) -> dict[str, Any] | None:
     """Get a decision by ID from analysis data.
+
+    Searches across all chunks, or within a specific chunk if chunk_id is given.
 
     Args:
         data: Analysis data as a dict.
         decision_id: The decision ID to find.
+        chunk_id: Optional chunk ID to search within.
 
     Returns:
         The decision dict if found, None otherwise.
     """
-    decisions: dict[str, dict[str, Any]] = data.get("decisions", {})
-    return decisions.get(decision_id)
+    chunks: dict[str, dict[str, Any]] = data.get("chunks", {})
+    if chunk_id is not None:
+        chunk = chunks.get(chunk_id, {})
+        result: dict[str, Any] | None = chunk.get("decisions", {}).get(decision_id)
+        return result
+    # Search all chunks
+    for chunk in chunks.values():
+        decisions = chunk.get("decisions", {})
+        if decision_id in decisions:
+            found: dict[str, Any] = decisions[decision_id]
+            return found
+    return None
 
 
 def get_insight(data: dict[str, Any], insight_id: str) -> dict[str, Any] | None:
@@ -99,21 +114,25 @@ def get_insight(data: dict[str, Any], insight_id: str) -> dict[str, Any] | None:
     return insights.get(insight_id)
 
 
-def get_default_universe(data: dict[str, Any]) -> dict[str, str]:
-    """Get the default universe based on decision defaults.
+def get_default_universe(data: dict[str, Any]) -> dict[str, dict[str, str]]:
+    """Get the default universe based on decision defaults across all chunks.
 
     Args:
         data: Analysis data as a dict.
 
     Returns:
-        Dict mapping decision_id to default option_id.
+        Dict mapping chunk_id to dict of decision_id to default option_id.
     """
-    result: dict[str, str] = {}
-    decisions = data.get("decisions", {})
-    for decision_id, decision in decisions.items():
-        default = decision.get("default")
-        if default is not None:
-            result[decision_id] = default
+    result: dict[str, dict[str, str]] = {}
+    chunks = data.get("chunks", {})
+    for chunk_id, chunk in chunks.items():
+        chunk_defaults: dict[str, str] = {}
+        for decision_id, decision in chunk.get("decisions", {}).items():
+            default = decision.get("default")
+            if default is not None:
+                chunk_defaults[decision_id] = default
+        if chunk_defaults:
+            result[chunk_id] = chunk_defaults
     return result
 
 
@@ -130,12 +149,12 @@ def create_universe_from_defaults(
         description: Optional description for the universe.
 
     Returns:
-        A universe dict with the default decisions selected.
+        A universe dict with the default decisions selected under chunks.
     """
     return {
         "id": universe_id,
         "description": description or "Default configuration using standard practices",
-        "decisions": get_default_universe(data),
+        "chunks": get_default_universe(data),
     }
 
 
@@ -166,7 +185,7 @@ def get_output_ids(data: dict[str, Any]) -> set[str]:
 
 
 def get_decision_ids(data: dict[str, Any]) -> set[str]:
-    """Get all decision IDs from analysis data.
+    """Get all decision IDs from analysis data (across all chunks).
 
     Args:
         data: Analysis data as a dict.
@@ -174,7 +193,10 @@ def get_decision_ids(data: dict[str, Any]) -> set[str]:
     Returns:
         Set of decision IDs.
     """
-    return set(data.get("decisions", {}).keys())
+    result: set[str] = set()
+    for chunk in data.get("chunks", {}).values():
+        result.update(chunk.get("decisions", {}).keys())
+    return result
 
 
 def get_insight_ids(data: dict[str, Any]) -> set[str]:
@@ -216,7 +238,11 @@ def get_outputs(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Get all decisions from analysis data.
+    """Get all decisions from analysis data (collected from all chunks).
+
+    Warning: If two chunks define decisions with the same ID, the later chunk's
+    decision will overwrite the earlier one. A warning is logged when this occurs.
+    Use ``get_chunk_decisions()`` when chunk-scoped lookup is needed.
 
     Args:
         data: Analysis data as a dict.
@@ -224,7 +250,37 @@ def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     Returns:
         Dict mapping decision_id to decision dict.
     """
-    result: dict[str, dict[str, Any]] = data.get("decisions", {})
+    import logging
+
+    logger = logging.getLogger(__name__)
+    result: dict[str, dict[str, Any]] = {}
+    for chunk_id, chunk in data.get("chunks", {}).items():
+        for decision_id, decision in chunk.get("decisions", {}).items():
+            if decision_id in result:
+                logger.warning(
+                    "Decision ID '%s' in chunk '%s' overwrites a decision with the same ID "
+                    "from an earlier chunk. Use get_chunk_decisions() for chunk-scoped access.",
+                    decision_id,
+                    chunk_id,
+                )
+            result[decision_id] = decision
+    return result
+
+
+def get_chunk_decisions(data: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
+    """Get all decisions grouped by chunk.
+
+    Args:
+        data: Analysis data as a dict.
+
+    Returns:
+        Dict mapping chunk_id to dict of decision_id to decision dict.
+    """
+    result: dict[str, dict[str, dict[str, Any]]] = {}
+    for chunk_id, chunk in data.get("chunks", {}).items():
+        decisions = chunk.get("decisions", {})
+        if decisions:
+            result[chunk_id] = decisions
     return result
 
 

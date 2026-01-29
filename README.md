@@ -35,6 +35,8 @@ flowchart LR
 
 **Multiverse**: The space of all valid decision combinations. Its purpose is transparency and traceability, not exhaustive search. Document the path taken, the paths not taken, and optionally check robustness.
 
+**Chunks**: All decisions live under chunks. Single-stage analyses use a `main` chunk. Complex analyses decompose into multiple chunks — each with its own problem statement, decisions, and optional artefacts.
+
 **Evidence-based decisions**: Link decisions to supporting evidence from previous analyses or literature.
 
 **Composability**: Use outputs from one analysis as inputs to another.
@@ -124,42 +126,118 @@ analysis:
       type: metric
       dtype: float
       range: [0, 1]
-      primary: true
+
 
     - id: confusion_matrix
       type: figure
       formats: [png]
 
-decisions:
-  scaling:
-    label: "Feature Scaling"
-    type: method
-    importance: 2
-    default: standard
-    options:
-      none:
-        label: "No Scaling"
-      standard:
-        label: "StandardScaler"
-      minmax:
-        label: "MinMaxScaler"
-        incompatible_with: ["model.svm"]
+chunks:
+  main:
+    decisions:
+      scaling:
+        label: "Feature Scaling"
+        type: method
+        importance: 2
+        default: standard
+        options:
+          none:
+            label: "No Scaling"
+          standard:
+            label: "StandardScaler"
+          minmax:
+            label: "MinMaxScaler"
+            incompatible_with: ["model.svm"]
 
-  model:
-    label: "Classification Model"
-    type: method
-    importance: 1
-    default: random_forest
-    options:
-      svm:
-        label: "Support Vector Machine"
-      random_forest:
-        label: "Random Forest"
-      logistic:
-        label: "Logistic Regression"
+      model:
+        label: "Classification Model"
+        type: method
+        importance: 1
+        default: random_forest
+        options:
+          svm:
+            label: "Support Vector Machine"
+          random_forest:
+            label: "Random Forest"
+          logistic:
+            label: "Logistic Regression"
 ```
 
 See [examples/iris/](examples/iris/) for a complete working example.
+
+## Chunks
+
+Complex analyses have intermediate stages — building mocks, training models, validating results — each with their own decisions. Chunks let you decompose an analysis into scoped stages defined inline within a single `asp.yaml`. Single-stage analyses use a `main` chunk; all decisions live under chunks.
+
+```yaml
+version: "1.0"
+
+analysis:
+  name: "SBI Cosmology Pipeline"
+  problem: "Constrain cosmological parameters via simulation-based inference."
+
+  inputs:
+    - id: survey_catalog
+      type: data
+      source: "sn_survey_union2.1"
+
+  outputs:
+    - id: posterior_contours
+      type: figure
+      formats: [png]
+
+chunks:
+  build_mocks:
+    problem: "Generate realistic mock catalogs matching survey properties."
+    success_criteria:
+      - "Mock catalog matches observed magnitude distribution"
+    decisions:
+      noise_model:
+        label: "Noise Model"
+        type: method
+        default: heteroscedastic
+        options:
+          homoscedastic: { label: "Homoscedastic" }
+          heteroscedastic: { label: "Heteroscedastic" }
+    artefacts:
+      - id: mock_catalog
+        type: data
+        description: "Simulated catalog matching survey properties"
+
+  train_network:
+    problem: "Train SBI neural network on mock catalog."
+    decisions:
+      architecture:
+        label: "Network Architecture"
+        type: method
+        default: maf
+        options:
+          maf: { label: "Masked Autoregressive Flow" }
+          npe: { label: "Neural Posterior Estimation" }
+
+  validate:
+    problem: "Validate trained model against observed data."
+    artefacts:
+      - id: posterior_plot
+        type: figure
+        description: "Posterior contour plots"
+```
+
+Each chunk has its own problem statement, decisions, and optional artefacts. The agent determines execution order and data flow between chunks.
+
+**Universe selections by chunk**: The universe file selects options for each chunk's decisions:
+
+```yaml
+# universes/baseline.yaml
+id: baseline
+chunks:
+  build_mocks:
+    noise_model: heteroscedastic
+  train_network:
+    architecture: maf
+```
+
+See [DESIGN.md](DESIGN.md#chunks) for full details.
 
 ## CLI Commands
 

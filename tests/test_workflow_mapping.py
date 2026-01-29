@@ -66,25 +66,29 @@ class TestExtractDecisionValues:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "test_size": {
-                    "label": "Test Size",
-                    "type": "parameter",
-                    "default": "split_20",
-                    "options": {
-                        "split_20": {"label": "20%", "value": 0.2},
-                        "split_30": {"label": "30%", "value": 0.3},
-                    },
-                },
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {
-                        "rf": {"label": "Random Forest"},  # No value field
-                        "svm": {"label": "SVM"},
-                    },
-                },
+            "chunks": {
+                "main": {
+                    "decisions": {
+                        "test_size": {
+                            "label": "Test Size",
+                            "type": "parameter",
+                            "default": "split_20",
+                            "options": {
+                                "split_20": {"label": "20%", "value": 0.2},
+                                "split_30": {"label": "30%", "value": 0.3},
+                            },
+                        },
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {
+                                "rf": {"label": "Random Forest"},  # No value field
+                                "svm": {"label": "SVM"},
+                            },
+                        },
+                    }
+                }
             },
         }
 
@@ -92,7 +96,7 @@ class TestExtractDecisionValues:
         """Options with value field return the value."""
         universe = {
             "id": "test",
-            "decisions": {"test_size": "split_20", "model": "rf"},
+            "chunks": {"main": {"test_size": "split_20", "model": "rf"}},
         }
         values = extract_decision_values(analysis_with_values, universe)
         assert values["test_size"] == 0.2
@@ -101,7 +105,7 @@ class TestExtractDecisionValues:
         """Options without value field return option_id as string."""
         universe = {
             "id": "test",
-            "decisions": {"test_size": "split_20", "model": "rf"},
+            "chunks": {"main": {"test_size": "split_20", "model": "rf"}},
         }
         values = extract_decision_values(analysis_with_values, universe)
         assert values["model"] == "rf"
@@ -110,10 +114,12 @@ class TestExtractDecisionValues:
         """Unknown decisions in universe are ignored."""
         universe = {
             "id": "test",
-            "decisions": {
-                "test_size": "split_20",
-                "model": "rf",
-                "unknown": "option",
+            "chunks": {
+                "main": {
+                    "test_size": "split_20",
+                    "model": "rf",
+                    "unknown": "option",
+                }
             },
         }
         values = extract_decision_values(analysis_with_values, universe)
@@ -134,34 +140,38 @@ class TestGenerateCWLParams:
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "test_size": {
-                    "label": "Test Size",
-                    "type": "parameter",
-                    "default": "split_20",
-                    "options": {
-                        "split_20": {"label": "20%", "value": 0.2},
-                    },
-                },
-                "scaling": {
-                    "label": "Scaling",
-                    "type": "method",
-                    "default": "standard",
-                    "options": {
-                        "standard": {
-                            "label": "Standard",
-                            "value": {"method": "standard", "with_mean": True},
+            "chunks": {
+                "main": {
+                    "decisions": {
+                        "test_size": {
+                            "label": "Test Size",
+                            "type": "parameter",
+                            "default": "split_20",
+                            "options": {
+                                "split_20": {"label": "20%", "value": 0.2},
+                            },
                         },
-                    },
-                },
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {
-                        "rf": {"label": "Random Forest"},
-                    },
-                },
+                        "scaling": {
+                            "label": "Scaling",
+                            "type": "method",
+                            "default": "standard",
+                            "options": {
+                                "standard": {
+                                    "label": "Standard",
+                                    "value": {"method": "standard", "with_mean": True},
+                                },
+                            },
+                        },
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {
+                                "rf": {"label": "Random Forest"},
+                            },
+                        },
+                    }
+                }
             },
         }
 
@@ -169,10 +179,12 @@ class TestGenerateCWLParams:
         """Generate params with mixed value types."""
         universe = {
             "id": "test",
-            "decisions": {
-                "test_size": "split_20",
-                "scaling": "standard",
-                "model": "rf",
+            "chunks": {
+                "main": {
+                    "test_size": "split_20",
+                    "scaling": "standard",
+                    "model": "rf",
+                }
             },
         }
         params = generate_cwl_params(full_analysis, universe)
@@ -313,16 +325,20 @@ class TestGenerateCWLParamsWithInputs:
                 "inputs": [{"id": "data", "type": "data", "source": "train.csv"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
             },
-            "decisions": {
-                "model": {
-                    "label": "Model",
-                    "type": "method",
-                    "default": "rf",
-                    "options": {"rf": {"label": "RF"}},
-                },
+            "chunks": {
+                "main": {
+                    "decisions": {
+                        "model": {
+                            "label": "Model",
+                            "type": "method",
+                            "default": "rf",
+                            "options": {"rf": {"label": "RF"}},
+                        },
+                    }
+                }
             },
         }
-        universe = {"id": "test", "decisions": {"model": "rf"}}
+        universe = {"id": "test", "chunks": {"main": {"model": "rf"}}}
         params = generate_cwl_params(analysis, universe, include_inputs=True)
 
         assert params["model"] == "rf"

@@ -84,9 +84,6 @@ class Output(BaseModel):
     formats: list[str] | None = Field(
         default=None, description="Supported file formats for artifacts"
     )
-    primary: bool = Field(
-        default=False, description="Whether this is the primary output for comparison"
-    )
     description: str | None = Field(default=None, description="Description of the output")
 
 
@@ -151,6 +148,10 @@ class Decision(BaseModel):
         description="Importance level (1=critical, 5=implementation detail)",
     )
     rationale: str | None = Field(default=None, description="Why this decision exists")
+    reviewed: bool | None = Field(
+        default=None,
+        description="Whether a human has reviewed and confirmed this decision",
+    )
     default: str | None = Field(
         default=None, description="Default option ID for baseline universes"
     )
@@ -162,6 +163,46 @@ class Decision(BaseModel):
         if self.default is not None and self.default not in self.options:
             raise ValueError(f"Default option '{self.default}' not found in options")
         return self
+
+
+class Artefact(BaseModel):
+    """An artefact produced by a chunk."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="Unique identifier for the artefact",
+    )
+    type: Literal["figure", "table", "data", "report"] = Field(
+        description="Type of artefact"
+    )
+    description: str | None = Field(default=None, description="Description of the artefact")
+
+
+class Chunk(BaseModel):
+    """An inline chunk within an analysis — a scoped stage with its own problem,
+    decisions, and optional artefacts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    problem: str | None = Field(
+        default=None,
+        description="Problem statement for this chunk (optional for 'main' chunk, "
+        "which inherits from analysis)",
+    )
+    success_criteria: list[str] | None = Field(
+        default=None,
+        description="Concrete criteria for determining if this chunk succeeded.",
+    )
+    decisions: dict[str, Decision] = Field(
+        default_factory=dict,
+        description="Map of decision IDs to decision specifications scoped to this chunk",
+    )
+    artefacts: list[Artefact] | None = Field(
+        default=None,
+        description="List of artefacts produced by this chunk",
+    )
 
 
 class AnalysisContent(BaseModel):
@@ -177,6 +218,11 @@ class AnalysisContent(BaseModel):
     tags: list[str] | None = Field(default=None, description="Tags for categorization")
     problem: str = Field(
         description="Problem statement describing what the analysis aims to achieve"
+    )
+    success_criteria: list[str] | None = Field(
+        default=None,
+        description="Concrete criteria for determining if the analysis succeeded. "
+        "Each criterion should be specific and verifiable.",
     )
     inputs: list[Input] = Field(description="List of inputs for the analysis")
     outputs: list[Output] = Field(description="List of expected outputs")
@@ -197,13 +243,14 @@ class Analysis(BaseModel):
     schema_: str | None = Field(default=None, alias="$schema", description="JSON Schema reference")
     version: str = Field(pattern=r"^\d+\.\d+$", description="ASP specification version")
     analysis: AnalysisContent = Field(description="The analysis specification")
-    decisions: dict[str, Decision] = Field(
-        default_factory=dict,
-        description="Map of decision IDs to decision specifications",
-    )
     insights: dict[str, Insight] = Field(
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
+    )
+    chunks: dict[str, Chunk] = Field(
+        description="Map of chunk IDs to chunk definitions. "
+        "Single-stage analyses use a 'main' chunk. "
+        "All decisions live under chunks.",
     )
 
     @classmethod
@@ -233,18 +280,31 @@ class Analysis(BaseModel):
                 return out
         return None
 
-    def get_decision(self, decision_id: str) -> Decision | None:
-        """Get a decision by ID."""
-        return self.decisions.get(decision_id)
+    def get_decision(self, decision_id: str, chunk_id: str | None = None) -> Decision | None:
+        """Get a decision by ID, searching across chunks or within a specific chunk."""
+        if chunk_id is not None:
+            chunk = self.chunks.get(chunk_id)
+            if chunk:
+                return chunk.decisions.get(decision_id)
+            return None
+        # Search all chunks
+        for chunk in self.chunks.values():
+            if decision_id in chunk.decisions:
+                return chunk.decisions[decision_id]
+        return None
 
     def get_insight(self, insight_id: str) -> Insight | None:
         """Get an insight by ID."""
         return self.insights.get(insight_id)
 
-    def get_default_universe(self) -> dict[str, str]:
-        """Get the default universe based on decision defaults."""
-        return {
-            decision_id: decision.default
-            for decision_id, decision in self.decisions.items()
-            if decision.default is not None
-        }
+    def get_default_universe(self) -> dict[str, dict[str, str]]:
+        """Get the default universe based on decision defaults across all chunks."""
+        result: dict[str, dict[str, str]] = {}
+        for chunk_id, chunk in self.chunks.items():
+            chunk_defaults: dict[str, str] = {}
+            for decision_id, decision in chunk.decisions.items():
+                if decision.default is not None:
+                    chunk_defaults[decision_id] = decision.default
+            if chunk_defaults:
+                result[chunk_id] = chunk_defaults
+        return result

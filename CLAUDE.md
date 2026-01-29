@@ -99,12 +99,14 @@ agentic-science-protocol/
 
 ### Key Concepts
 
-- **Analysis**: Defines problem statement, inputs, outputs, and decisions
+- **Analysis**: Defines problem statement, inputs, outputs, and chunks
+- **Chunk**: A scoped stage with its own problem, decisions, and optional artefacts. Single-stage analyses use a `main` chunk. All decisions live under chunks.
 - **Decision**: A choice point with multiple options (e.g., "which scaling method?")
-- **Universe**: One complete set of decisions (one option per decision)
+- **Artefact**: A typed output produced by a chunk (figure, table, data, report)
+- **Universe**: One complete set of decisions organized by chunk
 - **Multiverse**: The space of all valid decision combinations
 - **Insight**: Scientific knowledge from papers or prior analyses, with precise evidence
-- **Constraints**: `incompatible_with` and `requires` relationships between decision options
+- **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within a chunk)
 
 ## Development Commands
 
@@ -159,10 +161,10 @@ my-analysis/
 ├── steps/                # Reusable workflow steps
 ├── results/              # Execution outputs (gitignored)
 ├── .claude/              # Claude Code configuration
-│   └── settings.json     # Auto-installs ASP plugin from marketplace
+│   └── settings.json     # Configures permissions and hooks for ASP workflows
 ```
 
-The `settings.json` configures Claude Code to automatically install the ASP plugin from the marketplace when the project is opened.
+The `settings.json` configures Claude Code permissions and hooks directly (e.g., venv activation, skill loading) for working with ASP projects.
 
 ## Important Design Patterns
 
@@ -199,20 +201,22 @@ defaults = get_default_universe(data)
 ```
 
 ### 4. Constraint Validation
-Constraints are validated in `semantic.py`:
+Constraints are validated in `semantic.py`, scoped within each chunk:
 - `incompatible_with`: Lists of "decision.option" pairs that cannot coexist
 - `requires`: Lists of "decision.option" pairs that must be selected together
-- Universe validation checks these constraints
+- Universe validation checks these constraints per chunk
 
 ### 5. Evidence-Based Decisions
 Decisions can reference insights as evidence:
 ```yaml
-decisions:
-  scaling:
-    options:
-      standard:
-        evidence:
-          - insight: compute_scaling  # References insights.compute_scaling
+chunks:
+  main:
+    decisions:
+      scaling:
+        options:
+          standard:
+            evidence:
+              - insight: compute_scaling  # References insights.compute_scaling
 ```
 
 ## Testing Philosophy

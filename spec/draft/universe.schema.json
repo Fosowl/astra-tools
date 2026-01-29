@@ -2,7 +2,7 @@
   "$id": "https://asp-spec.org/v1/universe.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "A universe specification - a complete set of decisions.",
+  "description": "A universe specification - a complete set of decisions organized by chunk.",
   "properties": {
     "$schema": {
       "anyOf": [
@@ -36,18 +36,21 @@
       "description": "What this universe represents",
       "title": "Description"
     },
-    "decisions": {
+    "chunks": {
       "additionalProperties": {
-        "type": "string"
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
       },
-      "description": "Map of decision_id to selected option_id",
-      "title": "Decisions",
+      "description": "Map of chunk ID to decision selections (decision_id -> option_id) for that chunk",
+      "title": "Chunks",
       "type": "object"
     }
   },
   "required": [
     "id",
-    "decisions"
+    "chunks"
   ],
   "title": "ASP Universe Specification",
   "type": "object"

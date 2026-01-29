@@ -59,6 +59,22 @@
           "title": "Problem",
           "type": "string"
         },
+        "success_criteria": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Concrete criteria for determining if the analysis succeeded. Each criterion should be specific and verifiable.",
+          "title": "Success Criteria"
+        },
         "inputs": {
           "description": "List of inputs for the analysis",
           "items": {
@@ -83,6 +99,48 @@
         "outputs"
       ],
       "title": "AnalysisContent",
+      "type": "object"
+    },
+    "Artefact": {
+      "additionalProperties": false,
+      "description": "An artefact produced by a chunk.",
+      "properties": {
+        "id": {
+          "description": "Unique identifier for the artefact",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type of artefact",
+          "enum": [
+            "figure",
+            "table",
+            "data",
+            "report"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Description of the artefact",
+          "title": "Description"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "Artefact",
       "type": "object"
     },
     "ArxivSource": {
@@ -204,6 +262,67 @@
       "title": "Checksum",
       "type": "object"
     },
+    "Chunk": {
+      "additionalProperties": false,
+      "description": "An inline chunk within an analysis \u2014 a scoped stage with its own problem,\ndecisions, and optional artefacts.",
+      "properties": {
+        "problem": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Problem statement for this chunk (optional for 'main' chunk, which inherits from analysis)",
+          "title": "Problem"
+        },
+        "success_criteria": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Concrete criteria for determining if this chunk succeeded.",
+          "title": "Success Criteria"
+        },
+        "decisions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Decision"
+          },
+          "description": "Map of decision IDs to decision specifications scoped to this chunk",
+          "title": "Decisions",
+          "type": "object"
+        },
+        "artefacts": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Artefact"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "List of artefacts produced by this chunk",
+          "title": "Artefacts"
+        }
+      },
+      "title": "Chunk",
+      "type": "object"
+    },
     "Decision": {
       "additionalProperties": false,
       "description": "A decision point in the analysis.",
@@ -243,6 +362,19 @@
           "default": null,
           "description": "Why this decision exists",
           "title": "Rationale"
+        },
+        "reviewed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether a human has reviewed and confirmed this decision",
+          "title": "Reviewed"
         },
         "default": {
           "anyOf": [
@@ -802,12 +934,6 @@
           "description": "Supported file formats for artifacts",
           "title": "Formats"
         },
-        "primary": {
-          "default": false,
-          "description": "Whether this is the primary output for comparison",
-          "title": "Primary",
-          "type": "boolean"
-        },
         "description": {
           "anyOf": [
             {
@@ -1253,14 +1379,6 @@
       "$ref": "#/$defs/AnalysisContent",
       "description": "The analysis specification"
     },
-    "decisions": {
-      "additionalProperties": {
-        "$ref": "#/$defs/Decision"
-      },
-      "description": "Map of decision IDs to decision specifications",
-      "title": "Decisions",
-      "type": "object"
-    },
     "insights": {
       "additionalProperties": {
         "$ref": "#/$defs/Insight"
@@ -1268,11 +1386,20 @@
       "description": "Map of insight IDs to insight specifications",
       "title": "Insights",
       "type": "object"
+    },
+    "chunks": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Chunk"
+      },
+      "description": "Map of chunk IDs to chunk definitions. Single-stage analyses use a 'main' chunk. All decisions live under chunks.",
+      "title": "Chunks",
+      "type": "object"
     }
   },
   "required": [
     "version",
-    "analysis"
+    "analysis",
+    "chunks"
   ],
   "title": "ASP Analysis Specification",
   "type": "object"
