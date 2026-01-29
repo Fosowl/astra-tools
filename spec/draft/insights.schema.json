@@ -1,28 +1,62 @@
 {
   "$defs": {
-    "AnalysisSource": {
+    "ArxivSource": {
       "additionalProperties": false,
-      "description": "Source reference to a previous ASP analysis.",
+      "description": "Versioned arXiv paper source for reproducible references.\n\nThe version is mandatory to ensure reproducibility - arXiv papers\ncan be updated, and we need to reference a specific snapshot.",
       "properties": {
-        "analysis": {
-          "description": "Reference to the analysis (e.g., 'org/analysis-name')",
-          "title": "Analysis",
+        "id": {
+          "description": "Local ID for evidence references",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "arxiv",
+          "default": "arxiv",
+          "title": "Type",
+          "type": "string"
+        },
+        "arxiv_id": {
+          "description": "arXiv ID without version (e.g., '1706.03762')",
+          "pattern": "^\\d{4}\\.\\d{4,5}$|^[a-z-]+/\\d{7}$",
+          "title": "Arxiv Id",
           "type": "string"
         },
         "version": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Version of the analysis",
-          "title": "Version"
+          "description": "arXiv version number",
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
         },
-        "universe": {
+        "content_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-fA-F0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA-256 of PDF bytes for verification",
+          "title": "Content Sha256"
+        },
+        "retrieved_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When PDF was fetched",
+          "title": "Retrieved At"
+        },
+        "title": {
           "anyOf": [
             {
               "type": "string"
@@ -32,26 +66,55 @@
             }
           ],
           "default": null,
-          "description": "Specific universe used",
-          "title": "Universe"
+          "title": "Title"
+        },
+        "authors": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authors"
         }
       },
       "required": [
-        "analysis"
+        "id",
+        "arxiv_id",
+        "version"
       ],
-      "title": "AnalysisSource",
+      "title": "ArxivSource",
       "type": "object"
     },
-    "EquationEvidence": {
+    "DoiSource": {
       "additionalProperties": false,
-      "description": "Evidence from an equation.",
+      "description": "DOI-based paper source for non-arXiv publications.",
       "properties": {
-        "equation": {
-          "description": "Equation reference (e.g., 'Equation 7')",
-          "title": "Equation",
+        "id": {
+          "description": "Local ID for evidence references",
+          "minLength": 1,
+          "title": "Id",
           "type": "string"
         },
-        "expression": {
+        "type": {
+          "const": "doi",
+          "default": "doi",
+          "title": "Type",
+          "type": "string"
+        },
+        "doi": {
+          "description": "DOI (e.g., '10.1038/s41586-023-06221-2')",
+          "pattern": "^10\\.\\d{4,}/.*$",
+          "title": "Doi",
+          "type": "string"
+        },
+        "title": {
           "anyOf": [
             {
               "type": "string"
@@ -61,23 +124,117 @@
             }
           ],
           "default": null,
-          "description": "The mathematical expression",
-          "title": "Expression"
+          "title": "Title"
+        },
+        "authors": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authors"
         }
       },
       "required": [
-        "equation"
+        "id",
+        "doi"
       ],
-      "title": "EquationEvidence",
+      "title": "DoiSource",
       "type": "object"
     },
-    "FigureEvidence": {
+    "Evidence": {
       "additionalProperties": false,
-      "description": "Evidence from a figure.",
+      "description": "Evidence from scientific literature with W3C-compliant selectors.\n\nAt least one content selector (quote, figure, or table) is required.\nThe FragmentSelector provides optional PDF location hints.",
       "properties": {
+        "id": {
+          "description": "Evidence ID",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "source_ref": {
+          "description": "References source.id",
+          "minLength": 1,
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextQuoteSelector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text quote anchor"
+        },
         "figure": {
-          "description": "Figure reference (e.g., 'Figure 3a')",
-          "title": "Figure",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FigureSelector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Figure reference"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TableSelector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Table reference"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FragmentSelector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "PDF location hint"
+        }
+      },
+      "required": [
+        "id",
+        "source_ref"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "FigureSelector": {
+      "additionalProperties": false,
+      "description": "Selector for referencing figures in scientific papers.\n\nExtension of W3C selector pattern for scientific literature.\nThe label is the authoritative identifier (e.g., \"Figure 3a\").",
+      "properties": {
+        "type": {
+          "const": "FigureSelector",
+          "default": "FigureSelector",
+          "title": "Type",
+          "type": "string"
+        },
+        "label": {
+          "description": "Figure label (e.g., 'Figure 3a', 'Fig. 1')",
+          "minLength": 1,
+          "title": "Label",
           "type": "string"
         },
         "caption": {
@@ -90,66 +247,137 @@
             }
           ],
           "default": null,
-          "description": "Figure caption or description",
+          "description": "Caption text for verification",
           "title": "Caption"
         }
       },
       "required": [
-        "figure"
+        "label"
       ],
-      "title": "FigureEvidence",
+      "title": "FigureSelector",
+      "type": "object"
+    },
+    "FragmentSelector": {
+      "additionalProperties": false,
+      "description": "W3C FragmentSelector for PDF locations.\n\nSee: https://www.w3.org/TR/annotation-model/#fragment-selector\nConforms to RFC 3778/8118 for PDF fragments.",
+      "properties": {
+        "type": {
+          "const": "FragmentSelector",
+          "default": "FragmentSelector",
+          "title": "Type",
+          "type": "string"
+        },
+        "conformsTo": {
+          "const": "http://tools.ietf.org/rfc/rfc3778",
+          "default": "http://tools.ietf.org/rfc/rfc3778",
+          "title": "Conformsto",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fragment (e.g., 'page=6')",
+          "title": "Value"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "1-indexed page number",
+          "title": "Page"
+        }
+      },
+      "title": "FragmentSelector",
       "type": "object"
     },
     "Insight": {
       "additionalProperties": false,
-      "description": "A scientific insight with provenance and supporting evidence.\n\nAn insight is a discrete unit of scientific knowledge that can come from\neither literature (papers) or computation (previous analyses).",
+      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge extracted from\nliterature, with full traceability to source material via W3C-compliant\ntext selectors.",
       "properties": {
+        "id": {
+          "description": "Unique identifier",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
         "claim": {
-          "description": "The insight content - what we learned (1-2 sentences)",
+          "description": "What we learned (1-2 sentences)",
+          "minLength": 1,
           "title": "Claim",
           "type": "string"
         },
-        "source": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PaperSource"
-            },
-            {
-              "$ref": "#/$defs/AnalysisSource"
-            }
-          ],
-          "description": "Where this insight comes from (paper DOI or analysis reference)",
-          "title": "Source"
+        "created_at": {
+          "description": "Creation timestamp (ISO 8601)",
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
         },
-        "evidence": {
-          "description": "Supporting evidence for this insight (figures, quotes, tables, etc.)",
+        "sources": {
+          "description": "Source paper(s)",
           "items": {
-            "anyOf": [
+            "discriminator": {
+              "mapping": {
+                "arxiv": "#/$defs/ArxivSource",
+                "doi": "#/$defs/DoiSource"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
               {
-                "$ref": "#/$defs/FigureEvidence"
+                "$ref": "#/$defs/ArxivSource"
               },
               {
-                "$ref": "#/$defs/QuoteEvidence"
-              },
-              {
-                "$ref": "#/$defs/TableEvidence"
-              },
-              {
-                "$ref": "#/$defs/EquationEvidence"
-              },
-              {
-                "$ref": "#/$defs/ResultEvidence"
-              },
-              {
-                "$ref": "#/$defs/MetricEvidence"
-              },
-              {
-                "$ref": "#/$defs/OutputEvidence"
+                "$ref": "#/$defs/DoiSource"
               }
             ]
           },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "evidence": {
+          "description": "Supporting evidence",
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "minItems": 1,
           "title": "Evidence",
           "type": "array"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Confidence [0,1]",
+          "title": "Confidence"
+        },
+        "derived": {
+          "default": false,
+          "description": "True if synthesized/inferred",
+          "title": "Derived",
+          "type": "boolean"
         },
         "scope": {
           "anyOf": [
@@ -161,81 +389,58 @@
             }
           ],
           "default": null,
-          "description": "Context or conditions where this insight applies",
+          "description": "Applicability conditions",
           "title": "Scope"
+        },
+        "tags": {
+          "description": "Categorization tags",
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reasoning notes",
+          "title": "Notes"
         }
       },
       "required": [
+        "id",
         "claim",
-        "source"
+        "created_at",
+        "sources",
+        "evidence"
       ],
       "title": "Insight",
       "type": "object"
     },
-    "MetricEvidence": {
+    "TableSelector": {
       "additionalProperties": false,
-      "description": "Evidence from an analysis metric output.",
+      "description": "Selector for referencing tables in scientific papers.\n\nExtension of W3C selector pattern for scientific literature.\nThe label is the authoritative identifier (e.g., \"Table 2\").",
       "properties": {
-        "metric": {
-          "description": "Name of the metric",
-          "title": "Metric",
+        "type": {
+          "const": "TableSelector",
+          "default": "TableSelector",
+          "title": "Type",
           "type": "string"
         },
-        "value": {
-          "description": "The metric value(s)",
-          "title": "Value"
-        }
-      },
-      "required": [
-        "metric",
-        "value"
-      ],
-      "title": "MetricEvidence",
-      "type": "object"
-    },
-    "OutputEvidence": {
-      "additionalProperties": false,
-      "description": "Evidence from an analysis output artifact.",
-      "properties": {
-        "output": {
-          "description": "Output ID or path",
-          "title": "Output",
-          "type": "string"
-        }
-      },
-      "required": [
-        "output"
-      ],
-      "title": "OutputEvidence",
-      "type": "object"
-    },
-    "PaperSource": {
-      "additionalProperties": false,
-      "description": "Source reference to a scientific paper.",
-      "properties": {
-        "doi": {
-          "description": "DOI of the paper (e.g., '10.1038/s41586-023-06221-2')",
-          "pattern": "^10\\.\\d{4,}/.*$",
-          "title": "Doi",
-          "type": "string"
-        }
-      },
-      "required": [
-        "doi"
-      ],
-      "title": "PaperSource",
-      "type": "object"
-    },
-    "QuoteEvidence": {
-      "additionalProperties": false,
-      "description": "Evidence from a direct quote.",
-      "properties": {
-        "quote": {
-          "description": "The exact quoted text",
-          "title": "Quote",
+        "label": {
+          "description": "Table label (e.g., 'Table 1', 'Tab. 2')",
+          "minLength": 1,
+          "title": "Label",
           "type": "string"
         },
-        "location": {
+        "caption": {
           "anyOf": [
             {
               "type": "string"
@@ -245,26 +450,46 @@
             }
           ],
           "default": null,
-          "description": "Location in source (e.g., 'Section 2.1, p.3')",
-          "title": "Location"
+          "description": "Caption/header text for verification",
+          "title": "Caption"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Specific region (e.g., 'row 3')",
+          "title": "Region"
         }
       },
       "required": [
-        "quote"
+        "label"
       ],
-      "title": "QuoteEvidence",
+      "title": "TableSelector",
       "type": "object"
     },
-    "ResultEvidence": {
+    "TextQuoteSelector": {
       "additionalProperties": false,
-      "description": "Evidence from a numerical result.",
+      "description": "W3C TextQuoteSelector for locating text in a document.\n\nSee: https://www.w3.org/TR/annotation-model/#text-quote-selector\n\nThe authoritative anchor for verification. Text should be normalized\n(HTML/XML tags removed, entities decoded).",
       "properties": {
-        "result": {
-          "description": "Description of the result",
-          "title": "Result",
+        "type": {
+          "const": "TextQuoteSelector",
+          "default": "TextQuoteSelector",
+          "title": "Type",
           "type": "string"
         },
-        "location": {
+        "exact": {
+          "description": "Exact quoted text (1-3 sentences)",
+          "minLength": 1,
+          "title": "Exact",
+          "type": "string"
+        },
+        "prefix": {
           "anyOf": [
             {
               "type": "string"
@@ -274,74 +499,34 @@
             }
           ],
           "default": null,
-          "description": "Where in the source",
-          "title": "Location"
+          "description": "~20-100 chars before for disambiguation",
+          "title": "Prefix"
         },
-        "value": {
+        "suffix": {
           "anyOf": [
-            {},
+            {
+              "type": "string"
+            },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "The numerical value",
-          "title": "Value"
+          "description": "~20-100 chars after for disambiguation",
+          "title": "Suffix"
         }
       },
       "required": [
-        "result"
+        "exact"
       ],
-      "title": "ResultEvidence",
-      "type": "object"
-    },
-    "TableEvidence": {
-      "additionalProperties": false,
-      "description": "Evidence from a table.",
-      "properties": {
-        "table": {
-          "description": "Table reference (e.g., 'Table 1')",
-          "title": "Table",
-          "type": "string"
-        },
-        "location": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Specific row/column if applicable",
-          "title": "Location"
-        },
-        "value": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The specific value referenced",
-          "title": "Value"
-        }
-      },
-      "required": [
-        "table"
-      ],
-      "title": "TableEvidence",
+      "title": "TextQuoteSelector",
       "type": "object"
     }
   },
   "$id": "https://asp-spec.org/v1/insights.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "A collection of scientific insights.\n\nCan be used as a standalone file or embedded in an analysis.",
+  "description": "Collection of insights, usable standalone or embedded in an analysis.",
   "properties": {
     "$schema": {
       "anyOf": [
@@ -353,14 +538,12 @@
         }
       ],
       "default": null,
-      "description": "JSON Schema reference",
       "title": "$Schema"
     },
     "insights": {
       "additionalProperties": {
         "$ref": "#/$defs/Insight"
       },
-      "description": "Map of insight IDs to insight specifications",
       "title": "Insights",
       "type": "object"
     }
