@@ -153,7 +153,7 @@ def _create_boilerplate_asp_yaml(directory: Path) -> None:
     """Create boilerplate asp.yaml with TODOs."""
     name = directory.name if directory != Path(".") else "My Analysis"
 
-    asp_yaml = f'''# ASP Analysis Specification
+    asp_yaml = f"""# ASP Analysis Specification
 # Documentation: https://github.com/EiffL/ASP
 
 version: "1.0"
@@ -194,7 +194,7 @@ chunks:
           option_b:
             label: "Option B"
             description: "TODO: Describe option B"
-'''
+"""
     (directory / "asp.yaml").write_text(asp_yaml)
 
     # Create baseline universe
@@ -455,9 +455,7 @@ def _create_venv(directory: Path, no_venv: bool) -> bool:
     is_flag=True,
     help="Skip evidence verification even if insights are present",
 )
-def validate(
-    file: Path, analysis: Path | None, verify_evidence: bool, skip_evidence: bool
-) -> None:
+def validate(file: Path, analysis: Path | None, verify_evidence: bool, skip_evidence: bool) -> None:
     """Validate an ASP specification file.
 
     FILE can be an analysis (asp.yaml) or universe file.
@@ -518,8 +516,7 @@ def validate(
             if not verify_evidence:
                 # Show hint about evidence verification
                 evidence_count = sum(
-                    len(insight.get("evidence", []))
-                    for insight in insights.values()
+                    len(insight.get("evidence", [])) for insight in insights.values()
                 )
                 if evidence_count > 0:
                     console.print(
