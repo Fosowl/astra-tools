@@ -1,6 +1,6 @@
 """PDF handling for evidence verification.
 
-Downloads arXiv PDFs and extracts text for quote verification.
+Extracts text from PDFs for quote verification.
 """
 
 from __future__ import annotations
@@ -11,37 +11,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# Check for optional dependencies
-# These are optional and may not be installed
-httpx: Any = None
-pdftext: Any = None
+# pypdf is an optional dependency
+PdfReader: Any = None
 
 try:
-    import httpx as _httpx  # type: ignore[import-not-found,unused-ignore]
+    from pypdf import PdfReader as _PdfReader  # type: ignore[import-not-found]
 
-    httpx = _httpx
-except ImportError:
-    pass
-
-try:
-    import pdftext as _pdftext  # type: ignore[import-not-found]
-
-    pdftext = _pdftext
+    PdfReader = _PdfReader
 except ImportError:
     pass
 
 
-def _check_dependencies() -> None:
-    """Raise ImportError if verification dependencies are missing."""
-    missing = []
-    if httpx is None:
-        missing.append("httpx")
-    if pdftext is None:
-        missing.append("pdftext")
-    if missing:
+def _check_pypdf() -> None:
+    """Raise ImportError if pypdf is not installed."""
+    if PdfReader is None:
         raise ImportError(
-            f"Missing verification dependencies: {', '.join(missing)}. "
-            "Install with: pip install asp[verify]"
+            "pypdf is required for PDF extraction. Install with: pip install pypdf"
         )
 
 
@@ -186,56 +171,6 @@ def _similarity_ratio(s1: str, s2: str) -> float:
     return matches / max(len(s1), len(s2))
 
 
-def get_arxiv_pdf(
-    source: Any,
-    cache_dir: Path | None = None,
-) -> Path:
-    """Download an arXiv PDF.
-
-    Args:
-        source: ArxivSource dict or object with arxiv_id and version.
-        cache_dir: Directory to cache PDFs. Defaults to ~/.cache/asp/pdfs.
-
-    Returns:
-        Path to the downloaded PDF.
-
-    Raises:
-        ImportError: If httpx is not installed.
-        httpx.HTTPError: If download fails.
-    """
-    _check_dependencies()
-
-    # Handle both dict and object
-    if isinstance(source, dict):
-        arxiv_id = source["arxiv_id"]
-        version = source["version"]
-    else:
-        arxiv_id = source.arxiv_id
-        version = source.version
-
-    # Set up cache directory
-    if cache_dir is None:
-        cache_dir = Path.home() / ".cache" / "asp" / "pdfs"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    # Check cache
-    filename = f"{arxiv_id.replace('/', '_')}v{version}.pdf"
-    cached_path = cache_dir / filename
-
-    if cached_path.exists():
-        return cached_path
-
-    # Download
-    url = f"https://arxiv.org/pdf/{arxiv_id}v{version}.pdf"
-    response = httpx.get(url, follow_redirects=True, timeout=60.0)
-    response.raise_for_status()
-
-    # Save to cache
-    cached_path.write_bytes(response.content)
-
-    return cached_path
-
-
 def extract_text_from_pdf(pdf_path: Path) -> PDFDocument:
     """Extract text from a PDF file.
 
@@ -246,15 +181,17 @@ def extract_text_from_pdf(pdf_path: Path) -> PDFDocument:
         PDFDocument with extracted text and metadata.
 
     Raises:
-        ImportError: If pdftext is not installed.
+        ImportError: If pypdf is not installed.
     """
-    _check_dependencies()
+    _check_pypdf()
 
-    # Calculate SHA-256
-    sha256 = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+    # Read PDF content for SHA-256
+    pdf_bytes = pdf_path.read_bytes()
+    sha256 = hashlib.sha256(pdf_bytes).hexdigest()
 
-    # Extract text by page
-    pages = pdftext.extraction.plain_text_output(str(pdf_path), sort=True, hyphens=False)
+    # Extract text by page using pypdf
+    reader = PdfReader(pdf_path)
+    pages = [page.extract_text() or "" for page in reader.pages]
 
     return PDFDocument(
         path=pdf_path,

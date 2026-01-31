@@ -108,18 +108,6 @@ def _get_attr(obj: Any, key: str, default: Any = None) -> Any:
     return getattr(obj, key, default)
 
 
-def _is_arxiv_doi(doi: str) -> bool:
-    """Check if DOI is an arXiv DOI."""
-    return doi.startswith("10.48550/arXiv.")
-
-
-def _extract_arxiv_id(doi: str) -> str | None:
-    """Extract arXiv ID from arXiv DOI."""
-    if _is_arxiv_doi(doi):
-        return doi.replace("10.48550/arXiv.", "")
-    return None
-
-
 def verify_quote_in_pdf(
     quote_text: str,
     pdf: PDFDocument,

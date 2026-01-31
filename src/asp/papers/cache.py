@@ -19,7 +19,7 @@ import json
 import re
 import shutil
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -40,18 +40,6 @@ def _sanitize_doi(doi: str, version: int | None = None) -> str:
     if version is not None:
         safe = f"{safe}_v{version}"
     return safe
-
-
-def _is_arxiv_doi(doi: str) -> bool:
-    """Check if DOI is an arXiv DOI."""
-    return doi.startswith("10.48550/arXiv.")
-
-
-def _extract_arxiv_id(doi: str) -> str | None:
-    """Extract arXiv ID from arXiv DOI."""
-    if _is_arxiv_doi(doi):
-        return doi.replace("10.48550/arXiv.", "")
-    return None
 
 
 @dataclass
@@ -211,7 +199,7 @@ class PaperCache:
             title=title,
             authors=authors,
             source_url=source_url,
-            retrieved_at=datetime.utcnow().isoformat() + "Z",
+            retrieved_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         )
 
         # Write metadata

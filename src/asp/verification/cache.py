@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -191,7 +191,7 @@ class VerificationCache:
             quote_hash=quote_hash,
             pdf_sha256=pdf_sha256,
             status=status,
-            verified_at=datetime.utcnow().isoformat() + "Z",
+            verified_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             found_pages=found_pages,
             expected_page=expected_page,
         )
