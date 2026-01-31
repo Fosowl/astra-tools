@@ -25,9 +25,7 @@ except ImportError:
 def _check_pypdf() -> None:
     """Raise ImportError if pypdf is not installed."""
     if PdfReader is None:
-        raise ImportError(
-            "pypdf is required for PDF extraction. Install with: pip install pypdf"
-        )
+        raise ImportError("pypdf is required for PDF extraction. Install with: pip install pypdf")
 
 
 @dataclass

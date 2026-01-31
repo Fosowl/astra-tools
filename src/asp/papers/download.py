@@ -24,7 +24,7 @@ def _check_httpx() -> None:
     """Raise ImportError if httpx is not installed."""
     if httpx is None:
         raise ImportError(
-            "httpx is required for paper downloading. " "Install with: pip install asp[verify]"
+            "httpx is required for paper downloading. Install with: pip install asp[verify]"
         )
 
 
@@ -85,8 +85,11 @@ def _download_arxiv_pdf(arxiv_id: str, version: int | None = None) -> PaperDownl
 
         # Check if we got a PDF (arXiv returns application/pdf or application/octet-stream)
         content_type = response.headers.get("content-type", "")
-        if "application/pdf" not in content_type and not content_type.startswith("application/octet"):
-            return PaperDownloadResult(success=False, error=f"Unexpected content type: {content_type}")
+        is_pdf = "application/pdf" in content_type or content_type.startswith("application/octet")
+        if not is_pdf:
+            return PaperDownloadResult(
+                success=False, error=f"Unexpected content type: {content_type}"
+            )
 
         return PaperDownloadResult(
             success=True,
