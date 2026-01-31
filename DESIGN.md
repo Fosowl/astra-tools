@@ -275,11 +275,259 @@ The analysis spec is declarative. It says WHAT we want, not HOW to compute it. T
 
 The generated workflow should be versioned (in git) but is not part of the ASP spec.
 
-## Evidence-Based Decisions
+## Insights
 
-Decisions can reference inputs as evidence:
+Insights represent scientific knowledge extracted from literature with full traceability to source material. They use W3C Web Annotation-compliant selectors for precise evidence references.
+
+### Evidence Lifecycle
+
+The following diagram shows the complete workflow for extracting insights from literature and linking them to analysis decisions:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        PHASE 1: LITERATURE RESEARCH                      │
+│                           (Agent + Web Search)                           │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  1. Identify decisions needing justification                             │
+│  2. Web search for relevant papers (arXiv, Semantic Scholar, etc.)       │
+│  3. Collect DOIs (arXiv DOIs: 10.48550/arXiv.{id})                       │
+│  4. Note relevance to specific decisions                                 │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        PHASE 2: PAPER ACQUISITION                        │
+│                              (CLI)                                       │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  asp paper add 10.48550/arXiv.1706.03762 --version 7                     │
+│  asp paper add 10.1038/s41586-023-06221-2                                │
+│         │                                                                │
+│         ▼                                                                │
+│  • Resolve DOI to PDF URL (doi.org → publisher)                          │
+│  • Download PDF to cache (if open access)                                │
+│  • Compute SHA-256                                                       │
+│  • Store metadata (title, authors, retrieved_at)                         │
+│         │                                                                │
+│         ▼                                                                │
+│  Cache: ~/.cache/asp/papers/                                             │
+│         └── 10.48550_arXiv.1706.03762_v7/                                │
+│             ├── paper.pdf                                                │
+│             └── meta.json  (sha256, title, doi, version, retrieved_at)   │
+│                                                                          │
+│  NO TEXT EXTRACTION - Agent reads PDF directly                           │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       PHASE 3: INSIGHT EXTRACTION                        │
+│                        (Agent + PDF Reading)                             │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  1. Agent reads PDF file directly (Claude can read PDFs)                 │
+│                                                                          │
+│  2. Agent identifies relevant quotes, figures, tables                    │
+│                                                                          │
+│  3. Agent writes insight to asp.yaml:                                    │
+│                                                                          │
+│     insights:                                                            │
+│       layer_norm_insight:                                                │
+│         id: layer_norm_insight                                           │
+│         claim: "Layer normalization improves training stability"         │
+│         created_at: "2024-01-15T10:30:00Z"                               │
+│         evidence:                                                        │
+│           - id: ev1                                                      │
+│             doi: "10.48550/arXiv.1706.03762"                             │
+│             version: 7  # For arXiv, version matters                     │
+│             quote:                                                       │
+│               type: TextQuoteSelector                                    │
+│               exact: "We found that layer normalization..."              │
+│               prefix: "In our experiments, "  # optional                 │
+│             location:                                                    │
+│               type: FragmentSelector                                     │
+│               page: 5                                                    │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       PHASE 4: DECISION LINKING                          │
+│                        (Agent)                                           │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  chunks:                                                                 │
+│    main:                                                                 │
+│      decisions:                                                          │
+│        normalization:                                                    │
+│          options:                                                        │
+│            layer_norm:                                                   │
+│              insights:                                                   │
+│                - layer_norm_insight  # Reference to insight              │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       PHASE 5: VALIDATION (Unified)                      │
+│                         (CLI - Gatekeeper)                               │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  asp validate asp.yaml --verify-evidence                                 │
+│         │                                                                │
+│         ▼                                                                │
+│  Stage 1: Schema Validation                                              │
+│    • YAML structure matches JSON schema                                  │
+│    • Required fields present, types correct                              │
+│         │                                                                │
+│         ▼                                                                │
+│  Stage 2: Semantic Validation                                            │
+│    • All references resolve (Option.insights → Insight.id)               │
+│    • Constraints valid (incompatible_with, requires)                     │
+│         │                                                                │
+│         ▼                                                                │
+│  Stage 3: Evidence Verification (with caching)                           │
+│    • For each evidence item:                                             │
+│      - Check cache: (doi, version, quote_hash) → verified_at             │
+│      - If cached and PDF unchanged → skip                                │
+│      - Else: load PDF, search for quote, update cache                    │
+│         │                                                                │
+│    ┌────┴────┐                                                           │
+│    ▼         ▼                                                           │
+│  PASS      FAIL                                                          │
+│    │         │                                                           │
+│    │         └──► Error: "Quote not found: '...' in paper X"             │
+│    │               Agent must fix and re-run                             │
+│    ▼                                                                     │
+│  All checks passed → Ready for commit/PR                                 │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight**: The agent can write whatever evidence it wants, but `asp validate --verify-evidence` will **fail** if quotes don't exist in the PDF. No fabricated evidence can make it through the workflow.
+
+### Insight Structure
 
 ```yaml
+insights:
+  layer_norm_stability:
+    id: layer_norm_stability
+    claim: "Layer normalization improves training stability compared to batch normalization."
+    created_at: "2024-01-15T10:30:00Z"
+    evidence:
+      - id: ev1
+        doi: "10.48550/arXiv.1706.03762"
+        version: 7                          # For arXiv papers (version matters)
+        quote:
+          type: TextQuoteSelector
+          exact: "We found that layer normalization leads to faster convergence."
+          prefix: "In our ablation studies, "   # Optional: ~20-100 chars for disambiguation
+          suffix: " This effect was..."         # Optional: ~20-100 chars
+        location:
+          type: FragmentSelector
+          page: 5                            # 1-indexed page number
+    scope: "Transformer architectures"       # Optional: when this applies
+    confidence: 0.9                          # Optional: 0-1 confidence score
+```
+
+### Evidence Types
+
+Evidence references papers by DOI and must include at least one content selector:
+
+| Selector | Purpose | Required Fields |
+|----------|---------|-----------------|
+| `quote` (TextQuoteSelector) | Exact text from paper | `exact` (the quote) |
+| `figure` (FigureSelector) | Reference to a figure | `label` (e.g., "Figure 3a") |
+| `table` (TableSelector) | Reference to a table | `label` (e.g., "Table 1") |
+
+**Quote evidence (W3C TextQuoteSelector):**
+```yaml
+quote:
+  type: TextQuoteSelector
+  exact: "The exact quoted text from the paper"
+  prefix: "Context before..."    # Optional
+  suffix: "Context after..."     # Optional
+```
+
+**Figure evidence (FigureSelector):**
+```yaml
+figure:
+  type: FigureSelector
+  label: "Figure 3a"
+  caption: "Optional caption text for verification"
+```
+
+**Table evidence (TableSelector):**
+```yaml
+table:
+  type: TableSelector
+  label: "Table 1"
+  caption: "Optional header text"
+  region: "row 3, accuracy column"  # Optional: specific region
+```
+
+### Location Hints
+
+The `location` field (W3C FragmentSelector) provides PDF location hints:
+
+```yaml
+location:
+  type: FragmentSelector
+  page: 5                        # 1-indexed page number
+```
+
+### arXiv Papers
+
+For arXiv papers, use the DOI format `10.48550/arXiv.{id}` and specify the version:
+
+```yaml
+evidence:
+  - id: ev1
+    doi: "10.48550/arXiv.1706.03762"
+    version: 7                    # Important: arXiv papers are updated
+    quote:
+      type: TextQuoteSelector
+      exact: "Attention is all you need."
+```
+
+### Evidence Verification
+
+The CLI can verify that quotes exist in source PDFs:
+
+```bash
+asp validate asp.yaml --verify-evidence
+```
+
+This:
+1. Checks that each paper is in the local cache (`asp paper add <doi>`)
+2. Searches for exact quotes in the PDF text
+3. Verifies page numbers if provided
+4. Caches verification results for efficiency
+
+**Key principle**: The agent writes evidence, but validation is the gatekeeper. Fabricated quotes will fail verification.
+
+## Evidence-Based Decisions
+
+Decisions reference insights (not papers directly) to create a traceable chain:
+
+```yaml
+insights:
+  minmax_study:
+    id: minmax_study
+    claim: "MinMax scaling improves accuracy for tree-based models by 3%."
+    created_at: "2024-01-15T10:00:00Z"
+    evidence:
+      - id: ev1
+        doi: "10.1234/scaling-study"
+        quote:
+          type: TextQuoteSelector
+          exact: "MinMax normalization yielded a 3% improvement in accuracy for Random Forest."
+        location:
+          type: FragmentSelector
+          page: 12
+
 chunks:
   main:
     decisions:
@@ -287,14 +535,11 @@ chunks:
         options:
           minmax:
             label: "Min-Max Scaling"
-            evidence:
-              - ref: inputs.scaling_study
-                finding: "Showed 5% accuracy improvement on similar data"
-              - ref: inputs.smith_2023
-                finding: "Recommended for tree-based models"
+            insights:
+              - minmax_study            # Reference to insight ID
 ```
 
-This creates a traceable chain from evidence → decision → output.
+This creates a traceable chain: **decision option → insight → evidence → paper (DOI)**.
 
 ## Composability
 
@@ -370,6 +615,22 @@ analysis:
       type: report
       description: "Summary of classifier performance and suitability for the application"
 
+insights:
+  minmax_tree_improvement:
+    id: minmax_tree_improvement
+    claim: "MinMax scaling improves tree model accuracy by 3% on tabular data."
+    created_at: "2024-01-15T10:00:00Z"
+    evidence:
+      - id: ev1
+        doi: "10.1234/scaling-comparison-2024"
+        quote:
+          type: TextQuoteSelector
+          exact: "MinMax normalization yielded a 3% improvement in accuracy for Random Forest classifiers on tabular datasets."
+        location:
+          type: FragmentSelector
+          page: 8
+    scope: "Tree-based models on tabular data"
+
 chunks:
   main:
     decisions:
@@ -389,9 +650,8 @@ chunks:
           minmax:
             label: "MinMaxScaler"
             description: "Scale to [0, 1] range"
-            evidence:
-              - ref: inputs.preprocessing_study
-                finding: "Showed 3% improvement for tree models"
+            insights:
+              - minmax_tree_improvement
             incompatible_with: ["model.svm"]
 
       model:
@@ -1074,6 +1334,38 @@ analysis:
 
       description: string
 
+insights:                         # Optional: Map of insights
+  insight_id:
+    id: string                    # Unique identifier
+    claim: string                 # What we learned (1-2 sentences)
+    created_at: datetime          # ISO 8601 timestamp
+    evidence:                     # Required: list of evidence items
+      - id: string                # Evidence ID (unique within insight)
+        doi: string               # Paper DOI (e.g., "10.48550/arXiv.1706.03762")
+        version: int              # Optional: paper version (for arXiv)
+        quote:                    # At least one of: quote, figure, table
+          type: TextQuoteSelector
+          exact: string           # Exact quoted text
+          prefix: string          # Optional: context before
+          suffix: string          # Optional: context after
+        figure:
+          type: FigureSelector
+          label: string           # Figure label (e.g., "Figure 3a")
+          caption: string         # Optional: caption text
+        table:
+          type: TableSelector
+          label: string           # Table label (e.g., "Table 1")
+          caption: string         # Optional: header text
+          region: string          # Optional: specific region
+        location:                 # Optional: PDF location hint
+          type: FragmentSelector
+          page: int               # 1-indexed page number
+    confidence: float             # Optional: 0-1 confidence score
+    derived: bool                 # Optional: true if synthesized/inferred
+    scope: string                 # Optional: applicability conditions
+    tags: [string]                # Optional: categorization tags
+    notes: string                 # Optional: reasoning notes
+
 chunks:                           # Required: Map of chunks
   chunk_id:
     problem: string               # Problem statement (optional for 'main')
@@ -1084,13 +1376,14 @@ chunks:                           # Required: Map of chunks
         type: data|method|parameter
         importance: 1-5           # 1=critical, 5=implementation detail
         rationale: string         # Why this decision exists
+        reviewed: bool            # Optional: has a human reviewed this?
         default: option_id        # Default option for baseline
         options:
           option_id:
             label: string         # Human-readable name
             description: string
             value: any            # Configuration value
-            evidence: [object]    # Supporting evidence
+            insights: [string]    # List of insight IDs supporting this option
             incompatible_with: [string]  # "decision.option" pairs (same chunk)
             requires: [string]    # "decision.option" pairs (same chunk)
     artefacts:                    # Optional: typed outputs from this chunk
