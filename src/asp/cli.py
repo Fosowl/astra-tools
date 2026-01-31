@@ -1348,7 +1348,7 @@ def paper_path(doi: str, version: int | None) -> None:
     path = cache.get_path(doi, version)
 
     if not path:
-        console.print(f"[red]Error:[/red] Paper not found: {doi}", err=True)
+        console.print(f"[red]Error:[/red] Paper not found: {doi}")
         raise SystemExit(1)
 
     # Print just the path (no formatting) for easy piping

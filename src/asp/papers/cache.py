@@ -21,6 +21,7 @@ import shutil
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 
 def _sanitize_doi(doi: str, version: int | None = None) -> str:
@@ -65,7 +66,7 @@ class PaperMetadata:
     source_url: str | None = None
 
     @classmethod
-    def from_json(cls, data: dict) -> PaperMetadata:
+    def from_json(cls, data: dict[str, Any]) -> PaperMetadata:
         """Create from JSON dict."""
         return cls(
             doi=data["doi"],
@@ -77,7 +78,7 @@ class PaperMetadata:
             source_url=data.get("source_url"),
         )
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, Any]:
         """Convert to JSON dict."""
         result = asdict(self)
         # Remove None values for cleaner JSON
@@ -262,7 +263,7 @@ class PaperCache:
         Returns:
             List of CachedPaper objects.
         """
-        papers = []
+        papers: list[CachedPaper] = []
         if not self.cache_dir.exists():
             return papers
 

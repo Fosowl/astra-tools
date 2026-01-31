@@ -16,6 +16,7 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 
 def _compute_quote_hash(quote_exact: str) -> str:
@@ -54,7 +55,7 @@ class VerificationCacheEntry:
     expected_page: int | None = None
 
     @classmethod
-    def from_dict(cls, data: dict) -> VerificationCacheEntry:
+    def from_dict(cls, data: dict[str, Any]) -> VerificationCacheEntry:
         """Create from dict."""
         return cls(
             doi=data["doi"],
@@ -67,7 +68,7 @@ class VerificationCacheEntry:
             expected_page=data.get("expected_page"),
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict."""
         result = asdict(self)
         # Remove None values for cleaner JSON

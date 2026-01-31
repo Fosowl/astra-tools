@@ -15,7 +15,7 @@ from typing import Any
 PdfReader: Any = None
 
 try:
-    from pypdf import PdfReader as _PdfReader  # type: ignore[import-not-found]
+    from pypdf import PdfReader as _PdfReader
 
     PdfReader = _PdfReader
 except ImportError:
