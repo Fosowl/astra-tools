@@ -108,6 +108,29 @@ def _get_attr(obj: Any, key: str, default: Any = None) -> Any:
     return getattr(obj, key, default)
 
 
+def _determine_overall_status(results: list[EvidenceVerification]) -> VerificationStatus:
+    """Determine overall verification status from individual results.
+
+    Priority order: ERROR > NOT_FOUND > WRONG_PAGE > SKIPPED > VERIFIED
+    """
+    statuses = {r.status for r in results}
+
+    # Check in priority order
+    for status in (
+        VerificationStatus.ERROR,
+        VerificationStatus.NOT_FOUND,
+        VerificationStatus.WRONG_PAGE,
+    ):
+        if status in statuses:
+            return status
+
+    # If all are skipped or cached, return SKIPPED
+    if statuses <= {VerificationStatus.SKIPPED, VerificationStatus.CACHED}:
+        return VerificationStatus.SKIPPED
+
+    return VerificationStatus.VERIFIED
+
+
 def verify_quote_in_pdf(
     quote_text: str,
     pdf: PDFDocument,
@@ -126,23 +149,16 @@ def verify_quote_in_pdf(
     found_pages = pdf.find_quote(quote_text, page=expected_page)
 
     if not found_pages:
-        return (
-            VerificationStatus.NOT_FOUND,
-            [],
-            f"Quote not found in PDF: '{quote_text[:50]}...'",
-        )
-    elif expected_page and expected_page not in found_pages:
+        return VerificationStatus.NOT_FOUND, [], f"Quote not found in PDF: '{quote_text[:50]}...'"
+
+    if expected_page and expected_page not in found_pages:
         return (
             VerificationStatus.WRONG_PAGE,
             found_pages,
             f"Quote found on page(s) {found_pages}, expected page {expected_page}",
         )
-    else:
-        return (
-            VerificationStatus.VERIFIED,
-            found_pages,
-            f"Quote verified on page(s) {found_pages}",
-        )
+
+    return VerificationStatus.VERIFIED, found_pages, f"Quote verified on page(s) {found_pages}"
 
 
 def verify_evidence(
@@ -291,20 +307,8 @@ def verify_insight(
         result = verify_evidence(ev, pdf, verification_cache)
         evidence_results.append(result)
 
-    # Determine overall status
-    if any(r.status == VerificationStatus.ERROR for r in evidence_results):
-        overall = VerificationStatus.ERROR
-    elif any(r.status == VerificationStatus.NOT_FOUND for r in evidence_results):
-        overall = VerificationStatus.NOT_FOUND
-    elif any(r.status == VerificationStatus.WRONG_PAGE for r in evidence_results):
-        overall = VerificationStatus.WRONG_PAGE
-    elif all(
-        r.status in (VerificationStatus.SKIPPED, VerificationStatus.CACHED)
-        for r in evidence_results
-    ):
-        overall = VerificationStatus.SKIPPED
-    else:
-        overall = VerificationStatus.VERIFIED
+    # Determine overall status (priority: ERROR > NOT_FOUND > WRONG_PAGE > SKIPPED > VERIFIED)
+    overall = _determine_overall_status(evidence_results)
 
     return InsightVerification(
         insight_id=insight_id,

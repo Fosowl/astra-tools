@@ -83,15 +83,10 @@ def _download_arxiv_pdf(arxiv_id: str, version: int | None = None) -> PaperDownl
         response = httpx.get(url, follow_redirects=True, timeout=60.0)
         response.raise_for_status()
 
-        # Check if we got a PDF
+        # Check if we got a PDF (arXiv returns application/pdf or application/octet-stream)
         content_type = response.headers.get("content-type", "")
-        is_pdf = "application/pdf" in content_type
-        is_octet = content_type.startswith("application/octet")
-        if not (is_pdf or is_octet):
-            return PaperDownloadResult(
-                success=False,
-                error=f"Unexpected content type: {content_type}",
-            )
+        if "application/pdf" not in content_type and not content_type.startswith("application/octet"):
+            return PaperDownloadResult(success=False, error=f"Unexpected content type: {content_type}")
 
         return PaperDownloadResult(
             success=True,

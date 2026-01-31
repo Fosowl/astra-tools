@@ -212,12 +212,11 @@ class VerificationCache:
             Number of entries invalidated.
         """
         cache = self._load_cache()
-        keys_to_remove = []
-
-        for key, entry in cache.items():
-            if entry.doi == doi:
-                if version is None or entry.version == version:
-                    keys_to_remove.append(key)
+        keys_to_remove = [
+            key
+            for key, entry in cache.items()
+            if entry.doi == doi and (version is None or entry.version == version)
+        ]
 
         for key in keys_to_remove:
             del cache[key]
