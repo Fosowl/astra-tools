@@ -1,12 +1,12 @@
 ---
 name: asp-insights
 description: Extract and verify insights from scientific papers to justify analysis decisions. Use when working with papers, PDFs, DOIs, or adding evidence to an ASP analysis. Triggers on "paper", "insight", "evidence", "literature", "DOI", "quote".
-allowed-tools: Read, Edit(asp.yaml), Glob, Grep, Bash(asp:*), WebSearch, WebFetch, AskUserQuestion
+allowed-tools: Read, Edit(asp.yaml), Glob, Grep, Bash(asp:*), WebSearch, WebFetch, AskUserQuestion, Task
 ---
 
 # /asp-insights
 
-Extract insights from scientific literature and link them to analysis decisions. This skill guides you through a robust workflow where evidence is verified against source PDFs — no fabricated quotes can pass validation.
+Extract insights from scientific literature and link them to analysis decisions. This skill orchestrates **parallel subagents** — one per paper — to efficiently process multiple sources.
 
 **Key principle**: The agent writes evidence, but `asp validate --verify-evidence` is the gatekeeper. Quotes that don't exist in the PDF will fail validation.
 
@@ -14,27 +14,27 @@ Extract insights from scientific literature and link them to analysis decisions.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  PHASE 1: Find Papers (Web Search)                                  │
-│  → Identify relevant literature, collect DOIs                       │
+│  PHASE 1: Coordinator — Identify Papers                             │
+│  → Web search, collect DOIs, understand analysis decisions          │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  PHASE 2: Download Papers (CLI)                                     │
-│  → asp paper add <doi> — caches PDF locally                         │
+│  PHASE 2: Coordinator — Download Papers                             │
+│  → asp paper add <doi> for each paper                               │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  PHASE 3: Extract Insights (Read PDF)                               │
-│  → Read PDF directly, identify relevant quotes/figures              │
+│  PHASE 3: Spawn Subagents — One Per Paper (PARALLEL)                │
+│  → Each subagent reads PDF, extracts insights, returns YAML         │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  PHASE 4: Write & Verify (Edit + Validate)                          │
-│  → Write insights to asp.yaml, run asp validate --verify-evidence   │
+│  PHASE 4: Coordinator — Consolidate & Verify                        │
+│  → Merge insights into asp.yaml, run asp validate --verify-evidence │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  PHASE 5: Link to Decisions                                         │
+│  PHASE 5: Coordinator — Link to Decisions                           │
 │  → Add insight references to decision options                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -47,14 +47,16 @@ Extract insights from scientific literature and link them to analysis decisions.
    - What decisions exist that need justification?
    - What insights already exist?
 
+Build a summary of the analysis context to pass to subagents.
+
 ## Step 1: Identify Papers
 
 Print: `## Step 1: Identify Papers`
 
 Find relevant literature for the analysis decisions.
 
-**If the user provides a paper:**
-- Extract the DOI from URL, PDF metadata, or citation
+**If the user provides papers:**
+- Extract DOIs from URLs, PDF metadata, or citations
 - DOI format: `10.XXXX/...` (e.g., `10.1038/s41586-023-06221-2`)
 - arXiv DOI format: `10.48550/arXiv.{id}` (e.g., `10.48550/arXiv.1706.03762`)
 
@@ -65,11 +67,16 @@ Find relevant literature for the analysis decisions.
 
 Ask the user if needed: "Which decisions need literature support?" Present options from the analysis.
 
+**Output of this step:** A list of papers with:
+- DOI
+- Version (for arXiv)
+- Which decisions it might inform
+
 ## Step 2: Download Papers
 
 Print: `## Step 2: Download Papers`
 
-Use the CLI to cache papers locally:
+Download all papers to the local cache:
 
 ```bash
 # Standard paper
@@ -77,178 +84,168 @@ asp paper add 10.1038/s41586-023-06221-2
 
 # arXiv paper with specific version
 asp paper add 10.48550/arXiv.1706.03762 --version 7
-
-# If you have a PDF locally
-asp paper add 10.48550/arXiv.1706.03762 --pdf /path/to/paper.pdf
 ```
 
-Useful commands:
+Run `asp paper add` for each paper. Papers must be cached before subagents can read them.
+
+After downloading, get the PDF paths:
 ```bash
-asp paper list              # List cached papers
-asp paper show <doi>        # Show paper metadata
-asp paper path <doi>        # Get path to cached PDF
+asp paper path <doi>
 ```
 
-**Important**: Papers must be cached before evidence can be verified. The validation step will fail if the paper isn't in the cache.
+## Step 3: Spawn Subagents for Insight Extraction
 
-## Step 3: Read and Extract
+Print: `## Step 3: Extract Insights (Parallel)`
 
-Print: `## Step 3: Read and Extract`
+**IMPORTANT**: For each paper, spawn a separate subagent using the `Task` tool. Process papers in parallel by making multiple Task calls in a single message.
 
-Read the PDF directly to extract insights:
+### Subagent Instructions Template
 
-```bash
-# Get the PDF path
-asp paper path 10.48550/arXiv.1706.03762
+For each paper, call the Task tool with `subagent_type: "general-purpose"` and a prompt containing:
+
 ```
+You are an ASP insight extraction agent. Your task is to extract scientific insights from a single paper and format them for an ASP analysis.
 
-Then use the Read tool to view the PDF. Claude can read PDFs natively.
+## Analysis Context
 
-For each relevant finding:
-1. **Identify the exact quote** — copy text precisely as it appears
-2. **Note the page number** — for the location hint
-3. **Optionally add prefix/suffix** — ~20-100 chars for disambiguation if the quote is common
+[PASTE THE ANALYSIS SUMMARY HERE - problem statement, decisions needing evidence]
 
-**Evidence types:**
+## Your Paper
 
-| Type | When to use | Required fields |
-|------|-------------|-----------------|
-| `quote` | Direct text from paper | `exact` (the quote) |
-| `figure` | Reference to a figure | `label` (e.g., "Figure 3a") |
-| `table` | Reference to a table | `label` (e.g., "Table 1") |
+- DOI: [DOI]
+- Version: [VERSION if arXiv]
+- PDF Path: [PATH from `asp paper path`]
+- Target decisions: [WHICH DECISIONS THIS PAPER MIGHT INFORM]
 
-**Quote extraction tips:**
-- Keep quotes to 1-3 sentences
-- Copy exactly — the validator does fuzzy matching but exact is better
-- Include page number in `location` for faster verification
-- Add `prefix`/`suffix` if the same text appears multiple times
+## Instructions
 
-## Step 4: Write Insights
+1. Read the PDF at the path above using the Read tool
+2. Identify findings relevant to the target decisions
+3. For each relevant finding, extract:
+   - A clear claim (1-2 sentences)
+   - An exact quote from the paper (verbatim, 1-3 sentences)
+   - The page number where the quote appears
+   - Optional: prefix/suffix context (~20-100 chars) if the quote is common
 
-Print: `## Step 4: Write Insights`
-
-Add insights to `asp.yaml` in the `insights` section:
+4. Return your findings as YAML in this exact format:
 
 ```yaml
 insights:
-  layer_norm_stability:
-    id: layer_norm_stability
-    claim: "Layer normalization improves training stability compared to batch normalization for transformer architectures."
-    created_at: "2024-01-15T10:30:00Z"
+  <insight_id>:
+    id: <insight_id>
+    claim: "<What we learned from this finding>"
+    created_at: "<current ISO timestamp>"
     evidence:
       - id: ev1
-        doi: "10.48550/arXiv.1706.03762"
-        version: 7
+        doi: "<paper DOI>"
+        version: <version if arXiv>
         quote:
           type: TextQuoteSelector
-          exact: "We found that layer normalization leads to faster convergence and more stable training dynamics."
-          prefix: "In our ablation studies, "
+          exact: "<exact quote from paper>"
+          prefix: "<optional context before>"
+          suffix: "<optional context after>"
         location:
           type: FragmentSelector
-          page: 5
+          page: <page number>
+    scope: "<when this applies, optional>"
 
-  attention_scaling:
-    id: attention_scaling
-    claim: "Scaling attention by 1/sqrt(d_k) prevents dot products from growing too large."
-    created_at: "2024-01-15T10:35:00Z"
-    evidence:
-      - id: ev1
-        doi: "10.48550/arXiv.1706.03762"
-        version: 7
-        quote:
-          type: TextQuoteSelector
-          exact: "We suspect that for large values of d_k, the dot products grow large in magnitude, pushing the softmax function into regions where it has extremely small gradients."
-        location:
-          type: FragmentSelector
-          page: 4
+decision_links:
+  <chunk_name>:
+    <decision_id>:
+      <option_id>:
+        - <insight_id>
 ```
 
-**Evidence format details:**
+## Rules
 
-```yaml
-evidence:
-  - id: ev1                           # Unique within this insight
-    doi: "10.48550/arXiv.1706.03762"  # Required: paper DOI
-    version: 7                         # Optional: arXiv version (important for reproducibility)
-
-    # At least one of: quote, figure, or table
-    quote:
-      type: TextQuoteSelector          # W3C Web Annotation type
-      exact: "The exact quoted text"   # Required: verbatim from paper
-      prefix: "Context before..."      # Optional: ~20-100 chars
-      suffix: "Context after..."       # Optional: ~20-100 chars
-
-    # OR for figures
-    figure:
-      type: FigureSelector
-      label: "Figure 3a"               # Required: figure label
-      caption: "Caption text..."       # Optional: for verification
-
-    # OR for tables
-    table:
-      type: TableSelector
-      label: "Table 1"                 # Required: table label
-      caption: "Header text..."        # Optional: for verification
-      region: "row 3, accuracy column" # Optional: specific region
-
-    # Location hint (optional but recommended)
-    location:
-      type: FragmentSelector
-      page: 5                          # 1-indexed page number
+- Use lowercase_with_underscores for insight IDs
+- Quotes must be EXACT - copy verbatim from the PDF
+- One claim per insight - don't combine multiple findings
+- Only extract insights relevant to the target decisions
+- If no relevant insights found, return empty insights: {}
 ```
 
-## Step 5: Verify Evidence
+### Parallel Execution
 
-Print: `## Step 5: Verify Evidence`
+**Spawn all paper subagents in parallel** by including multiple Task tool calls in a single message:
 
-Run verification to ensure all quotes exist in source PDFs:
-
-```bash
-asp validate asp.yaml --verify-evidence
+```
+[Task call for Paper 1]
+[Task call for Paper 2]
+[Task call for Paper 3]
+...
 ```
 
-**What happens:**
-- Schema validation (structure, types)
-- Semantic validation (references resolve)
-- Evidence verification (quotes found in PDFs)
+Each subagent works independently, reading its assigned PDF and returning structured insights.
+
+### Example Task Call
+
+```
+Task tool call:
+  description: "Extract insights from arXiv.1706.03762"
+  subagent_type: "general-purpose"
+  prompt: |
+    You are an ASP insight extraction agent...
+
+    ## Analysis Context
+    Problem: Build a classifier for the Iris dataset...
+    Decisions needing evidence:
+    - chunks.main.decisions.scaling (options: standard, minmax)
+    - chunks.main.decisions.model (options: svm, random_forest)
+
+    ## Your Paper
+    - DOI: 10.48550/arXiv.1706.03762
+    - Version: 7
+    - PDF Path: /home/user/.cache/asp/papers/10.48550_arXiv.1706.03762_v7/paper.pdf
+    - Target decisions: scaling, model
+
+    [... rest of instructions ...]
+```
+
+## Step 4: Consolidate and Verify
+
+Print: `## Step 4: Consolidate and Verify`
+
+After all subagents complete:
+
+1. **Collect results** from each subagent
+2. **Merge insights** into `asp.yaml`:
+   - Add all insights to the `insights:` section
+   - Ensure no ID conflicts (prefix with paper reference if needed)
+3. **Run verification**:
+   ```bash
+   asp validate asp.yaml --verify-evidence
+   ```
 
 **If verification fails:**
-- `Quote not found` — re-read the PDF, correct the quote text
+- `Quote not found` — the subagent may have paraphrased; re-read the PDF and correct
 - `Paper not in cache` — run `asp paper add <doi>` first
-- `Wrong page` — quote found but on different page (update location)
+- `Wrong page` — update the page number
 
-Keep iterating until all evidence verifies. This is the gatekeeper — fabricated quotes cannot pass.
+Keep iterating until all evidence verifies. This is the gatekeeper.
 
-## Step 6: Link to Decisions
+## Step 5: Link to Decisions
 
-Print: `## Step 6: Link to Decisions`
+Print: `## Step 5: Link to Decisions`
 
-Reference insights in decision options to justify why that option is preferred:
+Using the `decision_links` from subagent outputs, add insight references to decision options:
 
 ```yaml
 chunks:
   main:
     decisions:
       normalization:
-        label: "Normalization Method"
-        type: method
-        default: layer_norm
         options:
           layer_norm:
-            label: "Layer Normalization"
             insights:
               - layer_norm_stability    # Reference to insight ID
-          batch_norm:
-            label: "Batch Normalization"
 ```
 
-This creates traceability: decisions link to insights, insights link to evidence, evidence links to papers.
+## Step 6: Final Validation
 
-## Step 7: Final Validation
+Print: `## Step 6: Final Validation`
 
-Print: `## Step 7: Final Validation`
-
-Run full validation one more time:
+Run full validation:
 
 ```bash
 asp validate asp.yaml --verify-evidence
@@ -257,11 +254,54 @@ asp validate asp.yaml --verify-evidence
 If all passes:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- ASP ► INSIGHTS VERIFIED
+ ASP ► INSIGHTS VERIFIED ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-Report: "[N] insights added with [M] verified evidence items. Linked to [K] decision options."
+Report: "[N] insights extracted from [P] papers. [M] evidence items verified. Linked to [K] decision options."
+
+---
+
+## Evidence Format Reference
+
+### Quote Evidence (W3C TextQuoteSelector)
+
+```yaml
+quote:
+  type: TextQuoteSelector
+  exact: "The exact quoted text from the paper"
+  prefix: "Context before..."    # Optional, ~20-100 chars
+  suffix: "Context after..."     # Optional, ~20-100 chars
+```
+
+### Figure Evidence (FigureSelector)
+
+```yaml
+figure:
+  type: FigureSelector
+  label: "Figure 3a"
+  caption: "Optional caption text"
+```
+
+### Table Evidence (TableSelector)
+
+```yaml
+table:
+  type: TableSelector
+  label: "Table 1"
+  caption: "Optional header text"
+  region: "row 3, accuracy column"
+```
+
+### Location Hint (FragmentSelector)
+
+```yaml
+location:
+  type: FragmentSelector
+  page: 5                        # 1-indexed page number
+```
+
+---
 
 ## CLI Reference
 
@@ -278,77 +318,22 @@ asp validate asp.yaml                             # Schema + semantic validation
 asp validate asp.yaml --verify-evidence           # + evidence verification
 ```
 
-## Common Patterns
-
-### Adding evidence from a new paper
-
-```bash
-# 1. Add paper to cache
-asp paper add 10.1234/example.paper
-
-# 2. Get PDF path and read it
-asp paper path 10.1234/example.paper
-# → Read the PDF with Read tool
-
-# 3. Add insight to asp.yaml (Edit tool)
-# 4. Verify: asp validate asp.yaml --verify-evidence
-# 5. Link to decisions (Edit tool)
-```
-
-### Multiple evidence items per insight
-
-```yaml
-insights:
-  robust_finding:
-    id: robust_finding
-    claim: "Finding X is robust across multiple studies."
-    created_at: "2024-01-15T10:30:00Z"
-    evidence:
-      - id: ev1
-        doi: "10.1234/paper1"
-        quote:
-          type: TextQuoteSelector
-          exact: "We observed X in all conditions."
-        location:
-          type: FragmentSelector
-          page: 7
-      - id: ev2
-        doi: "10.5678/paper2"
-        quote:
-          type: TextQuoteSelector
-          exact: "Our results confirm X."
-        location:
-          type: FragmentSelector
-          page: 12
-```
-
-### arXiv papers (version matters)
-
-```yaml
-evidence:
-  - id: ev1
-    doi: "10.48550/arXiv.2303.08774"
-    version: 4                        # Important: arXiv papers are updated
-    quote:
-      type: TextQuoteSelector
-      exact: "GPT-4 is a large multimodal model..."
-```
+---
 
 ## Restrictions
 
-**You are an insights agent, not an implementation agent.**
+**You are an insights coordinator, not an implementation agent.**
 
 - ONLY modify `asp.yaml` (insights section and decision option references)
-- NEVER fabricate quotes — all evidence must be verified against source PDFs
-- ALWAYS run `asp validate --verify-evidence` after adding evidence
+- NEVER fabricate quotes — all evidence must pass `asp validate --verify-evidence`
+- ALWAYS spawn subagents for paper processing when multiple papers are involved
 - If a quote doesn't verify, fix it — don't skip verification
 
 ## Tips
 
-1. **Start with decisions** — identify which decisions need literature support
-2. **One claim per insight** — don't combine multiple findings
-3. **Precise quotes** — exact text from the paper, not paraphrases
-4. **Include context** — prefix/suffix helps disambiguation
-5. **Page numbers** — speed up verification with location hints
-6. **arXiv versions** — always specify version for reproducibility
-7. **Iterate on failures** — if verification fails, re-read the PDF and correct
+1. **Spawn in parallel** — Use multiple Task calls in one message for efficiency
+2. **Rich context** — Give subagents full analysis context so they extract relevant insights
+3. **One paper per subagent** — Don't overload subagents with multiple papers
+4. **Verify early** — Run validation after consolidating, before linking to decisions
+5. **arXiv versions** — Always specify version for reproducibility
+6. **Iterate on failures** — If verification fails, the quote needs correction
