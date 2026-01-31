@@ -574,8 +574,7 @@ def _verify_insights_evidence(insights: dict[str, Any]) -> None:
                     status_icon = "[yellow]![/yellow]"
 
                 console.print(
-                    f"  {status_icon} [{insight_id}] {ev_result.evidence_id}: "
-                    f"{ev_result.message}"
+                    f"  {status_icon} [{insight_id}] {ev_result.evidence_id}: {ev_result.message}"
                 )
 
     # Summary
@@ -587,8 +586,7 @@ def _verify_insights_evidence(insights: dict[str, Any]) -> None:
         )
     else:
         console.print(
-            f"[green]✓[/green] Evidence: {verified_count}/{total} verified, "
-            f"{skipped_count} skipped"
+            f"[green]✓[/green] Evidence: {verified_count}/{total} verified, {skipped_count} skipped"
         )
 
     if has_errors:
