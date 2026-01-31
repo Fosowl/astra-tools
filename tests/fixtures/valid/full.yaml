@@ -68,9 +68,6 @@ chunks:
           standard:
             label: "Standardization"
             description: "Z-score normalization"
-            evidence:
-              - ref: inputs.reference_study
-                finding: "Showed 5% improvement"
           minmax:
             label: "Min-Max Scaling"
             description: "Scale to [0, 1]"

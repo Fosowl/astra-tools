@@ -87,32 +87,6 @@ class Output(BaseModel):
     description: str | None = Field(default=None, description="Description of the output")
 
 
-class Evidence(BaseModel):
-    """Evidence supporting a decision option.
-
-    Can reference either:
-    - An insight by ID (preferred): `insight: insight_id`
-    - A legacy input reference: `ref: inputs.study_name` with `finding`
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    # New: reference an insight by ID
-    insight: str | None = Field(
-        default=None,
-        description="Reference to an insight by ID (e.g., 'compute_scaling')",
-    )
-    # Legacy: reference an input directly
-    ref: str | None = Field(
-        default=None,
-        description="Reference to an input (e.g., 'inputs.study_name') - deprecated, use insight",
-    )
-    finding: str | None = Field(
-        default=None,
-        description="What the evidence shows - required when using ref",
-    )
-
-
 class Option(BaseModel):
     """An option for a decision."""
 
@@ -121,8 +95,8 @@ class Option(BaseModel):
     label: str = Field(description="Human-readable name for the option")
     description: str | None = Field(default=None, description="Detailed description of the option")
     value: Any | None = Field(default=None, description="Configuration value for this option")
-    evidence: list[Evidence] | None = Field(
-        default=None, description="Evidence supporting this option"
+    insights: list[str] | None = Field(
+        default=None, description="List of insight IDs supporting this option"
     )
     incompatible_with: list[str] | None = Field(
         default=None,
@@ -174,9 +148,7 @@ class Artefact(BaseModel):
         pattern=r"^[a-z][a-z0-9_]*$",
         description="Unique identifier for the artefact",
     )
-    type: Literal["figure", "table", "data", "report"] = Field(
-        description="Type of artefact"
-    )
+    type: Literal["figure", "table", "data", "report"] = Field(description="Type of artefact")
     description: str | None = Field(default=None, description="Description of the artefact")
 
 

@@ -1,16 +1,18 @@
 """Core verification logic for ASP insights.
 
 Verifies that evidence (quotes, figures, tables) exists in source documents.
+Now uses DOI-based paper cache instead of arXiv sources.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Any
 
-from asp.verification.pdf import PDFDocument, extract_text_from_pdf, get_arxiv_pdf
+from asp.papers.cache import PaperCache
+from asp.verification.cache import VerificationCache
+from asp.verification.pdf import PDFDocument, extract_text_from_pdf
 
 
 class VerificationStatus(str, Enum):
@@ -19,7 +21,8 @@ class VerificationStatus(str, Enum):
     VERIFIED = "verified"  # Evidence found in source
     NOT_FOUND = "not_found"  # Evidence not found in source
     WRONG_PAGE = "wrong_page"  # Found but on different page
-    SKIPPED = "skipped"  # Could not verify (e.g., DOI source, figure/table)
+    SKIPPED = "skipped"  # Could not verify (e.g., figure/table)
+    CACHED = "cached"  # Verified from cache (no re-check needed)
     ERROR = "error"  # Error during verification
 
 
@@ -29,24 +32,34 @@ class EvidenceVerification:
 
     Attributes:
         evidence_id: ID of the evidence being verified.
+        doi: DOI of the paper.
+        version: Paper version (for arXiv).
         status: Overall verification status.
         quote_status: Status of quote verification (if quote present).
         quote_found_pages: Pages where quote was found (1-indexed).
         expected_page: Expected page from location hint.
         message: Human-readable description of result.
+        from_cache: Whether result came from cache.
     """
 
     evidence_id: str
-    status: VerificationStatus
+    doi: str
+    version: int | None = None
+    status: VerificationStatus = VerificationStatus.VERIFIED
     quote_status: VerificationStatus | None = None
     quote_found_pages: list[int] = field(default_factory=list)
     expected_page: int | None = None
     message: str = ""
+    from_cache: bool = False
 
     @property
     def is_valid(self) -> bool:
         """Check if evidence is verified or skipped (not an error)."""
-        return self.status in (VerificationStatus.VERIFIED, VerificationStatus.SKIPPED)
+        return self.status in (
+            VerificationStatus.VERIFIED,
+            VerificationStatus.SKIPPED,
+            VerificationStatus.CACHED,
+        )
 
 
 @dataclass
@@ -55,15 +68,11 @@ class InsightVerification:
 
     Attributes:
         insight_id: ID of the insight being verified.
-        source_id: ID of the source document.
-        pdf_sha256: SHA-256 of the PDF used for verification.
         evidence_results: Verification results for each piece of evidence.
         overall_status: Overall verification status.
     """
 
     insight_id: str
-    source_id: str
-    pdf_sha256: str = ""
     evidence_results: list[EvidenceVerification] = field(default_factory=list)
     overall_status: VerificationStatus = VerificationStatus.VERIFIED
 
@@ -75,12 +84,21 @@ class InsightVerification:
     @property
     def verified_count(self) -> int:
         """Count of verified evidence items."""
-        return sum(1 for ev in self.evidence_results if ev.status == VerificationStatus.VERIFIED)
+        return sum(
+            1
+            for ev in self.evidence_results
+            if ev.status in (VerificationStatus.VERIFIED, VerificationStatus.CACHED)
+        )
 
     @property
     def failed_count(self) -> int:
         """Count of failed evidence items."""
         return sum(1 for ev in self.evidence_results if not ev.is_valid)
+
+    @property
+    def cached_count(self) -> int:
+        """Count of cached evidence items."""
+        return sum(1 for ev in self.evidence_results if ev.from_cache)
 
 
 def _get_attr(obj: Any, key: str, default: Any = None) -> Any:
@@ -90,25 +108,80 @@ def _get_attr(obj: Any, key: str, default: Any = None) -> Any:
     return getattr(obj, key, default)
 
 
+def _is_arxiv_doi(doi: str) -> bool:
+    """Check if DOI is an arXiv DOI."""
+    return doi.startswith("10.48550/arXiv.")
+
+
+def _extract_arxiv_id(doi: str) -> str | None:
+    """Extract arXiv ID from arXiv DOI."""
+    if _is_arxiv_doi(doi):
+        return doi.replace("10.48550/arXiv.", "")
+    return None
+
+
+def verify_quote_in_pdf(
+    quote_text: str,
+    pdf: PDFDocument,
+    expected_page: int | None = None,
+) -> tuple[VerificationStatus, list[int], str]:
+    """Verify a quote exists in a PDF.
+
+    Args:
+        quote_text: The quote text to find.
+        pdf: PDFDocument with extracted text.
+        expected_page: Expected page number (1-indexed).
+
+    Returns:
+        Tuple of (status, found_pages, message).
+    """
+    found_pages = pdf.find_quote(quote_text, page=expected_page)
+
+    if not found_pages:
+        return (
+            VerificationStatus.NOT_FOUND,
+            [],
+            f"Quote not found in PDF: '{quote_text[:50]}...'",
+        )
+    elif expected_page and expected_page not in found_pages:
+        return (
+            VerificationStatus.WRONG_PAGE,
+            found_pages,
+            f"Quote found on page(s) {found_pages}, expected page {expected_page}",
+        )
+    else:
+        return (
+            VerificationStatus.VERIFIED,
+            found_pages,
+            f"Quote verified on page(s) {found_pages}",
+        )
+
+
 def verify_evidence(
     evidence: Any,
     pdf: PDFDocument,
+    verification_cache: VerificationCache | None = None,
 ) -> EvidenceVerification:
     """Verify a single piece of evidence against a PDF.
 
     Args:
         evidence: The evidence to verify (dict or Evidence object).
         pdf: PDFDocument with extracted text.
+        verification_cache: Optional cache for verification results.
 
     Returns:
         EvidenceVerification with results.
     """
     evidence_id = _get_attr(evidence, "id", "unknown")
+    doi = _get_attr(evidence, "doi", "")
+    version = _get_attr(evidence, "version")
     location = _get_attr(evidence, "location")
     expected_page = _get_attr(location, "page") if location else None
 
     result = EvidenceVerification(
         evidence_id=evidence_id,
+        doi=doi,
+        version=version,
         status=VerificationStatus.VERIFIED,
         expected_page=expected_page,
     )
@@ -117,23 +190,36 @@ def verify_evidence(
     quote = _get_attr(evidence, "quote")
     if quote:
         quote_text = _get_attr(quote, "exact", "")
-        hint_page = expected_page
 
-        found_pages = pdf.find_quote(quote_text, page=hint_page)
+        # Check cache first
+        if verification_cache:
+            cached = verification_cache.get(doi, version, quote_text, pdf.sha256)
+            if cached:
+                result.status = VerificationStatus.CACHED
+                result.quote_status = VerificationStatus(cached.status)
+                result.quote_found_pages = cached.found_pages or []
+                result.message = f"Verified from cache (status: {cached.status})"
+                result.from_cache = True
+                return result
 
-        if not found_pages:
-            result.quote_status = VerificationStatus.NOT_FOUND
-            result.status = VerificationStatus.NOT_FOUND
-            result.message = f"Quote not found in PDF: '{quote_text[:50]}...'"
-        elif hint_page and hint_page not in found_pages:
-            result.quote_status = VerificationStatus.WRONG_PAGE
-            result.quote_found_pages = found_pages
-            result.status = VerificationStatus.WRONG_PAGE
-            result.message = f"Quote found on page(s) {found_pages}, expected page {hint_page}"
-        else:
-            result.quote_status = VerificationStatus.VERIFIED
-            result.quote_found_pages = found_pages
-            result.message = f"Quote verified on page(s) {found_pages}"
+        # Verify quote
+        status, found_pages, message = verify_quote_in_pdf(quote_text, pdf, expected_page)
+        result.quote_status = status
+        result.status = status
+        result.quote_found_pages = found_pages
+        result.message = message
+
+        # Cache result
+        if verification_cache:
+            verification_cache.set(
+                doi=doi,
+                version=version,
+                quote_exact=quote_text,
+                pdf_sha256=pdf.sha256,
+                status=status.value,
+                found_pages=found_pages,
+                expected_page=expected_page,
+            )
 
     # Figure/table verification - skip for now
     elif _get_attr(evidence, "figure"):
@@ -153,77 +239,68 @@ def verify_evidence(
 
 def verify_insight(
     insight: Any,
-    cache_dir: Path | None = None,
+    paper_cache: PaperCache | None = None,
+    verification_cache: VerificationCache | None = None,
 ) -> InsightVerification:
     """Verify all evidence for an insight.
 
-    Downloads the source PDF (if arXiv) and verifies each piece of evidence.
+    Uses the paper cache to find PDFs by DOI and verifies each piece of evidence.
 
     Args:
         insight: The insight to verify (dict or Insight object).
-        cache_dir: Directory to cache PDFs.
+        paper_cache: Cache for downloaded papers.
+        verification_cache: Cache for verification results.
 
     Returns:
         InsightVerification with results for all evidence.
     """
+    if paper_cache is None:
+        paper_cache = PaperCache()
+    if verification_cache is None:
+        verification_cache = VerificationCache()
+
     insight_id = _get_attr(insight, "id", "unknown")
-    sources = _get_attr(insight, "sources", [])
     evidence_list = _get_attr(insight, "evidence", [])
 
-    # Get the first arXiv source (we verify against primary source)
-    arxiv_sources = [s for s in sources if _get_attr(s, "type") == "arxiv"]
+    evidence_results: list[EvidenceVerification] = []
 
-    if not arxiv_sources:
-        first_source_id = _get_attr(sources[0], "id", "unknown") if sources else "unknown"
-        return InsightVerification(
-            insight_id=insight_id,
-            source_id=first_source_id,
-            overall_status=VerificationStatus.SKIPPED,
-            evidence_results=[
-                EvidenceVerification(
-                    evidence_id=_get_attr(ev, "id", "unknown"),
-                    status=VerificationStatus.SKIPPED,
-                    message="Only arXiv sources are currently supported for verification",
-                )
-                for ev in evidence_list
-            ],
-        )
-
-    source = arxiv_sources[0]
-    source_id = _get_attr(source, "id", "unknown")
-
-    try:
-        # Download and extract PDF
-        pdf_path = get_arxiv_pdf(source, cache_dir=cache_dir)
-        pdf = extract_text_from_pdf(pdf_path)
-    except Exception as e:
-        return InsightVerification(
-            insight_id=insight_id,
-            source_id=source_id,
-            overall_status=VerificationStatus.ERROR,
-            evidence_results=[
-                EvidenceVerification(
-                    evidence_id=_get_attr(ev, "id", "unknown"),
-                    status=VerificationStatus.ERROR,
-                    message=f"Failed to download/extract PDF: {e}",
-                )
-                for ev in evidence_list
-            ],
-        )
-
-    # Verify each piece of evidence
-    evidence_results = []
+    # Group evidence by DOI/version for efficiency
     for ev in evidence_list:
-        # Only verify evidence that references this source
-        ev_source_ref = _get_attr(ev, "source_ref", "")
-        if ev_source_ref == source_id:
-            result = verify_evidence(ev, pdf)
-        else:
-            result = EvidenceVerification(
-                evidence_id=_get_attr(ev, "id", "unknown"),
-                status=VerificationStatus.SKIPPED,
-                message=f"Evidence references different source: {ev_source_ref}",
+        evidence_id = _get_attr(ev, "id", "unknown")
+        doi = _get_attr(ev, "doi", "")
+        version = _get_attr(ev, "version")
+
+        # Get PDF from cache
+        cached_paper = paper_cache.get(doi, version)
+        if not cached_paper:
+            evidence_results.append(
+                EvidenceVerification(
+                    evidence_id=evidence_id,
+                    doi=doi,
+                    version=version,
+                    status=VerificationStatus.ERROR,
+                    message=f"Paper not in cache: {doi} (use 'asp paper add' first)",
+                )
             )
+            continue
+
+        # Extract text from PDF
+        try:
+            pdf = extract_text_from_pdf(cached_paper.pdf_path)
+        except Exception as e:
+            evidence_results.append(
+                EvidenceVerification(
+                    evidence_id=evidence_id,
+                    doi=doi,
+                    version=version,
+                    status=VerificationStatus.ERROR,
+                    message=f"Failed to extract text from PDF: {e}",
+                )
+            )
+            continue
+
+        # Verify the evidence
+        result = verify_evidence(ev, pdf, verification_cache)
         evidence_results.append(result)
 
     # Determine overall status
@@ -233,15 +310,43 @@ def verify_insight(
         overall = VerificationStatus.NOT_FOUND
     elif any(r.status == VerificationStatus.WRONG_PAGE for r in evidence_results):
         overall = VerificationStatus.WRONG_PAGE
-    elif all(r.status == VerificationStatus.SKIPPED for r in evidence_results):
+    elif all(
+        r.status in (VerificationStatus.SKIPPED, VerificationStatus.CACHED)
+        for r in evidence_results
+    ):
         overall = VerificationStatus.SKIPPED
     else:
         overall = VerificationStatus.VERIFIED
 
     return InsightVerification(
         insight_id=insight_id,
-        source_id=source_id,
-        pdf_sha256=pdf.sha256,
         evidence_results=evidence_results,
         overall_status=overall,
     )
+
+
+def verify_all_insights(
+    insights: dict[str, Any],
+    paper_cache: PaperCache | None = None,
+    verification_cache: VerificationCache | None = None,
+) -> dict[str, InsightVerification]:
+    """Verify all insights in an analysis.
+
+    Args:
+        insights: Dict mapping insight IDs to insight data.
+        paper_cache: Cache for downloaded papers.
+        verification_cache: Cache for verification results.
+
+    Returns:
+        Dict mapping insight IDs to verification results.
+    """
+    if paper_cache is None:
+        paper_cache = PaperCache()
+    if verification_cache is None:
+        verification_cache = VerificationCache()
+
+    results = {}
+    for insight_id, insight in insights.items():
+        results[insight_id] = verify_insight(insight, paper_cache, verification_cache)
+
+    return results

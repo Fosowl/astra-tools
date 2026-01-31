@@ -444,11 +444,28 @@ def _create_venv(directory: Path, no_venv: bool) -> bool:
     type=click.Path(exists=True, path_type=Path),
     help="Analysis file for universe validation",
 )
-def validate(file: Path, analysis: Path | None) -> None:
+@click.option(
+    "--verify-evidence",
+    "-e",
+    is_flag=True,
+    help="Verify evidence quotes exist in source papers (requires papers to be cached)",
+)
+@click.option(
+    "--skip-evidence",
+    is_flag=True,
+    help="Skip evidence verification even if insights are present",
+)
+def validate(
+    file: Path, analysis: Path | None, verify_evidence: bool, skip_evidence: bool
+) -> None:
     """Validate an ASP specification file.
 
     FILE can be an analysis (asp.yaml) or universe file.
     For universe files, use --analysis to specify the analysis file.
+
+    Evidence verification (--verify-evidence) checks that quotes in insights
+    actually exist in the source papers. Papers must be cached first using
+    'asp paper add'.
     """
     # Determine file type
     is_universe = "universe" in file.stem.lower() or file.parent.name == "universes"
@@ -491,7 +508,99 @@ def validate(file: Path, analysis: Path | None) -> None:
         raise SystemExit(1)
 
     console.print("[green]✓[/green] Semantic validation passed")
+
+    # Evidence verification (for analysis files with insights)
+    if not is_universe and not skip_evidence:
+        data = load_yaml(file)
+        insights = data.get("insights", {})
+
+        if insights:
+            if not verify_evidence:
+                # Show hint about evidence verification
+                evidence_count = sum(
+                    len(insight.get("evidence", []))
+                    for insight in insights.values()
+                )
+                if evidence_count > 0:
+                    console.print(
+                        f"\n[dim]Note: {len(insights)} insight(s) with {evidence_count} "
+                        f"evidence item(s) found.[/dim]"
+                    )
+                    console.print(
+                        "[dim]Run with --verify-evidence to verify quotes exist in papers.[/dim]"
+                    )
+            else:
+                console.print("\n[bold]Verifying evidence...[/bold]")
+                _verify_insights_evidence(insights)
+
     console.print("\n[green]Validation successful![/green]")
+
+
+def _verify_insights_evidence(insights: dict[str, Any]) -> None:
+    """Verify evidence for all insights.
+
+    Args:
+        insights: Dict of insight_id -> insight data.
+
+    Raises:
+        SystemExit: If any evidence verification fails.
+    """
+    from asp.papers.cache import PaperCache
+    from asp.verification.cache import VerificationCache
+    from asp.verification.core import VerificationStatus, verify_all_insights
+
+    paper_cache = PaperCache()
+    verification_cache = VerificationCache()
+
+    results = verify_all_insights(insights, paper_cache, verification_cache)
+
+    has_errors = False
+    verified_count = 0
+    cached_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for insight_id, result in results.items():
+        for ev_result in result.evidence_results:
+            if ev_result.status == VerificationStatus.VERIFIED:
+                verified_count += 1
+            elif ev_result.status == VerificationStatus.CACHED:
+                verified_count += 1
+                cached_count += 1
+            elif ev_result.status == VerificationStatus.SKIPPED:
+                skipped_count += 1
+            else:
+                failed_count += 1
+                has_errors = True
+                status_icon = "[red]✗[/red]"
+                if ev_result.status == VerificationStatus.ERROR:
+                    status_icon = "[yellow]![/yellow]"
+
+                console.print(
+                    f"  {status_icon} [{insight_id}] {ev_result.evidence_id}: "
+                    f"{ev_result.message}"
+                )
+
+    # Summary
+    total = verified_count + skipped_count + failed_count
+    if cached_count > 0:
+        console.print(
+            f"[green]✓[/green] Evidence: {verified_count}/{total} verified "
+            f"({cached_count} from cache), {skipped_count} skipped"
+        )
+    else:
+        console.print(
+            f"[green]✓[/green] Evidence: {verified_count}/{total} verified, "
+            f"{skipped_count} skipped"
+        )
+
+    if has_errors:
+        console.print(f"\n[red]Error:[/red] {failed_count} evidence item(s) failed verification")
+        console.print("\nTo fix:")
+        console.print("  1. Check that quotes are exact copies from the paper")
+        console.print("  2. Verify the DOI and version are correct")
+        console.print("  3. Ensure the paper is cached: asp paper add <doi>")
+        raise SystemExit(1)
 
 
 @main.command()
@@ -1071,6 +1180,202 @@ def workflow_run(
     finally:
         # Clean up temp file
         params_file.unlink(missing_ok=True)
+
+
+# =============================================================================
+# Paper commands
+# =============================================================================
+
+
+@main.group()
+def paper() -> None:
+    """Paper management commands for evidence verification."""
+    pass
+
+
+@paper.command("add")
+@click.argument("doi")
+@click.option("--version", "-v", type=int, help="Paper version (for arXiv papers)")
+@click.option(
+    "--pdf",
+    type=click.Path(exists=True, path_type=Path),
+    help="Use local PDF instead of downloading",
+)
+def paper_add(doi: str, version: int | None, pdf: Path | None) -> None:
+    """Add a paper to the cache by DOI.
+
+    DOI can be any valid DOI. For arXiv papers, use the format:
+    10.48550/arXiv.1706.03762
+
+    Examples:
+        asp paper add 10.48550/arXiv.1706.03762 --version 7
+        asp paper add 10.1038/s41586-023-06221-2
+        asp paper add 10.1234/example --pdf ./local_paper.pdf
+    """
+    from asp.papers.cache import PaperCache
+    from asp.papers.download import download_paper
+
+    cache = PaperCache()
+
+    # Check if already cached
+    if cache.has(doi, version):
+        paper = cache.get(doi, version)
+        if paper:
+            console.print(f"[yellow]Paper already cached:[/yellow] {doi}")
+            console.print(f"  Path: {paper.pdf_path}")
+            if paper.metadata.title:
+                console.print(f"  Title: {paper.metadata.title}")
+            return
+
+    # Add from local file or download
+    if pdf:
+        console.print(f"Adding paper from local file: [cyan]{pdf}[/cyan]")
+        paper = cache.add_from_file(doi, pdf, version=version)
+        console.print("[green]✓[/green] Paper added to cache")
+        console.print(f"  DOI: {doi}")
+        if version:
+            console.print(f"  Version: {version}")
+        console.print(f"  Path: {paper.pdf_path}")
+        console.print(f"  SHA-256: {paper.metadata.sha256[:16]}...")
+    else:
+        console.print(f"Downloading paper: [cyan]{doi}[/cyan]")
+        if version:
+            console.print(f"  Version: {version}")
+
+        result = download_paper(doi, version)
+
+        if not result.success:
+            console.print(f"[red]Error:[/red] {result.error}")
+            raise SystemExit(1)
+
+        if result.content is None:
+            console.print("[red]Error:[/red] No content received")
+            raise SystemExit(1)
+
+        paper = cache.add(
+            doi=doi,
+            pdf_content=result.content,
+            version=version,
+            title=result.title,
+            authors=result.authors,
+            source_url=result.url,
+        )
+
+        console.print("[green]✓[/green] Paper downloaded and cached")
+        console.print(f"  DOI: {doi}")
+        if version:
+            console.print(f"  Version: {version}")
+        if paper.metadata.title:
+            console.print(f"  Title: {paper.metadata.title}")
+        console.print(f"  Path: {paper.pdf_path}")
+        console.print(f"  SHA-256: {paper.metadata.sha256[:16]}...")
+
+
+@paper.command("list")
+def paper_list() -> None:
+    """List all cached papers."""
+    from asp.papers.cache import PaperCache
+
+    cache = PaperCache()
+    papers = cache.list_papers()
+
+    if not papers:
+        console.print("[dim]No papers cached[/dim]")
+        return
+
+    table = Table(show_header=True)
+    table.add_column("DOI")
+    table.add_column("Version")
+    table.add_column("Title")
+    table.add_column("Retrieved")
+
+    for paper in papers:
+        meta = paper.metadata
+        version_str = str(meta.version) if meta.version else "-"
+        title = meta.title or "[dim](unknown)[/dim]"
+        if len(title) > 40:
+            title = title[:37] + "..."
+        retrieved = meta.retrieved_at[:10] if meta.retrieved_at else "-"
+        table.add_row(meta.doi, version_str, title, retrieved)
+
+    console.print(table)
+    console.print(f"\n[dim]{len(papers)} paper(s) cached[/dim]")
+
+
+@paper.command("show")
+@click.argument("doi")
+@click.option("--version", "-v", type=int, help="Paper version (for arXiv papers)")
+def paper_show(doi: str, version: int | None) -> None:
+    """Show details of a cached paper."""
+    from asp.papers.cache import PaperCache
+
+    cache = PaperCache()
+    paper = cache.get(doi, version)
+
+    if not paper:
+        console.print(f"[red]Error:[/red] Paper not found in cache: {doi}")
+        if version:
+            console.print(f"  (version {version})")
+        console.print("\nUse [cyan]asp paper add[/cyan] to download the paper first.")
+        raise SystemExit(1)
+
+    meta = paper.metadata
+    console.print(f"\n[bold]DOI:[/bold] {meta.doi}")
+    if meta.version:
+        console.print(f"[bold]Version:[/bold] {meta.version}")
+    if meta.title:
+        console.print(f"[bold]Title:[/bold] {meta.title}")
+    if meta.authors:
+        console.print(f"[bold]Authors:[/bold] {', '.join(meta.authors)}")
+    console.print(f"[bold]SHA-256:[/bold] {meta.sha256}")
+    console.print(f"[bold]Retrieved:[/bold] {meta.retrieved_at}")
+    if meta.source_url:
+        console.print(f"[bold]Source:[/bold] {meta.source_url}")
+    console.print(f"[bold]Path:[/bold] {paper.pdf_path}")
+
+
+@paper.command("path")
+@click.argument("doi")
+@click.option("--version", "-v", type=int, help="Paper version (for arXiv papers)")
+def paper_path(doi: str, version: int | None) -> None:
+    """Print the path to a cached paper's PDF.
+
+    Useful for piping to other tools or agents that need to read the PDF.
+    """
+    from asp.papers.cache import PaperCache
+
+    cache = PaperCache()
+    path = cache.get_path(doi, version)
+
+    if not path:
+        console.print(f"[red]Error:[/red] Paper not found: {doi}", err=True)
+        raise SystemExit(1)
+
+    # Print just the path (no formatting) for easy piping
+    print(path)
+
+
+@paper.command("remove")
+@click.argument("doi")
+@click.option("--version", "-v", type=int, help="Paper version (for arXiv papers)")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+def paper_remove(doi: str, version: int | None, yes: bool) -> None:
+    """Remove a paper from the cache."""
+    from asp.papers.cache import PaperCache
+
+    cache = PaperCache()
+
+    if not cache.has(doi, version):
+        console.print(f"[red]Error:[/red] Paper not found: {doi}")
+        raise SystemExit(1)
+
+    if not yes:
+        if not click.confirm(f"Remove paper {doi} from cache?"):
+            console.print("Aborted.")
+            return
+
+    cache.remove(doi, version)
+    console.print("[green]✓[/green] Paper removed from cache")
 
 
 if __name__ == "__main__":
