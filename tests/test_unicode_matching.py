@@ -249,9 +249,7 @@ class TestBayesFactorQuote:
         """Test that Λ in prefix doesn't break context matching."""
         pdf = PDFDocument(
             path=None,  # type: ignore
-            pages=[
-                "We compare to the ΛCDM model and find R = 4.3 which is significant."
-            ],
+            pages=["We compare to the ΛCDM model and find R = 4.3 which is significant."],
             num_pages=1,
             sha256="test",
         )
