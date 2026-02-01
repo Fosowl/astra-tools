@@ -204,6 +204,7 @@ def _normalize_processor(text: str) -> str:
     # Apply default_process for lowercasing and additional stripping
     return default_process(normalized)
 
+
 # pypdf is an optional dependency
 PdfReader: Any = None
 

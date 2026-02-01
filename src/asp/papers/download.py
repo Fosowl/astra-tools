@@ -149,9 +149,7 @@ def _extract_arxiv_id(doi: str) -> str | None:
     return None
 
 
-def _download_arxiv_pdf(
-    arxiv_id: str, doi: str, version: int | None = None
-) -> PaperDownloadResult:
+def _download_arxiv_pdf(arxiv_id: str, doi: str, version: int | None = None) -> PaperDownloadResult:
     """Download PDF from arXiv.
 
     Args:
