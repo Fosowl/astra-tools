@@ -6,12 +6,203 @@ Extracts text from PDFs for quote verification using RapidFuzz for robust matchi
 from __future__ import annotations
 
 import hashlib
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from rapidfuzz import fuzz
 from rapidfuzz.utils import default_process
+
+# Greek letter mappings for normalization
+# Maps Greek letters to ASCII equivalents for fuzzy matching
+GREEK_TO_ASCII: dict[str, str] = {
+    # Lowercase Greek
+    "α": "alpha",
+    "β": "beta",
+    "γ": "gamma",
+    "δ": "delta",
+    "ε": "epsilon",
+    "ζ": "zeta",
+    "η": "eta",
+    "θ": "theta",
+    "ι": "iota",
+    "κ": "kappa",
+    "λ": "lambda",
+    "μ": "mu",
+    "ν": "nu",
+    "ξ": "xi",
+    "ο": "omicron",
+    "π": "pi",
+    "ρ": "rho",
+    "σ": "sigma",
+    "ς": "sigma",  # Final sigma
+    "τ": "tau",
+    "υ": "upsilon",
+    "φ": "phi",
+    "χ": "chi",
+    "ψ": "psi",
+    "ω": "omega",
+    # Uppercase Greek
+    "Α": "Alpha",
+    "Β": "Beta",
+    "Γ": "Gamma",
+    "Δ": "Delta",
+    "Ε": "Epsilon",
+    "Ζ": "Zeta",
+    "Η": "Eta",
+    "Θ": "Theta",
+    "Ι": "Iota",
+    "Κ": "Kappa",
+    "Λ": "Lambda",
+    "Μ": "Mu",
+    "Ν": "Nu",
+    "Ξ": "Xi",
+    "Ο": "Omicron",
+    "Π": "Pi",
+    "Ρ": "Rho",
+    "Σ": "Sigma",
+    "Τ": "Tau",
+    "Υ": "Upsilon",
+    "Φ": "Phi",
+    "Χ": "Chi",
+    "Ψ": "Psi",
+    "Ω": "Omega",
+}
+
+# Math symbol normalizations
+MATH_SYMBOL_MAP: dict[str, str] = {
+    "≈": "~",
+    "∼": "~",
+    "≃": "~",
+    "≅": "~",
+    "≡": "=",
+    "≠": "!=",
+    "≤": "<=",
+    "≥": ">=",
+    "±": "+-",
+    "∓": "-+",
+    "×": "x",
+    "÷": "/",
+    "−": "-",  # Unicode minus to ASCII hyphen-minus
+    "–": "-",  # En dash to hyphen
+    "—": "-",  # Em dash to hyphen
+    "′": "'",  # Prime to apostrophe
+    "″": "''",  # Double prime
+    "∞": "inf",
+}
+
+# Subscript/superscript to regular characters
+SUBSCRIPT_MAP: dict[str, str] = {
+    "₀": "0",
+    "₁": "1",
+    "₂": "2",
+    "₃": "3",
+    "₄": "4",
+    "₅": "5",
+    "₆": "6",
+    "₇": "7",
+    "₈": "8",
+    "₉": "9",
+    "₊": "+",
+    "₋": "-",
+    "₌": "=",
+    "₍": "(",
+    "₎": ")",
+    "ₐ": "a",
+    "ₑ": "e",
+    "ₕ": "h",
+    "ᵢ": "i",
+    "ⱼ": "j",
+    "ₖ": "k",
+    "ₗ": "l",
+    "ₘ": "m",
+    "ₙ": "n",
+    "ₒ": "o",
+    "ₚ": "p",
+    "ᵣ": "r",
+    "ₛ": "s",
+    "ₜ": "t",
+    "ᵤ": "u",
+    "ᵥ": "v",
+    "ₓ": "x",
+}
+
+SUPERSCRIPT_MAP: dict[str, str] = {
+    "⁰": "0",
+    "¹": "1",
+    "²": "2",
+    "³": "3",
+    "⁴": "4",
+    "⁵": "5",
+    "⁶": "6",
+    "⁷": "7",
+    "⁸": "8",
+    "⁹": "9",
+    "⁺": "+",
+    "⁻": "-",
+    "⁼": "=",
+    "⁽": "(",
+    "⁾": ")",
+    "ⁿ": "n",
+    "ⁱ": "i",
+}
+
+
+def normalize_text(text: str) -> str:
+    """Normalize text for robust fuzzy matching.
+
+    Applies:
+    1. NFKC Unicode normalization (handles ligatures, compatibility chars)
+    2. Greek letter to ASCII conversion
+    3. Math symbol normalization
+    4. Subscript/superscript normalization
+    5. Whitespace normalization
+
+    Args:
+        text: Input text to normalize.
+
+    Returns:
+        Normalized text suitable for fuzzy matching.
+    """
+    if not text:
+        return ""
+
+    # Step 1: NFKC normalization (converts ﬁ→fi, decomposes compatibility chars)
+    result = unicodedata.normalize("NFKC", text)
+
+    # Step 2: Replace Greek letters with ASCII equivalents
+    for greek, ascii_equiv in GREEK_TO_ASCII.items():
+        result = result.replace(greek, ascii_equiv)
+
+    # Step 3: Replace math symbols
+    for symbol, replacement in MATH_SYMBOL_MAP.items():
+        result = result.replace(symbol, replacement)
+
+    # Step 4: Replace subscripts and superscripts
+    for sub, regular in SUBSCRIPT_MAP.items():
+        result = result.replace(sub, regular)
+    for sup, regular in SUPERSCRIPT_MAP.items():
+        result = result.replace(sup, regular)
+
+    # Step 5: Normalize whitespace (collapse multiple spaces, tabs, newlines)
+    result = re.sub(r"\s+", " ", result)
+
+    # Step 6: Strip leading/trailing whitespace
+    result = result.strip()
+
+    return result
+
+
+def _normalize_processor(text: str) -> str:
+    """Custom processor for rapidfuzz that applies full normalization.
+
+    This combines normalize_text with default_process behavior (lowercasing).
+    """
+    normalized = normalize_text(text)
+    # Apply default_process for lowercasing and additional stripping
+    return default_process(normalized)
 
 # pypdf is an optional dependency
 PdfReader: Any = None
@@ -101,8 +292,8 @@ class PDFDocument:
             page_text = self.pages[page_idx]
 
             # Use partial_ratio which finds the best matching substring
-            # default_process handles lowercasing and stripping
-            score = fuzz.partial_ratio(quote, page_text, processor=default_process)
+            # _normalize_processor handles Greek letters, math symbols, and lowercasing
+            score = fuzz.partial_ratio(quote, page_text, processor=_normalize_processor)
 
             if score >= min_score:
                 # If prefix/suffix provided, verify context matches too
@@ -138,7 +329,8 @@ class PDFDocument:
 
         # Check if this context appears in the page with high confidence
         # Use a higher threshold since we want the full context to match
-        score = fuzz.partial_ratio(context, page_text, processor=default_process)
+        # _normalize_processor handles Greek letters, math symbols, and lowercasing
+        score = fuzz.partial_ratio(context, page_text, processor=_normalize_processor)
         return score >= 80.0
 
 

@@ -127,16 +127,23 @@ You are an ASP insight extraction agent with SELF-VALIDATION capability. Your ta
    - The page number where the quote appears (as a hint)
    - **REQUIRED: prefix and suffix context** (~20-100 chars each) for robust matching
 
-4. **VALIDATE each quote before including it** using the CLI:
+4. **VALIDATE all quotes at once** using batch verification:
+
+   After extracting all quotes, build a JSON object and verify them in a single call:
 
    ```bash
-   asp paper verify-quote "<DOI>" --quote "<exact quote text>" [--version N] [--page P] --json
+   echo '{"quotes": [
+     {"text": "exact quote 1", "page": 5, "prefix": "context before", "suffix": "context after"},
+     {"text": "exact quote 2", "page": 12}
+   ]}' | asp paper verify-quotes "<DOI>" [--version N]
    ```
 
+   This extracts the PDF text ONCE and verifies all quotes, which is much faster than individual calls.
+
    Parse the JSON response:
-   - If `status: "verified"`: Include the quote in your output
-   - If `status: "not_found"` or `status: "wrong_page"`: Re-read the PDF, find the correct quote, try again
-   - Iterate until the quote verifies (max 3 attempts per quote)
+   - Check each result's `status`: "verified" or "not_found"
+   - For any "not_found" quotes: re-read the relevant PDF section, correct the quote
+   - Repeat batch verification with corrected quotes (max 3 iterations)
 
 5. Return ONLY verified insights as YAML in this exact format:
 
@@ -170,14 +177,30 @@ decision_links:
 
 **Why prefix/suffix are required**: The verification system uses fuzzy matching (RapidFuzz) to handle OCR errors, Unicode variations, and inline citations in PDFs. The prefix/suffix provide disambiguation context per the W3C TextQuoteSelector standard, ensuring the correct quote instance is matched even when similar text appears multiple times in the paper.
 
-## Self-Validation Loop
+## Batch Verification Loop
 
-For each quote you extract:
-1. Run `asp paper verify-quote` with the --json flag
-2. Parse the JSON response to check status
-3. If not verified, re-read the relevant section and correct the quote
-4. Repeat until verified (max 3 attempts per quote)
-5. If still failing after 3 attempts, skip that quote and note in output
+After extracting all quotes from the paper:
+
+1. Build a JSON object with all quotes:
+   ```json
+   {"quotes": [
+     {"text": "quote 1", "page": 5, "prefix": "before...", "suffix": "after..."},
+     {"text": "quote 2", "page": 12}
+   ]}
+   ```
+
+2. Run batch verification (extracts PDF once, verifies all quotes):
+   ```bash
+   echo '<json>' | asp paper verify-quotes "<DOI>" [--version N]
+   ```
+
+3. Parse JSON results to identify any failures (status: "not_found")
+
+4. For failures: re-read relevant PDF sections and correct quotes
+
+5. Repeat batch verification with corrected quotes (max 3 iterations)
+
+6. If still failing after 3 attempts, skip those quotes and note in output
 
 ## Rules
 
@@ -343,10 +366,16 @@ asp paper show <doi>                              # Show paper metadata
 asp paper path <doi>                              # Get path to PDF
 asp paper remove <doi>                            # Remove from cache
 
-# Quote verification (for subagent self-validation)
+# Quote verification (single quote)
 asp paper verify-quote <doi> --quote "..." [--version N] [--page P] [--json]
 # Exit codes: 0=verified, 1=not found, 2=error
-# JSON output: {"status": "verified|not_found|wrong_page|error", "found_pages": [...], "expected_page": N, "message": "..."}
+# JSON output: {"status": "verified|not_found|error", "found_pages": [...], "expected_page": N, "message": "..."}
+
+# Batch quote verification (PREFERRED - extracts PDF once)
+echo '{"quotes": [{"text": "...", "page": N, "prefix": "...", "suffix": "..."}]}' | \
+  asp paper verify-quotes <doi> [--version N]
+# Exit codes: 0=all verified, 1=some not found, 2=error
+# JSON output: {"doi": "...", "results": [...], "summary": {"total": N, "verified": N, "not_found": N}}
 
 # Validation
 asp validate asp.yaml                             # Schema + semantic validation

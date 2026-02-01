@@ -1447,6 +1447,170 @@ def paper_fetch_metadata(doi: str | None, version: int | None, fetch_all: bool) 
         console.print(f"  Authors: {', '.join(doi_meta.authors)}")
 
 
+@paper.command("verify-quotes")
+@click.argument("doi")
+@click.option("--version", "-v", type=int, help="Paper version (for arXiv papers)")
+def paper_verify_quotes(doi: str, version: int | None) -> None:
+    """Verify multiple quotes from a cached paper in a single operation.
+
+    Reads quote list from stdin as JSON. Extracts PDF text once and
+    verifies all quotes against it, making this much more efficient than
+    calling verify-quote multiple times.
+
+    Input format (stdin):
+        {"quotes": [{"text": "...", "page": N, "prefix": "...", "suffix": "..."}, ...]}
+
+    Output format (stdout, JSON):
+        {"doi": "...", "results": [...], "summary": {...}}
+
+    Exit codes:
+      0 - All quotes verified
+      1 - Some quotes not found
+      2 - Error (paper not cached, invalid input, etc.)
+
+    Examples:
+        echo '{"quotes": [{"text": "Attention is all you need"}]}' | \\
+            asp paper verify-quotes 10.48550/arXiv.1706.03762 --version 7
+
+        cat quotes.json | asp paper verify-quotes 10.1038/s41586-023-06221-2
+    """
+    from asp.papers.cache import PaperCache
+    from asp.verification.core import VerificationStatus, verify_quote_in_pdf
+    from asp.verification.pdf import extract_text_from_pdf
+
+    # Read JSON input from stdin
+    try:
+        input_data = sys.stdin.read()
+        if not input_data.strip():
+            print(
+                json.dumps(
+                    {
+                        "doi": doi,
+                        "version": version,
+                        "results": [],
+                        "summary": {"total": 0, "verified": 0, "not_found": 0, "errors": 1},
+                        "error": "No input provided on stdin",
+                    }
+                )
+            )
+            raise SystemExit(2)
+
+        data = json.loads(input_data)
+        quotes = data.get("quotes", [])
+    except json.JSONDecodeError as e:
+        print(
+            json.dumps(
+                {
+                    "doi": doi,
+                    "version": version,
+                    "results": [],
+                    "summary": {"total": 0, "verified": 0, "not_found": 0, "errors": 1},
+                    "error": f"Invalid JSON input: {e}",
+                }
+            )
+        )
+        raise SystemExit(2)
+
+    # Get paper from cache
+    cache = PaperCache()
+    cached_paper = cache.get(doi, version)
+
+    if not cached_paper:
+        print(
+            json.dumps(
+                {
+                    "doi": doi,
+                    "version": version,
+                    "results": [],
+                    "summary": {"total": len(quotes), "verified": 0, "not_found": 0, "errors": 1},
+                    "error": f"Paper not in cache: {doi}",
+                }
+            )
+        )
+        raise SystemExit(2)
+
+    # Extract text from PDF (ONCE - this is the key optimization)
+    try:
+        pdf = extract_text_from_pdf(cached_paper.pdf_path)
+    except Exception as e:
+        print(
+            json.dumps(
+                {
+                    "doi": doi,
+                    "version": version,
+                    "results": [],
+                    "summary": {"total": len(quotes), "verified": 0, "not_found": 0, "errors": 1},
+                    "error": f"Failed to extract text from PDF: {e}",
+                }
+            )
+        )
+        raise SystemExit(2)
+
+    # Verify each quote against the already-extracted PDF text
+    results = []
+    verified_count = 0
+    not_found_count = 0
+
+    for idx, quote_data in enumerate(quotes):
+        quote_text = quote_data.get("text", "")
+        page_hint = quote_data.get("page")
+        prefix = quote_data.get("prefix")
+        suffix = quote_data.get("suffix")
+
+        if not quote_text:
+            results.append(
+                {
+                    "index": idx,
+                    "text": "",
+                    "status": "error",
+                    "found_pages": [],
+                    "message": "Empty quote text",
+                }
+            )
+            continue
+
+        status, found_pages, message = verify_quote_in_pdf(
+            quote_text, pdf, page_hint, prefix, suffix
+        )
+
+        # Truncate quote for display
+        display_text = quote_text[:50] + "..." if len(quote_text) > 50 else quote_text
+
+        results.append(
+            {
+                "index": idx,
+                "text": display_text,
+                "status": status.value,
+                "found_pages": found_pages,
+                "message": message,
+            }
+        )
+
+        if status == VerificationStatus.VERIFIED:
+            verified_count += 1
+        else:
+            not_found_count += 1
+
+    # Output results
+    output = {
+        "doi": doi,
+        "version": version,
+        "results": results,
+        "summary": {
+            "total": len(quotes),
+            "verified": verified_count,
+            "not_found": not_found_count,
+            "errors": 0,
+        },
+    }
+    print(json.dumps(output))
+
+    # Exit code based on results
+    if not_found_count > 0:
+        raise SystemExit(1)
+    raise SystemExit(0)
+
+
 @paper.command("verify-quote")
 @click.argument("doi")
 @click.option("--quote", "-q", required=True, help="Exact quote text to verify")

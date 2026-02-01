@@ -18,6 +18,7 @@ from asp.verification.core import (
 from asp.verification.pdf import (
     PDFDocument,
     extract_text_from_pdf,
+    normalize_text,
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     # PDF utilities
     "PDFDocument",
     "extract_text_from_pdf",
+    "normalize_text",
 ]
