@@ -297,3 +297,42 @@ class PaperCache:
         if paper:
             return paper.pdf_path
         return None
+
+    def update_metadata(
+        self,
+        doi: str,
+        version: int | None = None,
+        title: str | None = None,
+        authors: list[str] | None = None,
+    ) -> bool:
+        """Update metadata for a cached paper.
+
+        Useful for adding title/authors to papers that were cached without metadata.
+
+        Args:
+            doi: DOI of the paper.
+            version: Paper version (for arXiv).
+            title: Paper title to set.
+            authors: List of authors to set.
+
+        Returns:
+            True if metadata was updated, False if paper not found.
+        """
+        paper = self.get(doi, version)
+        if not paper:
+            return False
+
+        # Update metadata
+        if title is not None:
+            paper.metadata.title = title
+        if authors is not None:
+            paper.metadata.authors = authors
+
+        # Write updated metadata
+        paper_dir = self._paper_dir(doi, version)
+        meta_path = paper_dir / "meta.json"
+        with open(meta_path, "w") as f:
+            json.dump(paper.metadata.to_json(), f, indent=2)
+            f.write("\n")
+
+        return True

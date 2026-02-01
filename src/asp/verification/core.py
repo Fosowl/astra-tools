@@ -20,7 +20,6 @@ class VerificationStatus(str, Enum):
 
     VERIFIED = "verified"  # Evidence found in source
     NOT_FOUND = "not_found"  # Evidence not found in source
-    WRONG_PAGE = "wrong_page"  # Found but on different page
     SKIPPED = "skipped"  # Could not verify (e.g., figure/table)
     CACHED = "cached"  # Verified from cache (no re-check needed)
     ERROR = "error"  # Error during verification
@@ -111,7 +110,7 @@ def _get_attr(obj: Any, key: str, default: Any = None) -> Any:
 def _determine_overall_status(results: list[EvidenceVerification]) -> VerificationStatus:
     """Determine overall verification status from individual results.
 
-    Priority order: ERROR > NOT_FOUND > WRONG_PAGE > SKIPPED > VERIFIED
+    Priority order: ERROR > NOT_FOUND > SKIPPED > VERIFIED
     """
     statuses = {r.status for r in results}
 
@@ -119,7 +118,6 @@ def _determine_overall_status(results: list[EvidenceVerification]) -> Verificati
     for status in (
         VerificationStatus.ERROR,
         VerificationStatus.NOT_FOUND,
-        VerificationStatus.WRONG_PAGE,
     ):
         if status in statuses:
             return status
@@ -134,29 +132,27 @@ def _determine_overall_status(results: list[EvidenceVerification]) -> Verificati
 def verify_quote_in_pdf(
     quote_text: str,
     pdf: PDFDocument,
-    expected_page: int | None = None,
+    page_hint: int | None = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
 ) -> tuple[VerificationStatus, list[int], str]:
     """Verify a quote exists in a PDF.
 
     Args:
         quote_text: The quote text to find.
         pdf: PDFDocument with extracted text.
-        expected_page: Expected page number (1-indexed).
+        page_hint: Optional page hint (1-indexed) to optimize search.
+            This is only used to prioritize search order, not for validation.
+        prefix: Optional text before the quote (for disambiguation per W3C TextQuoteSelector).
+        suffix: Optional text after the quote (for disambiguation per W3C TextQuoteSelector).
 
     Returns:
         Tuple of (status, found_pages, message).
     """
-    found_pages = pdf.find_quote(quote_text, page=expected_page)
+    found_pages = pdf.find_quote(quote_text, page=page_hint, prefix=prefix, suffix=suffix)
 
     if not found_pages:
         return VerificationStatus.NOT_FOUND, [], f"Quote not found in PDF: '{quote_text[:50]}...'"
-
-    if expected_page and expected_page not in found_pages:
-        return (
-            VerificationStatus.WRONG_PAGE,
-            found_pages,
-            f"Quote found on page(s) {found_pages}, expected page {expected_page}",
-        )
 
     return VerificationStatus.VERIFIED, found_pages, f"Quote verified on page(s) {found_pages}"
 
@@ -194,6 +190,8 @@ def verify_evidence(
     quote = _get_attr(evidence, "quote")
     if quote:
         quote_text = _get_attr(quote, "exact", "")
+        quote_prefix = _get_attr(quote, "prefix")
+        quote_suffix = _get_attr(quote, "suffix")
 
         # Check cache first
         if verification_cache:
@@ -206,8 +204,11 @@ def verify_evidence(
                 result.from_cache = True
                 return result
 
-        # Verify quote
-        status, found_pages, message = verify_quote_in_pdf(quote_text, pdf, expected_page)
+        # Verify quote (page is used as search hint only, not for validation)
+        # prefix/suffix from W3C TextQuoteSelector help disambiguate repeated quotes
+        status, found_pages, message = verify_quote_in_pdf(
+            quote_text, pdf, expected_page, quote_prefix, quote_suffix
+        )
         result.quote_status = status
         result.status = status
         result.quote_found_pages = found_pages
@@ -307,7 +308,7 @@ def verify_insight(
         result = verify_evidence(ev, pdf, verification_cache)
         evidence_results.append(result)
 
-    # Determine overall status (priority: ERROR > NOT_FOUND > WRONG_PAGE > SKIPPED > VERIFIED)
+    # Determine overall status (priority: ERROR > NOT_FOUND > SKIPPED > VERIFIED)
     overall = _determine_overall_status(evidence_results)
 
     return InsightVerification(

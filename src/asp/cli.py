@@ -1373,5 +1373,178 @@ def paper_remove(doi: str, version: int | None, yes: bool) -> None:
     console.print("[green]✓[/green] Paper removed from cache")
 
 
+@paper.command("fetch-metadata")
+@click.argument("doi", required=False)
+@click.option("--version", "-v", type=int, help="Paper version (for arXiv papers)")
+@click.option("--all", "fetch_all", is_flag=True, help="Fetch metadata for all cached papers")
+def paper_fetch_metadata(doi: str | None, version: int | None, fetch_all: bool) -> None:
+    """Fetch metadata (title, authors) for cached papers.
+
+    Uses DOI content negotiation to retrieve metadata from DOI.org.
+    This works for any DOI (Crossref, DataCite, arXiv, etc.).
+
+    Examples:
+
+        asp paper fetch-metadata 10.48550/arXiv.1706.03762
+
+        asp paper fetch-metadata --all
+    """
+    from asp.papers.cache import PaperCache
+    from asp.papers.download import fetch_doi_metadata
+
+    cache = PaperCache()
+
+    if fetch_all:
+        papers = cache.list_papers()
+        if not papers:
+            console.print("[dim]No papers cached[/dim]")
+            return
+
+        updated = 0
+        for paper in papers:
+            meta = paper.metadata
+            if meta.title and meta.authors:
+                # Already has metadata
+                continue
+
+            console.print(f"Fetching metadata for {meta.doi}...", end=" ")
+            doi_meta = fetch_doi_metadata(meta.doi)
+
+            if doi_meta.title or doi_meta.authors:
+                cache.update_metadata(
+                    meta.doi,
+                    meta.version,
+                    title=doi_meta.title,
+                    authors=doi_meta.authors,
+                )
+                console.print(f"[green]✓[/green] {doi_meta.title or '(no title)'}")
+                updated += 1
+            else:
+                console.print("[yellow]⚠[/yellow] No metadata found")
+
+        console.print(f"\n[dim]Updated {updated} paper(s)[/dim]")
+        return
+
+    if not doi:
+        console.print("[red]Error:[/red] Provide a DOI or use --all")
+        raise SystemExit(1)
+
+    if not cache.has(doi, version):
+        console.print(f"[red]Error:[/red] Paper not found in cache: {doi}")
+        raise SystemExit(1)
+
+    console.print(f"Fetching metadata for {doi}...")
+    doi_meta = fetch_doi_metadata(doi)
+
+    if not doi_meta.title and not doi_meta.authors:
+        console.print("[yellow]⚠[/yellow] No metadata found for this DOI")
+        raise SystemExit(1)
+
+    cache.update_metadata(doi, version, title=doi_meta.title, authors=doi_meta.authors)
+
+    console.print("[green]✓[/green] Metadata updated:")
+    if doi_meta.title:
+        console.print(f"  Title: {doi_meta.title}")
+    if doi_meta.authors:
+        console.print(f"  Authors: {', '.join(doi_meta.authors)}")
+
+
+@paper.command("verify-quote")
+@click.argument("doi")
+@click.option("--quote", "-q", required=True, help="Exact quote text to verify")
+@click.option("--version", "-v", type=int, help="Paper version (for arXiv papers)")
+@click.option("--page", "-p", type=int, help="Expected page number (1-indexed)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+def paper_verify_quote(
+    doi: str, quote: str, version: int | None, page: int | None, output_json: bool
+) -> None:
+    """Verify a quote exists in a cached paper.
+
+    Searches for the exact quote in the paper's text. Uses fuzzy matching
+    to handle minor OCR/extraction differences.
+
+    Exit codes:
+      0 - Quote verified (found in paper)
+      1 - Quote not found
+      2 - Error (paper not cached, etc.)
+
+    Examples:
+        asp paper verify-quote 10.48550/arXiv.1706.03762 \\
+          --quote "Attention is all you need" --version 7
+
+        asp paper verify-quote 10.1038/s41586-023-06221-2 \\
+          --quote "exact text from paper" --page 5 --json
+    """
+    from asp.papers.cache import PaperCache
+    from asp.verification.core import VerificationStatus, verify_quote_in_pdf
+    from asp.verification.pdf import extract_text_from_pdf
+
+    cache = PaperCache()
+    cached_paper = cache.get(doi, version)
+
+    if not cached_paper:
+        # Error: paper not cached
+        if output_json:
+            print(
+                json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Paper not in cache: {doi}",
+                        "found_pages": [],
+                        "expected_page": page,
+                    }
+                )
+            )
+        else:
+            console.print(f"[red]Error:[/red] Paper not in cache: {doi}")
+            console.print("Use [cyan]asp paper add[/cyan] first.")
+        raise SystemExit(2)
+
+    # Extract text from PDF
+    try:
+        pdf = extract_text_from_pdf(cached_paper.pdf_path)
+    except Exception as e:
+        if output_json:
+            print(
+                json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Failed to extract text from PDF: {e}",
+                        "found_pages": [],
+                        "expected_page": page,
+                    }
+                )
+            )
+        else:
+            console.print(f"[red]Error:[/red] Failed to extract text from PDF: {e}")
+        raise SystemExit(2)
+
+    # Verify the quote
+    status, found_pages, message = verify_quote_in_pdf(quote, pdf, page)
+
+    if output_json:
+        print(
+            json.dumps(
+                {
+                    "status": status.value,
+                    "found_pages": found_pages,
+                    "expected_page": page,
+                    "message": message,
+                }
+            )
+        )
+    else:
+        if status == VerificationStatus.VERIFIED:
+            console.print(f"[green]✓ Verified[/green] {message}")
+        else:
+            console.print(f"[red]✗ Not found[/red] {message}")
+
+    # Exit code based on status
+    if status == VerificationStatus.VERIFIED:
+        raise SystemExit(0)
+    else:
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
     main()

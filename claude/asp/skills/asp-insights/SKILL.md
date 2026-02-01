@@ -99,12 +99,12 @@ Print: `## Step 3: Extract Insights (Parallel)`
 
 **IMPORTANT**: For each paper, spawn a separate subagent using the `Task` tool. Process papers in parallel by making multiple Task calls in a single message.
 
-### Subagent Instructions Template
+### Subagent Instructions Template (with Self-Validation)
 
 For each paper, call the Task tool with `subagent_type: "general-purpose"` and a prompt containing:
 
 ```
-You are an ASP insight extraction agent. Your task is to extract scientific insights from a single paper and format them for an ASP analysis.
+You are an ASP insight extraction agent with SELF-VALIDATION capability. Your task is to extract scientific insights from a single paper and format them for an ASP analysis.
 
 ## Analysis Context
 
@@ -124,10 +124,21 @@ You are an ASP insight extraction agent. Your task is to extract scientific insi
 3. For each relevant finding, extract:
    - A clear claim (1-2 sentences)
    - An exact quote from the paper (verbatim, 1-3 sentences)
-   - The page number where the quote appears
-   - Optional: prefix/suffix context (~20-100 chars) if the quote is common
+   - The page number where the quote appears (as a hint)
+   - **REQUIRED: prefix and suffix context** (~20-100 chars each) for robust matching
 
-4. Return your findings as YAML in this exact format:
+4. **VALIDATE each quote before including it** using the CLI:
+
+   ```bash
+   asp paper verify-quote "<DOI>" --quote "<exact quote text>" [--version N] [--page P] --json
+   ```
+
+   Parse the JSON response:
+   - If `status: "verified"`: Include the quote in your output
+   - If `status: "not_found"` or `status: "wrong_page"`: Re-read the PDF, find the correct quote, try again
+   - Iterate until the quote verifies (max 3 attempts per quote)
+
+5. Return ONLY verified insights as YAML in this exact format:
 
 ```yaml
 insights:
@@ -135,18 +146,19 @@ insights:
     id: <insight_id>
     claim: "<What we learned from this finding>"
     created_at: "<current ISO timestamp>"
+    verified: true  # All quotes verified before returning
     evidence:
       - id: ev1
         doi: "<paper DOI>"
         version: <version if arXiv>
         quote:
           type: TextQuoteSelector
-          exact: "<exact quote from paper>"
-          prefix: "<optional context before>"
-          suffix: "<optional context after>"
+          exact: "<VERIFIED exact quote from paper>"
+          prefix: "<~20-100 chars BEFORE the quote>"   # REQUIRED for robust matching
+          suffix: "<~20-100 chars AFTER the quote>"    # REQUIRED for robust matching
         location:
           type: FragmentSelector
-          page: <page number>
+          page: <page number hint>
     scope: "<when this applies, optional>"
 
 decision_links:
@@ -156,12 +168,24 @@ decision_links:
         - <insight_id>
 ```
 
+**Why prefix/suffix are required**: The verification system uses fuzzy matching (RapidFuzz) to handle OCR errors, Unicode variations, and inline citations in PDFs. The prefix/suffix provide disambiguation context per the W3C TextQuoteSelector standard, ensuring the correct quote instance is matched even when similar text appears multiple times in the paper.
+
+## Self-Validation Loop
+
+For each quote you extract:
+1. Run `asp paper verify-quote` with the --json flag
+2. Parse the JSON response to check status
+3. If not verified, re-read the relevant section and correct the quote
+4. Repeat until verified (max 3 attempts per quote)
+5. If still failing after 3 attempts, skip that quote and note in output
+
 ## Rules
 
 - Use lowercase_with_underscores for insight IDs
 - Quotes must be EXACT - copy verbatim from the PDF
 - One claim per insight - don't combine multiple findings
 - Only extract insights relevant to the target decisions
+- **Only include insights that passed verification**
 - If no relevant insights found, return empty insights: {}
 ```
 
@@ -270,9 +294,15 @@ Report: "[N] insights extracted from [P] papers. [M] evidence items verified. Li
 quote:
   type: TextQuoteSelector
   exact: "The exact quoted text from the paper"
-  prefix: "Context before..."    # Optional, ~20-100 chars
-  suffix: "Context after..."     # Optional, ~20-100 chars
+  prefix: "Context before..."    # REQUIRED: ~20-100 chars before quote
+  suffix: "Context after..."     # REQUIRED: ~20-100 chars after quote
 ```
+
+**Best practices for prefix/suffix:**
+- Include distinctive text (figure refs, theorem numbers, unique phrases)
+- Avoid common words that appear throughout the paper
+- Copy verbatim from the PDF, including punctuation
+- Longer context (50-100 chars) is more robust than shorter
 
 ### Figure Evidence (FigureSelector)
 
@@ -313,6 +343,11 @@ asp paper show <doi>                              # Show paper metadata
 asp paper path <doi>                              # Get path to PDF
 asp paper remove <doi>                            # Remove from cache
 
+# Quote verification (for subagent self-validation)
+asp paper verify-quote <doi> --quote "..." [--version N] [--page P] [--json]
+# Exit codes: 0=verified, 1=not found, 2=error
+# JSON output: {"status": "verified|not_found|wrong_page|error", "found_pages": [...], "expected_page": N, "message": "..."}
+
 # Validation
 asp validate asp.yaml                             # Schema + semantic validation
 asp validate asp.yaml --verify-evidence           # + evidence verification
@@ -334,6 +369,7 @@ asp validate asp.yaml --verify-evidence           # + evidence verification
 1. **Spawn in parallel** — Use multiple Task calls in one message for efficiency
 2. **Rich context** — Give subagents full analysis context so they extract relevant insights
 3. **One paper per subagent** — Don't overload subagents with multiple papers
-4. **Verify early** — Run validation after consolidating, before linking to decisions
-5. **arXiv versions** — Always specify version for reproducibility
-6. **Iterate on failures** — If verification fails, the quote needs correction
+4. **Subagent self-validation** — Subagents use `asp paper verify-quote` to validate quotes before returning, catching errors early while they still have PDF context
+5. **Verify early** — Run validation after consolidating, before linking to decisions
+6. **arXiv versions** — Always specify version for reproducibility
+7. **Iterate on failures** — If verification fails, the quote needs correction

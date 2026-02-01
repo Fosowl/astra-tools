@@ -1,15 +1,17 @@
 """PDF handling for evidence verification.
 
-Extracts text from PDFs for quote verification.
+Extracts text from PDFs for quote verification using RapidFuzz for robust matching.
 """
 
 from __future__ import annotations
 
 import hashlib
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from rapidfuzz import fuzz
+from rapidfuzz.utils import default_process
 
 # pypdf is an optional dependency
 PdfReader: Any = None
@@ -65,22 +67,28 @@ class PDFDocument:
         self,
         quote: str,
         page: int | None = None,
-        min_match_ratio: float = 0.7,
+        min_score: float = 70.0,
+        prefix: str | None = None,
+        suffix: str | None = None,
     ) -> list[int]:
-        """Find pages containing a quote.
+        """Find pages containing a quote using fuzzy matching.
 
-        Uses fuzzy matching to handle OCR/extraction differences.
+        Uses RapidFuzz's partial_ratio for robust matching that handles:
+        - OCR errors and character variations
+        - Unicode normalization issues
+        - Minor text differences
 
         Args:
             quote: The quote to search for.
             page: Optional page hint (1-indexed). If provided, searches this page first.
-            min_match_ratio: Minimum similarity ratio for fuzzy matching.
+            min_score: Minimum similarity score (0-100) for fuzzy matching.
+            prefix: Optional text that should appear before the quote (for disambiguation).
+            suffix: Optional text that should appear after the quote (for disambiguation).
 
         Returns:
             List of 1-indexed page numbers where quote was found.
         """
         found_pages = []
-        normalized_quote = _normalize_text(quote)
 
         # Search pages (prioritize hint page if provided)
         pages_to_search = list(range(self.num_pages))
@@ -90,83 +98,48 @@ class PDFDocument:
             pages_to_search.insert(0, page - 1)
 
         for page_idx in pages_to_search:
-            page_text = _normalize_text(self.pages[page_idx])
+            page_text = self.pages[page_idx]
 
-            # Exact match
-            if normalized_quote in page_text:
-                found_pages.append(page_idx + 1)
-                continue
+            # Use partial_ratio which finds the best matching substring
+            # default_process handles lowercasing and stripping
+            score = fuzz.partial_ratio(quote, page_text, processor=default_process)
 
-            # Fuzzy match using simple similarity
-            if _fuzzy_contains(page_text, normalized_quote, min_match_ratio):
+            if score >= min_score:
+                # If prefix/suffix provided, verify context matches too
+                if prefix or suffix:
+                    if not self._verify_context(page_text, quote, prefix, suffix):
+                        continue
                 found_pages.append(page_idx + 1)
 
         return found_pages
 
+    def _verify_context(
+        self,
+        page_text: str,
+        quote: str,
+        prefix: str | None,
+        suffix: str | None,
+    ) -> bool:
+        """Verify that prefix/suffix context matches around the quote.
 
-def _normalize_text(text: str) -> str:
-    """Normalize text for comparison.
+        Uses fuzzy matching to find if the context appears in the expected order.
+        The full context (prefix + quote + suffix) must appear as a sequence.
+        """
+        # Build a context pattern: prefix + quote + suffix
+        context_parts = []
+        if prefix:
+            context_parts.append(prefix.strip())
+        context_parts.append(quote.strip())
+        if suffix:
+            context_parts.append(suffix.strip())
 
-    Handles common PDF extraction issues:
-    - Unicode normalization
-    - Whitespace normalization
-    - Common character substitutions
-    """
-    # Normalize whitespace
-    text = re.sub(r"\s+", " ", text.strip())
+        # Join with flexible whitespace matching
+        context = " ".join(context_parts)
 
-    # Common Unicode -> ASCII substitutions for scientific text
-    replacements = {
-        "\u2013": "-",  # en-dash
-        "\u2014": "--",  # em-dash
-        "\u2018": "'",  # left single quote
-        "\u2019": "'",  # right single quote
-        "\u201c": '"',  # left double quote
-        "\u201d": '"',  # right double quote
-        "\u00b1": "+-",  # plus-minus
-        "\u00d7": "x",  # multiplication
-        "\u03c3": "sigma",  # sigma
-        "\u03b1": "alpha",  # alpha
-        "\u03b2": "beta",  # beta
-        "\u2264": "<=",  # less than or equal
-        "\u2265": ">=",  # greater than or equal
-        "\ufb01": "fi",  # fi ligature
-        "\ufb02": "fl",  # fl ligature
-    }
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-
-    return text.lower()
-
-
-def _fuzzy_contains(haystack: str, needle: str, min_ratio: float) -> bool:
-    """Check if haystack contains needle with fuzzy matching.
-
-    Uses a simple sliding window approach.
-    """
-    if len(needle) > len(haystack):
-        return False
-
-    # Slide a window of needle's length across haystack
-    window_size = len(needle)
-
-    for i in range(len(haystack) - window_size + 1):
-        window = haystack[i : i + window_size]
-        ratio = _similarity_ratio(window, needle)
-        if ratio >= min_ratio:
-            return True
-
-    return False
-
-
-def _similarity_ratio(s1: str, s2: str) -> float:
-    """Calculate similarity ratio between two strings."""
-    if not s1 or not s2:
-        return 0.0
-
-    # Simple character-based similarity
-    matches = sum(1 for a, b in zip(s1, s2) if a == b)
-    return matches / max(len(s1), len(s2))
+        # Check if this context appears in the page with high confidence
+        # Use a higher threshold since we want the full context to match
+        score = fuzz.partial_ratio(context, page_text, processor=default_process)
+        return score >= 80.0
 
 
 def extract_text_from_pdf(pdf_path: Path) -> PDFDocument:

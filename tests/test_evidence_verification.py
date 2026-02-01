@@ -342,3 +342,201 @@ class TestFullValidationWorkflow:
 
         assert "flexion_insight" in results
         assert results["flexion_insight"].is_valid
+
+
+class TestRapidFuzzMatching:
+    """Tests for RapidFuzz-based fuzzy matching."""
+
+    def test_exact_match(self):
+        """Test that exact matches are found."""
+        from asp.verification.pdf import PDFDocument
+
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=["This is an exact quote from the paper."],
+            num_pages=1,
+            sha256="test",
+        )
+        found = pdf.find_quote("This is an exact quote from the paper.")
+        assert 1 in found
+
+    def test_case_insensitive_match(self):
+        """Test that matching is case-insensitive."""
+        from asp.verification.pdf import PDFDocument
+
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=["The Model achieves GREAT results."],
+            num_pages=1,
+            sha256="test",
+        )
+        found = pdf.find_quote("the model achieves great results")
+        assert 1 in found
+
+    def test_fuzzy_match_with_typos(self):
+        """Test that fuzzy matching handles minor typos/OCR errors."""
+        from asp.verification.pdf import PDFDocument
+
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=["The rnodel achieves great resu1ts."],  # OCR errors: rn->m, 1->l
+            num_pages=1,
+            sha256="test",
+        )
+        found = pdf.find_quote("The model achieves great results.", min_score=70.0)
+        assert 1 in found
+
+    def test_fuzzy_match_with_inline_citations(self):
+        """Test that fuzzy matching handles inline citations in PDF text."""
+        from asp.verification.pdf import PDFDocument
+
+        # PDF has citations that user's quote doesn't include
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=["The model [29] achieves great results [1, 2]."],
+            num_pages=1,
+            sha256="test",
+        )
+        found = pdf.find_quote("The model achieves great results.", min_score=70.0)
+        assert 1 in found
+
+    def test_fuzzy_match_unicode_variations(self):
+        """Test that fuzzy matching handles Unicode character variations."""
+        from asp.verification.pdf import PDFDocument
+
+        # PDF has different Unicode characters
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=["The value is ∼100 with α = 0.5"],  # Unicode tilde and alpha
+            num_pages=1,
+            sha256="test",
+        )
+        # User might write ASCII approximations
+        found = pdf.find_quote("The value is ~100 with alpha = 0.5", min_score=60.0)
+        assert 1 in found
+
+    def test_quote_not_found(self):
+        """Test that non-existent quotes are not found."""
+        from asp.verification.pdf import PDFDocument
+
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=["This paper discusses machine learning algorithms for image classification."],
+            num_pages=1,
+            sha256="test",
+        )
+        # Completely different content should not match
+        found = pdf.find_quote(
+            "Quantum entanglement enables faster-than-light communication.",
+            min_score=70.0,
+        )
+        assert len(found) == 0
+
+
+class TestPrefixSuffixContext:
+    """Tests for W3C TextQuoteSelector prefix/suffix disambiguation."""
+
+    def test_prefix_suffix_disambiguation(self):
+        """Test that prefix/suffix help disambiguate repeated quotes.
+
+        In practice, prefix/suffix provide unique context like section headers,
+        figure references, or distinctive surrounding text.
+        """
+        from asp.verification.pdf import PDFDocument
+
+        # Same quote appears twice with very different context
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=[
+                "As shown in Figure 3, the neural network achieves high accuracy. "
+                "This validates our hypothesis about deep learning.",
+                "According to Table 7, the random forest achieves high accuracy. "
+                "This confirms the baseline performance.",
+            ],
+            num_pages=2,
+            sha256="test",
+        )
+
+        # Without prefix/suffix, both pages match the common phrase
+        found = pdf.find_quote("achieves high accuracy")
+        assert len(found) == 2
+
+        # With prefix, only page 1 matches (neural network context)
+        found = pdf.find_quote(
+            "achieves high accuracy",
+            prefix="As shown in Figure 3, the neural network",
+        )
+        assert 1 in found
+        assert 2 not in found
+
+    def test_suffix_context(self):
+        """Test that suffix helps narrow down matches."""
+        from asp.verification.pdf import PDFDocument
+
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=[
+                "The algorithm converges rapidly. Theorem 4.2 provides the convergence guarantee.",
+                "The algorithm converges rapidly. Empirical results support this observation.",
+            ],
+            num_pages=2,
+            sha256="test",
+        )
+
+        # With suffix specifying the theorem reference, only page 1 matches
+        found = pdf.find_quote(
+            "The algorithm converges rapidly.",
+            suffix="Theorem 4.2 provides the convergence guarantee.",
+        )
+        assert 1 in found
+        assert 2 not in found
+
+
+class TestPageHint:
+    """Tests for page hint in quote verification."""
+
+    def test_page_hint_optimizes_search(self):
+        """Test that page hint is used to optimize search order."""
+        from asp.verification.core import VerificationStatus, verify_quote_in_pdf
+        from asp.verification.pdf import PDFDocument
+
+        # Create a mock PDF with 10 pages
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=["" for _ in range(10)],
+            num_pages=10,
+            sha256="test",
+        )
+        # Put the quote on page 5 (0-indexed: page 4)
+        pdf.pages[4] = "This is the quote we are looking for."
+
+        # Page hint doesn't affect verification - quote found anywhere is VERIFIED
+        status, found_pages, message = verify_quote_in_pdf(
+            "This is the quote we are looking for",
+            pdf,
+            page_hint=1,  # Hint is wrong, but quote should still be found
+        )
+        assert status == VerificationStatus.VERIFIED
+        assert 5 in found_pages
+
+    def test_no_page_hint(self):
+        """Test verification works without page hint."""
+        from asp.verification.core import VerificationStatus, verify_quote_in_pdf
+        from asp.verification.pdf import PDFDocument
+
+        pdf = PDFDocument(
+            path=None,  # type: ignore
+            pages=["" for _ in range(10)],
+            num_pages=10,
+            sha256="test",
+        )
+        pdf.pages[4] = "This is the quote we are looking for."
+
+        # No page hint - should still find and verify quote
+        status, found_pages, message = verify_quote_in_pdf(
+            "This is the quote we are looking for",
+            pdf,
+            page_hint=None,
+        )
+        assert status == VerificationStatus.VERIFIED
+        assert 5 in found_pages

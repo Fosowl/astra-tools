@@ -28,6 +28,7 @@ dependencies = [
     "pypdf>=4.0",
     "httpx>=0.27",
     "cwltool>=3.0",
+    "rapidfuzz>=3.0",
 ]
 
 [project.optional-dependencies]

@@ -29,6 +29,94 @@ def _check_httpx() -> None:
 
 
 @dataclass
+class DOIMetadata:
+    """Metadata retrieved from DOI content negotiation.
+
+    Attributes:
+        title: Paper title.
+        authors: List of author names.
+        doi: The DOI.
+        published: Publication date (if available).
+        container_title: Journal/conference name (if available).
+    """
+
+    title: str | None = None
+    authors: list[str] | None = None
+    doi: str | None = None
+    published: str | None = None
+    container_title: str | None = None
+
+
+def fetch_doi_metadata(doi: str) -> DOIMetadata:
+    """Fetch metadata for any DOI using content negotiation.
+
+    Uses the DOI.org content negotiation to retrieve CSL-JSON metadata.
+    This works for any DOI registration agency (Crossref, DataCite, arXiv, etc.).
+
+    See: https://citation.doi.org/docs.html
+
+    Args:
+        doi: DOI string (e.g., '10.1038/nature12373').
+
+    Returns:
+        DOIMetadata with title, authors, etc. Fields may be None if not available.
+    """
+    _check_httpx()
+
+    url = f"https://doi.org/{doi}"
+    headers = {"Accept": "application/vnd.citationstyles.csl+json"}
+
+    try:
+        response = httpx.get(url, headers=headers, follow_redirects=True, timeout=30.0)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Extract title
+        title = data.get("title")
+
+        # Extract authors - CSL-JSON uses "author" array with "family" and "given"
+        authors = None
+        if data.get("author"):
+            authors = []
+            for author in data["author"]:
+                if author.get("family"):
+                    name = author.get("given", "")
+                    if name:
+                        name += " "
+                    name += author["family"]
+                    authors.append(name.strip())
+                elif author.get("literal"):
+                    # Some entries use "literal" for organization names
+                    authors.append(author["literal"])
+
+        # Extract publication date
+        published = None
+        if data.get("issued") and data["issued"].get("date-parts"):
+            date_parts = data["issued"]["date-parts"][0]
+            if date_parts:
+                published = "-".join(str(p) for p in date_parts if p)
+
+        # Extract container title (journal/conference)
+        container_title = data.get("container-title")
+
+        return DOIMetadata(
+            title=title,
+            authors=authors,
+            doi=data.get("DOI", doi),
+            published=published,
+            container_title=container_title,
+        )
+
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        # Return empty metadata on error - don't fail the download
+        return DOIMetadata()
+    except (KeyError, ValueError):
+        # JSON parsing issues
+        return DOIMetadata()
+
+
+@dataclass
 class PaperDownloadResult:
     """Result of a paper download attempt.
 
@@ -61,11 +149,14 @@ def _extract_arxiv_id(doi: str) -> str | None:
     return None
 
 
-def _download_arxiv_pdf(arxiv_id: str, version: int | None = None) -> PaperDownloadResult:
+def _download_arxiv_pdf(
+    arxiv_id: str, doi: str, version: int | None = None
+) -> PaperDownloadResult:
     """Download PDF from arXiv.
 
     Args:
         arxiv_id: arXiv ID (e.g., '1706.03762').
+        doi: Full DOI for the paper (used for metadata lookup).
         version: Paper version. If None, downloads latest.
 
     Returns:
@@ -91,10 +182,15 @@ def _download_arxiv_pdf(arxiv_id: str, version: int | None = None) -> PaperDownl
                 success=False, error=f"Unexpected content type: {content_type}"
             )
 
+        # Fetch metadata using DOI content negotiation
+        metadata = fetch_doi_metadata(doi)
+
         return PaperDownloadResult(
             success=True,
             content=response.content,
             url=url,
+            title=metadata.title,
+            authors=metadata.authors,
         )
 
     except httpx.HTTPStatusError as e:
@@ -211,6 +307,8 @@ def download_paper(doi: str, version: int | None = None) -> PaperDownloadResult:
     For arXiv papers (DOI starting with 10.48550/arXiv.), downloads directly
     from arXiv. For other papers, tries Unpaywall for open access versions.
 
+    Metadata (title, authors) is fetched automatically via DOI content negotiation.
+
     Args:
         doi: DOI of the paper.
         version: Paper version (only used for arXiv papers).
@@ -221,7 +319,7 @@ def download_paper(doi: str, version: int | None = None) -> PaperDownloadResult:
     # Handle arXiv papers specially
     arxiv_id = _extract_arxiv_id(doi)
     if arxiv_id:
-        return _download_arxiv_pdf(arxiv_id, version)
+        return _download_arxiv_pdf(arxiv_id, doi, version)
 
     # For non-arXiv papers, try Unpaywall
     return _try_unpaywall(doi)
