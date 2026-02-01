@@ -1278,18 +1278,16 @@ def paper_list() -> None:
         console.print("[dim]No papers cached[/dim]")
         return
 
-    table = Table(show_header=True)
-    table.add_column("DOI")
-    table.add_column("Version")
-    table.add_column("Title")
-    table.add_column("Retrieved")
+    table = Table(show_header=True, expand=True)
+    table.add_column("DOI", no_wrap=True)
+    table.add_column("Ver", no_wrap=True)
+    table.add_column("Title", ratio=2)
+    table.add_column("Retrieved", no_wrap=True)
 
     for paper in papers:
         meta = paper.metadata
         version_str = str(meta.version) if meta.version else "-"
         title = meta.title or "[dim](unknown)[/dim]"
-        if len(title) > 40:
-            title = title[:37] + "..."
         retrieved = meta.retrieved_at[:10] if meta.retrieved_at else "-"
         table.add_row(meta.doi, version_str, title, retrieved)
 
