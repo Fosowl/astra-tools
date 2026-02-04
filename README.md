@@ -43,8 +43,10 @@ flowchart LR
 
 ## Installation
 
+### ASP CLI
+
 ```bash
-git clone https://github.com/EiffL/ASP.git
+git clone https://github.com/LightconeResearch/ASP.git
 cd ASP
 python -m venv .venv
 source .venv/bin/activate
@@ -56,28 +58,48 @@ For development (includes pytest, ruff, mypy):
 pip install -e ".[dev]"
 ```
 
-## Getting Started
+### Navigator (Visual Editor)
 
-### With Claude Code (Recommended)
+Navigator is an optional visual canvas editor for ASP projects. To install:
+
+```bash
+git clone https://github.com/LightconeResearch/Navigator.git
+cd Navigator
+npm install
+```
+
+The first time you run `asp navigator`, it will prompt you to configure the Navigator path.
+
+## Getting Started
 
 Create a new analysis project:
 
 ```bash
 asp init my-analysis
 cd my-analysis
+```
+
+Then choose your workflow:
+
+### Visual Canvas (Navigator)
+
+```bash
+asp navigator
+```
+
+Opens the visual canvas editor where you can manipulate inputs, decisions, and outputs. Copy the URL printed in the terminal (with the `?project=` parameter) and open it in your browser.
+
+### Command Line (Claude Code)
+
+```bash
 claude
 ```
 
-This creates the project structure and configures Claude Code to auto-install the ASP plugin, which provides skills and tools for designing and executing your analysis.
+Work directly with Claude Code in the terminal. The ASP plugin provides skills and tools for designing and executing your analysis.
 
 ### Manual Workflow
 
-```bash
-asp init my-analysis
-cd my-analysis
-```
-
-Then follow the workflow:
+Follow these steps:
 
 1. **Design** - Edit `asp.yaml` to define inputs, outputs, and decisions
 2. **Generate** - Run `asp workflow generate` to create CWL skeleton
@@ -243,9 +265,12 @@ See [DESIGN.md](DESIGN.md#chunks) for full details.
 
 ```bash
 # Project setup
-asp init my-analysis                   # Create new analysis project (with Claude Code plugin)
+asp init my-analysis                   # Create new analysis project
 asp init my-analysis --no-git          # Create without git initialization
-asp init my-analysis --local           # Copy skills locally (for development)
+
+# Navigator (visual editor)
+asp navigator                          # Launch Navigator for current project
+asp navigator --configure              # Reconfigure Navigator path
 
 # Validation
 asp validate asp.yaml                  # Validate analysis specification
@@ -290,27 +315,6 @@ my-analysis/
 └── .claude/              # Claude Code configuration
     └── settings.json     # Auto-installs ASP plugin
 ```
-
-### Plugin Modes
-
-By default, `asp init` configures Claude Code to fetch the ASP plugin from GitHub (marketplace mode). Use `--local` to copy skills directly into the project:
-
-```bash
-asp init my-analysis --local
-```
-
-This creates:
-```
-.claude/
-├── settings.json         # Hooks configured directly
-├── scripts/              # Hook scripts (activate-venv, validate-on-save, etc.)
-└── skills/asp/           # Skill files (SKILL.md, workflow-guide.md)
-```
-
-**When to use `--local`:**
-- Developing or customizing ASP skills
-- Offline environments
-- Self-contained projects that don't depend on external repos
 
 ## Design Principles
 

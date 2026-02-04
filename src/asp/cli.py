@@ -135,18 +135,12 @@ __pycache__/
     _init_git_repo(directory, no_git)
 
     # Print success message
-    console.print(f"\n[green]✓[/green] Created ASP analysis project: [cyan]{directory}[/cyan]")
-    includes = "asp.yaml, universes/, workflows/, steps/, .claude/"
-    if venv_created:
-        includes += ", .venv/"
-    console.print(f"[dim]  Includes: {includes}[/dim]")
+    console.print(f"[green]✓[/green] Created ASP analysis project: [cyan]{directory}[/cyan]")
 
-    console.print("\n[bold]Next steps:[/bold]")
-    console.print(f"  1. [cyan]cd {directory}[/cyan]")
-    console.print("  2. Run [cyan]claude[/cyan] to launch Claude Code")
-    console.print(
-        "  3. Run [cyan]/asp:new[/cyan] to scope your research question and define the analysis"
-    )
+    console.print(f"\n[bold]cd {directory}[/bold], then either:")
+    console.print("  • [cyan]asp navigator[/cyan] to open the visual canvas")
+    console.print("  • [cyan]claude[/cyan] to work from the command line")
+    console.print("\nThen run [cyan]/asp:new[/cyan] to scope your research question.")
 
 
 def _create_boilerplate_asp_yaml(directory: Path) -> None:
@@ -1706,6 +1700,147 @@ def paper_verify_quote(
         raise SystemExit(0)
     else:
         raise SystemExit(1)
+
+
+# =============================================================================
+# Navigator command
+# =============================================================================
+
+
+def _get_asp_config_path() -> Path:
+    """Get the path to the ASP global config file."""
+    return Path.home() / ".asp" / "config.yaml"
+
+
+def _load_asp_config() -> dict[str, Any]:
+    """Load ASP global config from ~/.asp/config.yaml."""
+    config_path = _get_asp_config_path()
+    if not config_path.exists():
+        return {}
+    return load_yaml(config_path)
+
+
+def _save_asp_config(config: dict[str, Any]) -> None:
+    """Save ASP global config to ~/.asp/config.yaml."""
+    config_path = _get_asp_config_path()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    save_yaml(config, config_path)
+
+
+def _get_navigator_path() -> Path | None:
+    """Get Navigator path from config or environment variable."""
+    # Check environment variable first
+    env_path = Path(p) if (p := __import__("os").environ.get("ASP_NAVIGATOR_PATH")) else None
+    if env_path and env_path.exists():
+        return env_path
+
+    # Check config file
+    config = _load_asp_config()
+    config_path = config.get("navigator", {}).get("path")
+    if config_path:
+        path = Path(config_path)
+        if path.exists():
+            return path
+
+    return None
+
+
+@main.command()
+@click.option(
+    "--path",
+    "-p",
+    type=click.Path(exists=True, path_type=Path),
+    help="Project path (default: current directory)",
+)
+@click.option(
+    "--configure",
+    is_flag=True,
+    help="Reconfigure Navigator path",
+)
+def navigator(path: Path | None, configure: bool) -> None:
+    """Open the current project in Navigator.
+
+    Navigator is the visual canvas editor for ASP projects. This command
+    starts Navigator for the current project.
+
+    Press Ctrl+C to stop Navigator.
+
+    First-time setup will prompt for the Navigator installation path.
+
+    Examples:
+
+        asp navigator                  # Open current project
+
+        asp navigator -p /some/path    # Open specific project
+
+        asp navigator --configure      # Reconfigure Navigator path
+    """
+    # Get or configure Navigator path
+    navigator_path = _get_navigator_path()
+
+    if configure or navigator_path is None:
+        # Prompt for Navigator path
+        if navigator_path is None:
+            console.print("[yellow]Navigator path not configured.[/yellow]")
+        default_hint = navigator_path or ""
+        user_path = click.prompt(
+            "Where is Navigator installed?",
+            default=str(default_hint) if default_hint else None,
+            type=click.Path(exists=True, path_type=Path),
+        )
+        navigator_path = Path(user_path)
+
+        # Validate it looks like Navigator
+        if not (navigator_path / "package.json").exists():
+            console.print(f"[red]Error:[/red] {navigator_path} doesn't look like Navigator")
+            console.print("  (No package.json found)")
+            raise SystemExit(1)
+
+        # Save to config
+        config = _load_asp_config()
+        if "navigator" not in config:
+            config["navigator"] = {}
+        config["navigator"]["path"] = str(navigator_path)
+        _save_asp_config(config)
+        console.print(f"[green]✓[/green] Saved Navigator path to ~/.asp/config.yaml")
+
+        if configure:
+            return
+
+    # Find the ASP project to open
+    if path is None:
+        path = Path.cwd()
+
+    # Verify it's an ASP project
+    analysis_file = find_analysis_file(path)
+    if analysis_file is None:
+        console.print(f"[red]Error:[/red] No asp.yaml found in {path}")
+        raise SystemExit(1)
+
+    project_path = analysis_file.parent.resolve()
+    # URL-encode the path for the query parameter
+    from urllib.parse import quote
+    url = f"http://localhost:3000?project={quote(str(project_path), safe='')}"
+
+    # Run Navigator in foreground (Ctrl+C to stop)
+    console.print(f"[bold]Starting Navigator for:[/bold] {project_path}")
+    console.print()
+    console.print("[bold green]Open this URL in your browser:[/bold green]")
+    console.print(f"  {url}")
+    console.print()
+    console.print("[dim]Press Ctrl+C to stop (ignore the localhost:3000 URL below)[/dim]\n")
+
+    try:
+        subprocess.run(
+            ["npm", "run", "dev:all"],
+            cwd=navigator_path,
+            check=True,
+        )
+    except KeyboardInterrupt:
+        console.print("\n[dim]Navigator stopped[/dim]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]Error:[/red] Navigator exited with code {e.returncode}")
+        raise SystemExit(e.returncode)
 
 
 if __name__ == "__main__":
