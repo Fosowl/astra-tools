@@ -422,3 +422,93 @@ class TestInitCommand:
         assert result.exit_code == 0
         # Git directory should NOT exist
         assert not (project_dir / ".git").exists()
+
+
+class TestBatchQuoteVerification:
+    """Tests for the batch quote verification command (asp paper verify-quotes)."""
+
+    def test_verify_quotes_no_input(self, runner: CliRunner):
+        """Test error handling when no input is provided on stdin."""
+        result = runner.invoke(
+            main,
+            ["paper", "verify-quotes", "10.1234/test"],
+            input="",  # Empty input
+        )
+        assert result.exit_code == 2
+        import json
+
+        output = json.loads(result.output)
+        assert "error" in output
+        assert "No input" in output["error"]
+
+    def test_verify_quotes_invalid_json(self, runner: CliRunner):
+        """Test error handling for malformed JSON input."""
+        result = runner.invoke(
+            main,
+            ["paper", "verify-quotes", "10.1234/test"],
+            input="not valid json{",
+        )
+        assert result.exit_code == 2
+        import json
+
+        output = json.loads(result.output)
+        assert "error" in output
+        assert "Invalid JSON" in output["error"]
+
+    def test_verify_quotes_paper_not_cached(self, runner: CliRunner):
+        """Test error when paper is not in cache."""
+        import json as json_module
+
+        input_data = json_module.dumps({"quotes": [{"text": "some quote"}]})
+        result = runner.invoke(
+            main,
+            ["paper", "verify-quotes", "10.9999/nonexistent"],
+            input=input_data,
+        )
+        assert result.exit_code == 2
+        output = json_module.loads(result.output)
+        assert "error" in output
+        assert "not in cache" in output["error"]
+
+    def test_verify_quotes_empty_quotes_list(self, runner: CliRunner):
+        """Test handling of empty quotes list."""
+        import json as json_module
+
+        # This test requires a paper to be cached, so we expect an error
+        # about the paper not being cached rather than processing the empty list
+        input_data = json_module.dumps({"quotes": []})
+        result = runner.invoke(
+            main,
+            ["paper", "verify-quotes", "10.9999/nonexistent"],
+            input=input_data,
+        )
+        # Either error (not cached) or success with empty results
+        assert result.exit_code in (0, 2)
+
+    def test_verify_quotes_output_format(self, runner: CliRunner):
+        """Test that output has the expected JSON structure."""
+        import json as json_module
+
+        input_data = json_module.dumps({"quotes": [{"text": "test quote"}]})
+        result = runner.invoke(
+            main,
+            ["paper", "verify-quotes", "10.9999/test", "--version", "1"],
+            input=input_data,
+        )
+        # Will fail because paper not cached, but check structure
+        output = json_module.loads(result.output)
+        assert "doi" in output
+        assert output["doi"] == "10.9999/test"
+        assert "version" in output
+        assert output["version"] == 1
+        # Either results or error
+        assert "results" in output or "error" in output
+        assert "summary" in output
+
+    def test_verify_quotes_help(self, runner: CliRunner):
+        """Test help output for verify-quotes command."""
+        result = runner.invoke(main, ["paper", "verify-quotes", "--help"])
+        assert result.exit_code == 0
+        assert "Verify multiple quotes" in result.output
+        assert "stdin" in result.output
+        assert "JSON" in result.output

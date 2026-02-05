@@ -13,15 +13,16 @@ Help users work with the Agentic Science Protocol (ASP) - a declarative specific
 | Command | Purpose |
 |---------|---------|
 | `/asp-new` | Create a new analysis project — scope research question, define `asp.yaml` (WHAT we want) |
+| `/asp-insights` | Extract insights from papers — find literature, verify evidence, link to decisions |
 | `/asp-build [chunk]` | Plan, build, and run the analysis or a specific chunk (HOW to do it) |
 
 ### Workflow
 
 ```
-/asp-new  →  /asp-build <chunk>  →  /asp-build <next_chunk>  → ...
+/asp-new  →  /asp-insights  →  /asp-build <chunk>  →  /asp-build <next_chunk>  → ...
 ```
 
-Run `/asp-build` for each chunk in turn. Omit the argument to target all chunks.
+Use `/asp-insights` to add literature support for decisions. Run `/asp-build` for each chunk in turn. Omit the argument to target all chunks.
 
 ## Chunks
 

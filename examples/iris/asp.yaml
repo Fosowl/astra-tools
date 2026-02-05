@@ -80,9 +80,6 @@ chunks:
           minmax:
             label: "MinMaxScaler"
             description: "Scale to [0, 1] range"
-            evidence:
-              - ref: inputs.preprocessing_study
-                finding: "Showed 3% improvement for tree models"
             incompatible_with:
               - model.svm
 

@@ -49,6 +49,8 @@ agentic-science-protocol/
 │   │   ├── schema.py              # JSON schema validation
 │   │   └── semantic.py            # Semantic validation
 │   ├── models/                    # Pydantic models (for workflow module)
+│   ├── papers/                    # Paper downloading and caching
+│   ├── verification/              # PDF processing and insight verification
 │   └── workflow/                  # CWL integration
 │   # Note: asp/spec/ created at build time with bundled schemas
 │
@@ -90,7 +92,7 @@ agentic-science-protocol/
 
 4. **CLI** (`src/asp/cli.py`)
    - Built with Click and Rich for terminal UI
-   - Commands: init, validate, info, universe, viz, schema
+   - Commands: init, validate, info, universe, viz, schema, paper
    - Uses `find_analysis_file()` to locate `asp.yaml`
 
 5. **Helpers** (`src/asp/helpers.py`)
@@ -206,8 +208,8 @@ Constraints are validated in `semantic.py`, scoped within each chunk:
 - `requires`: Lists of "decision.option" pairs that must be selected together
 - Universe validation checks these constraints per chunk
 
-### 5. Evidence-Based Decisions
-Decisions can reference insights as evidence:
+### 5. Insight-Based Decisions
+Decisions can reference insights:
 ```yaml
 chunks:
   main:
@@ -215,8 +217,7 @@ chunks:
       scaling:
         options:
           standard:
-            evidence:
-              - insight: compute_scaling  # References insights.compute_scaling
+            insights: [compute_scaling]  # References insights.compute_scaling
 ```
 
 ## Testing Philosophy

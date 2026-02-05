@@ -1,157 +1,8 @@
 {
   "$defs": {
-    "ArxivSource": {
-      "additionalProperties": false,
-      "description": "Versioned arXiv paper source for reproducible references.\n\nThe version is mandatory to ensure reproducibility - arXiv papers\ncan be updated, and we need to reference a specific snapshot.",
-      "properties": {
-        "id": {
-          "description": "Local ID for evidence references",
-          "minLength": 1,
-          "title": "Id",
-          "type": "string"
-        },
-        "type": {
-          "const": "arxiv",
-          "default": "arxiv",
-          "title": "Type",
-          "type": "string"
-        },
-        "arxiv_id": {
-          "description": "arXiv ID without version (e.g., '1706.03762')",
-          "pattern": "^\\d{4}\\.\\d{4,5}$|^[a-z-]+/\\d{7}$",
-          "title": "Arxiv Id",
-          "type": "string"
-        },
-        "version": {
-          "description": "arXiv version number",
-          "minimum": 1,
-          "title": "Version",
-          "type": "integer"
-        },
-        "content_sha256": {
-          "anyOf": [
-            {
-              "pattern": "^[a-fA-F0-9]{64}$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHA-256 of PDF bytes for verification",
-          "title": "Content Sha256"
-        },
-        "retrieved_at": {
-          "anyOf": [
-            {
-              "format": "date-time",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "When PDF was fetched",
-          "title": "Retrieved At"
-        },
-        "title": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Title"
-        },
-        "authors": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Authors"
-        }
-      },
-      "required": [
-        "id",
-        "arxiv_id",
-        "version"
-      ],
-      "title": "ArxivSource",
-      "type": "object"
-    },
-    "DoiSource": {
-      "additionalProperties": false,
-      "description": "DOI-based paper source for non-arXiv publications.",
-      "properties": {
-        "id": {
-          "description": "Local ID for evidence references",
-          "minLength": 1,
-          "title": "Id",
-          "type": "string"
-        },
-        "type": {
-          "const": "doi",
-          "default": "doi",
-          "title": "Type",
-          "type": "string"
-        },
-        "doi": {
-          "description": "DOI (e.g., '10.1038/s41586-023-06221-2')",
-          "pattern": "^10\\.\\d{4,}/.*$",
-          "title": "Doi",
-          "type": "string"
-        },
-        "title": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Title"
-        },
-        "authors": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Authors"
-        }
-      },
-      "required": [
-        "id",
-        "doi"
-      ],
-      "title": "DoiSource",
-      "type": "object"
-    },
     "Evidence": {
       "additionalProperties": false,
-      "description": "Evidence from scientific literature with W3C-compliant selectors.\n\nAt least one content selector (quote, figure, or table) is required.\nThe FragmentSelector provides optional PDF location hints.",
+      "description": "Evidence from scientific literature with W3C-compliant selectors.\n\nReferences papers directly by DOI. At least one content selector\n(quote, figure, or table) is required. The FragmentSelector provides\noptional PDF location hints.\n\nFor arXiv papers, the DOI format is: 10.48550/arXiv.{id}\nThe version field is used for arXiv papers where version matters.",
       "properties": {
         "id": {
           "description": "Evidence ID",
@@ -159,11 +10,25 @@
           "title": "Id",
           "type": "string"
         },
-        "source_ref": {
-          "description": "References source.id",
-          "minLength": 1,
-          "title": "Source Ref",
+        "doi": {
+          "description": "DOI of the source paper (e.g., '10.48550/arXiv.1706.03762')",
+          "pattern": "^10\\.\\d{4,}/.*$",
+          "title": "Doi",
           "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Paper version for arXiv papers (version matters for reproducibility)",
+          "title": "Version"
         },
         "quote": {
           "anyOf": [
@@ -216,7 +81,7 @@
       },
       "required": [
         "id",
-        "source_ref"
+        "doi"
       ],
       "title": "Evidence",
       "type": "object"
@@ -306,7 +171,7 @@
     },
     "Insight": {
       "additionalProperties": false,
-      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge extracted from\nliterature, with full traceability to source material via W3C-compliant\ntext selectors.",
+      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge extracted from\nliterature, with full traceability to source material via W3C-compliant\ntext selectors. Evidence directly references papers by DOI.",
       "properties": {
         "id": {
           "description": "Unique identifier",
@@ -325,29 +190,6 @@
           "format": "date-time",
           "title": "Created At",
           "type": "string"
-        },
-        "sources": {
-          "description": "Source paper(s)",
-          "items": {
-            "discriminator": {
-              "mapping": {
-                "arxiv": "#/$defs/ArxivSource",
-                "doi": "#/$defs/DoiSource"
-              },
-              "propertyName": "type"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/$defs/ArxivSource"
-              },
-              {
-                "$ref": "#/$defs/DoiSource"
-              }
-            ]
-          },
-          "minItems": 1,
-          "title": "Sources",
-          "type": "array"
         },
         "evidence": {
           "description": "Supporting evidence",
@@ -418,7 +260,6 @@
         "id",
         "claim",
         "created_at",
-        "sources",
         "evidence"
       ],
       "title": "Insight",

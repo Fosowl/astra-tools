@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -35,12 +35,8 @@ class TextQuoteSelector(BaseModel):
 
     type: Literal["TextQuoteSelector"] = "TextQuoteSelector"
     exact: str = Field(min_length=1, description="Exact quoted text (1-3 sentences)")
-    prefix: str | None = Field(
-        default=None, description="~20-100 chars before for disambiguation"
-    )
-    suffix: str | None = Field(
-        default=None, description="~20-100 chars after for disambiguation"
-    )
+    prefix: str | None = Field(default=None, description="~20-100 chars before for disambiguation")
+    suffix: str | None = Field(default=None, description="~20-100 chars after for disambiguation")
 
 
 class FragmentSelector(BaseModel):
@@ -91,85 +87,6 @@ class TableSelector(BaseModel):
 
 
 # =============================================================================
-# Sources
-# =============================================================================
-
-
-class ArxivSource(BaseModel):
-    """Versioned arXiv paper source for reproducible references.
-
-    The version is mandatory to ensure reproducibility - arXiv papers
-    can be updated, and we need to reference a specific snapshot.
-    """
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    id: str = Field(min_length=1, description="Local ID for evidence references")
-    type: Literal["arxiv"] = "arxiv"
-    arxiv_id: str = Field(
-        pattern=r"^\d{4}\.\d{4,5}$|^[a-z-]+/\d{7}$",
-        description="arXiv ID without version (e.g., '1706.03762')",
-    )
-    version: int = Field(ge=1, description="arXiv version number")
-
-    # Verification
-    content_sha256: str | None = Field(
-        default=None,
-        pattern=r"^[a-fA-F0-9]{64}$",
-        description="SHA-256 of PDF bytes for verification",
-    )
-    retrieved_at: datetime | None = Field(default=None, description="When PDF was fetched")
-
-    # Optional metadata
-    title: str | None = Field(default=None)
-    authors: list[str] | None = Field(default=None)
-
-    @property
-    def canonical(self) -> str:
-        """Canonical arXiv reference (e.g., 'arXiv:1706.03762v7')."""
-        return f"arXiv:{self.arxiv_id}v{self.version}"
-
-    @property
-    def abs_url(self) -> str:
-        """Versioned abstract URL."""
-        return f"https://arxiv.org/abs/{self.arxiv_id}v{self.version}"
-
-    @property
-    def pdf_url(self) -> str:
-        """Versioned PDF URL."""
-        return f"https://arxiv.org/pdf/{self.arxiv_id}v{self.version}"
-
-
-class DoiSource(BaseModel):
-    """DOI-based paper source for non-arXiv publications."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    id: str = Field(min_length=1, description="Local ID for evidence references")
-    type: Literal["doi"] = "doi"
-    doi: str = Field(
-        pattern=r"^10\.\d{4,}/.*$",
-        description="DOI (e.g., '10.1038/s41586-023-06221-2')",
-    )
-
-    # Optional metadata
-    title: str | None = Field(default=None)
-    authors: list[str] | None = Field(default=None)
-
-    @property
-    def url(self) -> str:
-        """DOI resolver URL."""
-        return f"https://doi.org/{self.doi}"
-
-
-# Discriminated union for type-safe source parsing
-InsightSource = Annotated[
-    ArxivSource | DoiSource,
-    Field(discriminator="type"),
-]
-
-
-# =============================================================================
 # Evidence
 # =============================================================================
 
@@ -177,14 +94,26 @@ InsightSource = Annotated[
 class Evidence(BaseModel):
     """Evidence from scientific literature with W3C-compliant selectors.
 
-    At least one content selector (quote, figure, or table) is required.
-    The FragmentSelector provides optional PDF location hints.
+    References papers directly by DOI. At least one content selector
+    (quote, figure, or table) is required. The FragmentSelector provides
+    optional PDF location hints.
+
+    For arXiv papers, the DOI format is: 10.48550/arXiv.{id}
+    The version field is used for arXiv papers where version matters.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     id: str = Field(min_length=1, description="Evidence ID")
-    source_ref: str = Field(min_length=1, description="References source.id")
+    doi: str = Field(
+        pattern=r"^10\.\d{4,}/.*$",
+        description="DOI of the source paper (e.g., '10.48550/arXiv.1706.03762')",
+    )
+    version: int | None = Field(
+        default=None,
+        ge=1,
+        description="Paper version for arXiv papers (version matters for reproducibility)",
+    )
 
     # Content selectors (at least one required)
     quote: TextQuoteSelector | None = Field(default=None, description="Text quote anchor")
@@ -203,6 +132,18 @@ class Evidence(BaseModel):
             )
         return self
 
+    @property
+    def is_arxiv(self) -> bool:
+        """Check if this evidence references an arXiv paper."""
+        return self.doi.startswith("10.48550/arXiv.")
+
+    @property
+    def arxiv_id(self) -> str | None:
+        """Extract arXiv ID from DOI if this is an arXiv paper."""
+        if self.is_arxiv:
+            return self.doi.replace("10.48550/arXiv.", "")
+        return None
+
 
 # =============================================================================
 # Insight
@@ -214,7 +155,7 @@ class Insight(BaseModel):
 
     Represents a discrete unit of scientific knowledge extracted from
     literature, with full traceability to source material via W3C-compliant
-    text selectors.
+    text selectors. Evidence directly references papers by DOI.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -223,7 +164,6 @@ class Insight(BaseModel):
     id: str = Field(min_length=1, description="Unique identifier")
     claim: str = Field(min_length=1, description="What we learned (1-2 sentences)")
     created_at: datetime = Field(description="Creation timestamp (ISO 8601)")
-    sources: list[InsightSource] = Field(min_length=1, description="Source paper(s)")
     evidence: list[Evidence] = Field(min_length=1, description="Supporting evidence")
 
     # Optional classification
@@ -234,20 +174,6 @@ class Insight(BaseModel):
     scope: str | None = Field(default=None, description="Applicability conditions")
     tags: list[str] = Field(default_factory=list, description="Categorization tags")
     notes: str | None = Field(default=None, description="Reasoning notes")
-
-    @model_validator(mode="after")
-    def validate_evidence_refs(self) -> Insight:
-        """Validate evidence source references exist."""
-        source_ids = {s.id for s in self.sources}
-
-        for ev in self.evidence:
-            if ev.source_ref not in source_ids:
-                raise ValueError(
-                    f"Evidence '{ev.id}' references unknown source '{ev.source_ref}'. "
-                    f"Available: {source_ids}"
-                )
-
-        return self
 
 
 # =============================================================================

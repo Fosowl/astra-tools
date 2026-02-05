@@ -76,7 +76,7 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     # Validate chunks (all decisions live under chunks now)
     chunks = data.get("chunks", {})
     for chunk_id, chunk in chunks.items():
-        errors.extend(_validate_chunk(chunk_id, chunk, input_ids, insights))
+        errors.extend(_validate_chunk(chunk_id, chunk, insights))
 
     return errors
 
@@ -84,7 +84,6 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
 def _validate_chunk(
     chunk_id: str,
     chunk: dict[str, Any],
-    input_ids: set[str],
     insights: dict[str, Any],
 ) -> list[SemanticError]:
     """Validate a single chunk's decisions and artefacts."""
@@ -112,33 +111,17 @@ def _validate_chunk(
         for option_id, option in options.items():
             option_path = f"{decision_path}.options.{option_id}"
 
-            # Check evidence refs
-            evidence_list = option.get("evidence") or []
-            for i, evidence in enumerate(evidence_list):
-                # Check insight reference
-                insight_ref = evidence.get("insight")
-                if insight_ref:
-                    if insight_ref not in insights:
-                        errors.append(
-                            SemanticError(
-                                "INVALID_INSIGHT_REF",
-                                f"Evidence insight '{insight_ref}' not found in insights",
-                                f"{option_path}.evidence[{i}]",
-                            )
+            # Check insight references
+            insight_refs = option.get("insights") or []
+            for i, insight_ref in enumerate(insight_refs):
+                if insight_ref not in insights:
+                    errors.append(
+                        SemanticError(
+                            "INVALID_INSIGHT_REF",
+                            f"Option insight '{insight_ref}' not found in insights",
+                            f"{option_path}.insights[{i}]",
                         )
-                # Check legacy input reference
-                elif evidence.get("ref"):
-                    ref = evidence["ref"]
-                    if ref.startswith("inputs."):
-                        ref_input_id = ref[7:]  # Remove "inputs." prefix
-                        if ref_input_id not in input_ids:
-                            errors.append(
-                                SemanticError(
-                                    "INVALID_EVIDENCE_REF",
-                                    f"Evidence ref '{ref}' points to non-existent input",
-                                    f"{option_path}.evidence[{i}]",
-                                )
-                            )
+                    )
 
             # Check incompatible_with refs (scoped to this chunk's decisions)
             incompatible_with = option.get("incompatible_with") or []

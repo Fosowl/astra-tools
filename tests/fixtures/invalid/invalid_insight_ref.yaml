@@ -1,4 +1,4 @@
-# Evidence references non-existent input
+# Option references non-existent insight
 version: "1.0"
 
 analysis:
@@ -20,6 +20,5 @@ chunks:
         options:
           a:
             label: "A"
-            evidence:
-              - ref: inputs.nonexistent  # This input doesn't exist
-                finding: "Some finding"
+            insights:
+              - nonexistent_insight  # This insight doesn't exist

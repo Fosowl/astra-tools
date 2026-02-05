@@ -1,48 +1,225 @@
 """PDF handling for evidence verification.
 
-Downloads arXiv PDFs and extracts text for quote verification.
+Extracts text from PDFs for quote verification using RapidFuzz for robust matching.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# Check for optional dependencies
-# These are optional and may not be installed
-httpx: Any = None
-pdftext: Any = None
+from rapidfuzz import fuzz
+from rapidfuzz.utils import default_process
+
+# Greek letter mappings for normalization
+# Maps Greek letters to ASCII equivalents for fuzzy matching
+GREEK_TO_ASCII: dict[str, str] = {
+    # Lowercase Greek
+    "α": "alpha",
+    "β": "beta",
+    "γ": "gamma",
+    "δ": "delta",
+    "ε": "epsilon",
+    "ζ": "zeta",
+    "η": "eta",
+    "θ": "theta",
+    "ι": "iota",
+    "κ": "kappa",
+    "λ": "lambda",
+    "μ": "mu",
+    "ν": "nu",
+    "ξ": "xi",
+    "ο": "omicron",
+    "π": "pi",
+    "ρ": "rho",
+    "σ": "sigma",
+    "ς": "sigma",  # Final sigma
+    "τ": "tau",
+    "υ": "upsilon",
+    "φ": "phi",
+    "χ": "chi",
+    "ψ": "psi",
+    "ω": "omega",
+    # Uppercase Greek
+    "Α": "Alpha",
+    "Β": "Beta",
+    "Γ": "Gamma",
+    "Δ": "Delta",
+    "Ε": "Epsilon",
+    "Ζ": "Zeta",
+    "Η": "Eta",
+    "Θ": "Theta",
+    "Ι": "Iota",
+    "Κ": "Kappa",
+    "Λ": "Lambda",
+    "Μ": "Mu",
+    "Ν": "Nu",
+    "Ξ": "Xi",
+    "Ο": "Omicron",
+    "Π": "Pi",
+    "Ρ": "Rho",
+    "Σ": "Sigma",
+    "Τ": "Tau",
+    "Υ": "Upsilon",
+    "Φ": "Phi",
+    "Χ": "Chi",
+    "Ψ": "Psi",
+    "Ω": "Omega",
+}
+
+# Math symbol normalizations
+MATH_SYMBOL_MAP: dict[str, str] = {
+    "≈": "~",
+    "∼": "~",
+    "≃": "~",
+    "≅": "~",
+    "≡": "=",
+    "≠": "!=",
+    "≤": "<=",
+    "≥": ">=",
+    "±": "+-",
+    "∓": "-+",
+    "×": "x",
+    "÷": "/",
+    "−": "-",  # Unicode minus to ASCII hyphen-minus
+    "–": "-",  # En dash to hyphen
+    "—": "-",  # Em dash to hyphen
+    "′": "'",  # Prime to apostrophe
+    "″": "''",  # Double prime
+    "∞": "inf",
+}
+
+# Subscript/superscript to regular characters
+SUBSCRIPT_MAP: dict[str, str] = {
+    "₀": "0",
+    "₁": "1",
+    "₂": "2",
+    "₃": "3",
+    "₄": "4",
+    "₅": "5",
+    "₆": "6",
+    "₇": "7",
+    "₈": "8",
+    "₉": "9",
+    "₊": "+",
+    "₋": "-",
+    "₌": "=",
+    "₍": "(",
+    "₎": ")",
+    "ₐ": "a",
+    "ₑ": "e",
+    "ₕ": "h",
+    "ᵢ": "i",
+    "ⱼ": "j",
+    "ₖ": "k",
+    "ₗ": "l",
+    "ₘ": "m",
+    "ₙ": "n",
+    "ₒ": "o",
+    "ₚ": "p",
+    "ᵣ": "r",
+    "ₛ": "s",
+    "ₜ": "t",
+    "ᵤ": "u",
+    "ᵥ": "v",
+    "ₓ": "x",
+}
+
+SUPERSCRIPT_MAP: dict[str, str] = {
+    "⁰": "0",
+    "¹": "1",
+    "²": "2",
+    "³": "3",
+    "⁴": "4",
+    "⁵": "5",
+    "⁶": "6",
+    "⁷": "7",
+    "⁸": "8",
+    "⁹": "9",
+    "⁺": "+",
+    "⁻": "-",
+    "⁼": "=",
+    "⁽": "(",
+    "⁾": ")",
+    "ⁿ": "n",
+    "ⁱ": "i",
+}
+
+
+def normalize_text(text: str) -> str:
+    """Normalize text for robust fuzzy matching.
+
+    Applies:
+    1. NFKC Unicode normalization (handles ligatures, compatibility chars)
+    2. Greek letter to ASCII conversion
+    3. Math symbol normalization
+    4. Subscript/superscript normalization
+    5. Whitespace normalization
+
+    Args:
+        text: Input text to normalize.
+
+    Returns:
+        Normalized text suitable for fuzzy matching.
+    """
+    if not text:
+        return ""
+
+    # Step 1: NFKC normalization (converts ﬁ→fi, decomposes compatibility chars)
+    result = unicodedata.normalize("NFKC", text)
+
+    # Step 2: Replace Greek letters with ASCII equivalents
+    for greek, ascii_equiv in GREEK_TO_ASCII.items():
+        result = result.replace(greek, ascii_equiv)
+
+    # Step 3: Replace math symbols
+    for symbol, replacement in MATH_SYMBOL_MAP.items():
+        result = result.replace(symbol, replacement)
+
+    # Step 4: Replace subscripts and superscripts
+    for sub, regular in SUBSCRIPT_MAP.items():
+        result = result.replace(sub, regular)
+    for sup, regular in SUPERSCRIPT_MAP.items():
+        result = result.replace(sup, regular)
+
+    # Step 5: Normalize whitespace (collapse multiple spaces, tabs, newlines)
+    result = re.sub(r"\s+", " ", result)
+
+    # Step 6: Strip leading/trailing whitespace
+    result = result.strip()
+
+    return result
+
+
+def _normalize_processor(text: str) -> str:
+    """Custom processor for rapidfuzz that applies full normalization.
+
+    This combines normalize_text with default_process behavior (lowercasing).
+    """
+    normalized = normalize_text(text)
+    # Apply default_process for lowercasing and additional stripping
+    return default_process(normalized)
+
+
+# pypdf is an optional dependency
+PdfReader: Any = None
 
 try:
-    import httpx as _httpx  # type: ignore[import-not-found,unused-ignore]
+    from pypdf import PdfReader as _PdfReader
 
-    httpx = _httpx
+    PdfReader = _PdfReader
 except ImportError:
     pass
 
-try:
-    import pdftext as _pdftext  # type: ignore[import-not-found]
 
-    pdftext = _pdftext
-except ImportError:
-    pass
-
-
-def _check_dependencies() -> None:
-    """Raise ImportError if verification dependencies are missing."""
-    missing = []
-    if httpx is None:
-        missing.append("httpx")
-    if pdftext is None:
-        missing.append("pdftext")
-    if missing:
-        raise ImportError(
-            f"Missing verification dependencies: {', '.join(missing)}. "
-            "Install with: pip install asp[verify]"
-        )
+def _check_pypdf() -> None:
+    """Raise ImportError if pypdf is not installed."""
+    if PdfReader is None:
+        raise ImportError("pypdf is required for PDF extraction. Install with: pip install pypdf")
 
 
 @dataclass
@@ -82,22 +259,28 @@ class PDFDocument:
         self,
         quote: str,
         page: int | None = None,
-        min_match_ratio: float = 0.7,
+        min_score: float = 70.0,
+        prefix: str | None = None,
+        suffix: str | None = None,
     ) -> list[int]:
-        """Find pages containing a quote.
+        """Find pages containing a quote using fuzzy matching.
 
-        Uses fuzzy matching to handle OCR/extraction differences.
+        Uses RapidFuzz's partial_ratio for robust matching that handles:
+        - OCR errors and character variations
+        - Unicode normalization issues
+        - Minor text differences
 
         Args:
             quote: The quote to search for.
             page: Optional page hint (1-indexed). If provided, searches this page first.
-            min_match_ratio: Minimum similarity ratio for fuzzy matching.
+            min_score: Minimum similarity score (0-100) for fuzzy matching.
+            prefix: Optional text that should appear before the quote (for disambiguation).
+            suffix: Optional text that should appear after the quote (for disambiguation).
 
         Returns:
             List of 1-indexed page numbers where quote was found.
         """
         found_pages = []
-        normalized_quote = _normalize_text(quote)
 
         # Search pages (prioritize hint page if provided)
         pages_to_search = list(range(self.num_pages))
@@ -107,133 +290,49 @@ class PDFDocument:
             pages_to_search.insert(0, page - 1)
 
         for page_idx in pages_to_search:
-            page_text = _normalize_text(self.pages[page_idx])
+            page_text = self.pages[page_idx]
 
-            # Exact match
-            if normalized_quote in page_text:
-                found_pages.append(page_idx + 1)
-                continue
+            # Use partial_ratio which finds the best matching substring
+            # _normalize_processor handles Greek letters, math symbols, and lowercasing
+            score = fuzz.partial_ratio(quote, page_text, processor=_normalize_processor)
 
-            # Fuzzy match using simple similarity
-            if _fuzzy_contains(page_text, normalized_quote, min_match_ratio):
+            if score >= min_score:
+                # If prefix/suffix provided, verify context matches too
+                if prefix or suffix:
+                    if not self._verify_context(page_text, quote, prefix, suffix):
+                        continue
                 found_pages.append(page_idx + 1)
 
         return found_pages
 
+    def _verify_context(
+        self,
+        page_text: str,
+        quote: str,
+        prefix: str | None,
+        suffix: str | None,
+    ) -> bool:
+        """Verify that prefix/suffix context matches around the quote.
 
-def _normalize_text(text: str) -> str:
-    """Normalize text for comparison.
+        Uses fuzzy matching to find if the context appears in the expected order.
+        The full context (prefix + quote + suffix) must appear as a sequence.
+        """
+        # Build a context pattern: prefix + quote + suffix
+        context_parts = []
+        if prefix:
+            context_parts.append(prefix.strip())
+        context_parts.append(quote.strip())
+        if suffix:
+            context_parts.append(suffix.strip())
 
-    Handles common PDF extraction issues:
-    - Unicode normalization
-    - Whitespace normalization
-    - Common character substitutions
-    """
-    # Normalize whitespace
-    text = re.sub(r"\s+", " ", text.strip())
+        # Join with flexible whitespace matching
+        context = " ".join(context_parts)
 
-    # Common Unicode -> ASCII substitutions for scientific text
-    replacements = {
-        "\u2013": "-",  # en-dash
-        "\u2014": "--",  # em-dash
-        "\u2018": "'",  # left single quote
-        "\u2019": "'",  # right single quote
-        "\u201c": '"',  # left double quote
-        "\u201d": '"',  # right double quote
-        "\u00b1": "+-",  # plus-minus
-        "\u00d7": "x",  # multiplication
-        "\u03c3": "sigma",  # sigma
-        "\u03b1": "alpha",  # alpha
-        "\u03b2": "beta",  # beta
-        "\u2264": "<=",  # less than or equal
-        "\u2265": ">=",  # greater than or equal
-        "\ufb01": "fi",  # fi ligature
-        "\ufb02": "fl",  # fl ligature
-    }
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-
-    return text.lower()
-
-
-def _fuzzy_contains(haystack: str, needle: str, min_ratio: float) -> bool:
-    """Check if haystack contains needle with fuzzy matching.
-
-    Uses a simple sliding window approach.
-    """
-    if len(needle) > len(haystack):
-        return False
-
-    # Slide a window of needle's length across haystack
-    window_size = len(needle)
-
-    for i in range(len(haystack) - window_size + 1):
-        window = haystack[i : i + window_size]
-        ratio = _similarity_ratio(window, needle)
-        if ratio >= min_ratio:
-            return True
-
-    return False
-
-
-def _similarity_ratio(s1: str, s2: str) -> float:
-    """Calculate similarity ratio between two strings."""
-    if not s1 or not s2:
-        return 0.0
-
-    # Simple character-based similarity
-    matches = sum(1 for a, b in zip(s1, s2) if a == b)
-    return matches / max(len(s1), len(s2))
-
-
-def get_arxiv_pdf(
-    source: Any,
-    cache_dir: Path | None = None,
-) -> Path:
-    """Download an arXiv PDF.
-
-    Args:
-        source: ArxivSource dict or object with arxiv_id and version.
-        cache_dir: Directory to cache PDFs. Defaults to ~/.cache/asp/pdfs.
-
-    Returns:
-        Path to the downloaded PDF.
-
-    Raises:
-        ImportError: If httpx is not installed.
-        httpx.HTTPError: If download fails.
-    """
-    _check_dependencies()
-
-    # Handle both dict and object
-    if isinstance(source, dict):
-        arxiv_id = source["arxiv_id"]
-        version = source["version"]
-    else:
-        arxiv_id = source.arxiv_id
-        version = source.version
-
-    # Set up cache directory
-    if cache_dir is None:
-        cache_dir = Path.home() / ".cache" / "asp" / "pdfs"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    # Check cache
-    filename = f"{arxiv_id.replace('/', '_')}v{version}.pdf"
-    cached_path = cache_dir / filename
-
-    if cached_path.exists():
-        return cached_path
-
-    # Download
-    url = f"https://arxiv.org/pdf/{arxiv_id}v{version}.pdf"
-    response = httpx.get(url, follow_redirects=True, timeout=60.0)
-    response.raise_for_status()
-
-    # Save to cache
-    cached_path.write_bytes(response.content)
-
-    return cached_path
+        # Check if this context appears in the page with high confidence
+        # Use a higher threshold since we want the full context to match
+        # _normalize_processor handles Greek letters, math symbols, and lowercasing
+        score = fuzz.partial_ratio(context, page_text, processor=_normalize_processor)
+        return score >= 80.0
 
 
 def extract_text_from_pdf(pdf_path: Path) -> PDFDocument:
@@ -246,15 +345,17 @@ def extract_text_from_pdf(pdf_path: Path) -> PDFDocument:
         PDFDocument with extracted text and metadata.
 
     Raises:
-        ImportError: If pdftext is not installed.
+        ImportError: If pypdf is not installed.
     """
-    _check_dependencies()
+    _check_pypdf()
 
-    # Calculate SHA-256
-    sha256 = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+    # Read PDF content for SHA-256
+    pdf_bytes = pdf_path.read_bytes()
+    sha256 = hashlib.sha256(pdf_bytes).hexdigest()
 
-    # Extract text by page
-    pages = pdftext.extraction.plain_text_output(str(pdf_path), sort=True, hyphens=False)
+    # Extract text by page using pypdf
+    reader = PdfReader(pdf_path)
+    pages = [page.extract_text() or "" for page in reader.pages]
 
     return PDFDocument(
         path=pdf_path,
