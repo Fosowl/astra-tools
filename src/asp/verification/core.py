@@ -7,7 +7,7 @@ Now uses DOI-based paper cache instead of arXiv sources.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from asp.papers.cache import PaperCache
@@ -15,7 +15,7 @@ from asp.verification.cache import VerificationCache
 from asp.verification.pdf import PDFDocument, extract_text_from_pdf
 
 
-class VerificationStatus(str, Enum):
+class VerificationStatus(StrEnum):
     """Status of a verification check."""
 
     VERIFIED = "verified"  # Evidence found in source
