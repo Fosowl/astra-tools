@@ -1294,18 +1294,12 @@ def workflow_show(cwl: Path, analysis: Path | None) -> None:
 @click.option("-a", "--analysis", type=click.Path(exists=True, path_type=Path))
 @click.option("-o", "--outdir", type=click.Path(path_type=Path), help="Output directory")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress cwltool progress output")
-@click.option(
-    "--save-results/--no-save-results",
-    default=True,
-    help="Save results to universe file (default: True)",
-)
 def workflow_run(
     universe_file: Path,
     cwl: Path,
     analysis: Path | None,
     outdir: Path | None,
     quiet: bool,
-    save_results: bool,
 ) -> None:
     """Run a CWL workflow with parameters from a universe.
 
@@ -1343,14 +1337,6 @@ def workflow_run(
         params_file = Path(f.name)
 
     try:
-        import time
-
-        from asp.workflow.results import (
-            cwltool_to_results,
-            parse_cwltool_output,
-            update_universe_results,
-        )
-
         # Build cwltool command
         cmd = ["cwltool"]
         if quiet:
@@ -1363,16 +1349,12 @@ def workflow_run(
         console.print(f"[dim]Running:[/dim] cwltool {cwl.name} <params>")
         console.print()
 
-        # Run cwltool and capture output for results
-        start_time = time.time()
         result = subprocess.run(cmd, capture_output=True, text=True)
-        duration = time.time() - start_time
 
-        # Print stdout/stderr to console (cwltool progress goes to stderr)
+        # Print stdout/stderr to console
         if result.stderr:
             console.print(result.stderr, end="")
-        if result.stdout and not save_results:
-            # Only print stdout if not saving results (otherwise it's JSON)
+        if result.stdout:
             console.print(result.stdout, end="")
 
         if result.returncode != 0:
@@ -1380,20 +1362,6 @@ def workflow_run(
 
         console.print()
         console.print("[green]✓[/green] Workflow completed successfully")
-
-        # Save results to universe file
-        if save_results and result.stdout:
-            try:
-                cwl_output = parse_cwltool_output(result.stdout)
-                effective_outdir = outdir or Path.cwd()
-                workflow_rel_path = str(cwl.relative_to(analysis_path.parent))
-                results = cwltool_to_results(
-                    cwl_output, spec, effective_outdir, workflow_rel_path, duration
-                )
-                update_universe_results(universe_file, results)
-                console.print(f"[green]✓[/green] Results saved to [cyan]{universe_file}[/cyan]")
-            except (ValueError, KeyError) as e:
-                console.print(f"[yellow]Warning:[/yellow] Could not save results: {e}")
 
         if outdir:
             console.print(f"[dim]Outputs in:[/dim] {outdir}")

@@ -84,6 +84,9 @@ class Output(BaseModel):
     formats: list[str] | None = Field(
         default=None, description="Supported file formats for artifacts"
     )
+    path: str | None = Field(
+        default=None, description="Relative path for result file within results directory"
+    )
     description: str | None = Field(default=None, description="Description of the output")
 
 
@@ -149,6 +152,9 @@ class Artefact(BaseModel):
         description="Unique identifier for the artefact",
     )
     type: Literal["figure", "table", "data", "report"] = Field(description="Type of artefact")
+    path: str | None = Field(
+        default=None, description="Relative path for result file within results directory"
+    )
     description: str | None = Field(default=None, description="Description of the artefact")
 
 

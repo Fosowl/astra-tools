@@ -327,6 +327,36 @@ inputs:
     type: File
 ```
 
+## Writing Results
+
+Outputs and artefacts in `asp.yaml` declare a `path` field. Write result files to `results/<universe_id>/<path>`:
+
+```yaml
+# asp.yaml
+outputs:
+  - id: accuracy
+    type: metric
+    path: accuracy.json
+  - id: corner_plot
+    type: figure
+    path: corner_plot.png
+```
+
+The agent writes files to `results/<universe_id>/`:
+```
+results/
+  baseline/
+    accuracy.json        # {"value": 0.95}
+    corner_plot.png
+```
+
+For **metric** outputs, write a JSON file containing the value:
+```json
+{"value": 0.95}
+```
+
+Navigator watches `results/` and auto-populates the UI as files appear.
+
 ## Remote File Handling
 
 **Important**: CWL/cwltool natively handles remote file downloads. When you specify a URL, cwltool automatically downloads the file at runtime. Do NOT implement custom download code - just pass the URL in the `location` field:

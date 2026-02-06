@@ -16,9 +16,11 @@ analysis:
     - id: posterior_contours
       type: figure
       formats: [png]
+      path: posterior_contours.png
     - id: parameter_constraints
       type: table
       formats: [csv]
+      path: parameter_constraints.csv
 
 chunks:
   build_mocks:
@@ -38,6 +40,7 @@ chunks:
     artefacts:
       - id: mock_sample_plot
         type: figure
+        path: mock_sample_plot.png
         description: "Sample mock catalog visualization"
 
   train_network:

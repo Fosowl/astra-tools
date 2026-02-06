@@ -34,31 +34,37 @@ analysis:
       type: metric
       dtype: float
       range: [0, 1]
+      path: accuracy.json
       description: "Classification accuracy on held-out test set"
 
     - id: f1_score
       type: metric
       dtype: float
       range: [0, 1]
+      path: f1_score.json
       description: "Macro-averaged F1 score"
 
     - id: confusion_matrix
       type: figure
       formats: [png, svg]
+      path: confusion_matrix.png
       description: "Confusion matrix heatmap"
 
     - id: model_comparison
       type: table
       formats: [csv]
+      path: model_comparison.csv
       description: "Accuracy by model and preprocessing combination"
 
     - id: trained_model
       type: model
       formats: [joblib]
+      path: trained_model.joblib
       description: "Best performing classifier"
 
     - id: conclusion
       type: report
+      path: conclusion.md
       description: "Summary of classifier performance and suitability for the application"
 
 chunks:

@@ -3,49 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from models.analysis import Analysis
-
-
-class ResultMeta(BaseModel):
-    """Metadata about when and how results were computed."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    computed_at: str = Field(description="ISO 8601 timestamp when results were computed")
-    workflow: str | None = Field(default=None, description="Path to the CWL workflow used")
-    duration_seconds: float | None = Field(default=None, description="Execution duration in seconds")
-
-
-class ResultValue(BaseModel):
-    """A single result value - either an inline value or a file reference."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    type: str = Field(description="Result type (metric, figure, table, data, model, report)")
-    value: Any | None = Field(default=None, description="Inline value for metrics")
-    path: str | None = Field(default=None, description="Relative path to output file")
-    format: str | None = Field(default=None, description="File format (e.g., png, parquet, joblib)")
-    size: int | None = Field(default=None, description="File size in bytes")
-
-
-class Results(BaseModel):
-    """Results from running a workflow on this universe."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    meta: ResultMeta | None = Field(default=None, alias="_meta")
-    outputs: dict[str, ResultValue] | None = Field(
-        default=None, description="Analysis-level output results"
-    )
-    artefacts: dict[str, dict[str, ResultValue]] | None = Field(
-        default=None, description="Chunk-level artefact results (chunk_id -> artefact_id -> value)"
-    )
 
 
 class Universe(BaseModel):
@@ -69,10 +33,6 @@ class Universe(BaseModel):
     chunks: dict[str, dict[str, str]] = Field(
         description="Map of chunk ID to decision selections (decision_id -> option_id) "
         "for that chunk",
-    )
-    results: Results | None = Field(
-        default=None,
-        description="Results from running a workflow on this universe",
     )
 
     @classmethod

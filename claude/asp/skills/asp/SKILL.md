@@ -102,6 +102,23 @@ asp workflow show --cwl main.cwl             # Show parameter mapping table
 asp params universes/baseline.yaml           # Output CWL parameters to stdout
 ```
 
+### Writing Results
+
+Outputs and artefacts declare a `path` field in `asp.yaml`. Write result files to `results/<universe_id>/<path>`:
+
+```yaml
+outputs:
+  - id: accuracy
+    type: metric
+    path: accuracy.json      # Write to results/<universe_id>/accuracy.json
+  - id: corner_plot
+    type: figure
+    path: corner_plot.png    # Write to results/<universe_id>/corner_plot.png
+```
+
+For metrics, write a JSON file with the value: `{"value": 0.95}`
+Navigator watches the `results/` directory and auto-detects new files.
+
 **Chunk note:** All chunks are defined inline in the root `asp.yaml`. No separate directories or files needed for chunk specifications.
 
 ## Core Concepts

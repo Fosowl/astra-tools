@@ -30,26 +30,32 @@ analysis:
       type: metric
       dtype: float
       range: [0, 1]
+      path: accuracy.json
       description: "Model accuracy"
     - id: f1_score
       type: metric
       dtype: float
       range: [0, 1]
+      path: f1_score.json
       description: "F1 score"
     - id: plot
       type: figure
       formats: [png, svg]
+      path: plot.png
       description: "Results plot"
     - id: summary
       type: table
       formats: [csv]
+      path: summary.csv
       description: "Results summary"
     - id: trained_model
       type: model
       formats: [joblib]
+      path: trained_model.joblib
       description: "Trained model"
     - id: conclusion
       type: report
+      path: conclusion.md
       description: "Analysis conclusion"
 
 chunks:
