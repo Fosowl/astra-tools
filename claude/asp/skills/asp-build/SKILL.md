@@ -35,6 +35,8 @@ Build and run an analysis chunk. Decisions have already been reviewed during `/a
 3. Implement workflow steps in `steps/` (single chunk) or `steps/<chunk_name>/` (multiple chunks)
 4. Validate (`asp workflow validate --cwl workflows/main.cwl`)
 5. Run (`asp workflow run universes/baseline.yaml --cwl workflows/main.cwl -o results/baseline/`)
+   - Results are automatically saved to the universe file under `results:`
+   - Output artifacts are written to `results/<universe>/`
 
 ### Chunk builds
 
@@ -42,6 +44,6 @@ When building a specific chunk, scope all work to that chunk's decisions. Chunk 
 
 ## Completion
 
-- "Chunk `<name>` built and results ready." Use the actual chunk name.
+- "Chunk `<name>` built. Results saved to `universes/<universe>.yaml`." Use the actual chunk name.
 - If there are remaining chunks, suggest: "Run `/asp-build <next_chunk>` to continue."
 - If all chunks are done: "All chunks built. The analysis is complete."
