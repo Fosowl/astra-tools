@@ -1,117 +1,180 @@
 ---
 name: asp-new
-description: Create a new ASP analysis project - scope research question, identify chunks, define the full spec
-allowed-tools: Read, Write(asp.yaml), Write(universes/*), Edit(asp.yaml), Edit(universes/*), Glob, Grep, Bash(asp validate:*), Bash(asp info:*), Bash(asp init:*), Bash(asp universe:*), Bash(mkdir:*), WebFetch, AskUserQuestion
+description: Create a new ASP analysis project - scope research question, structure chunks, identify decisions with literature support
+allowed-tools: Read, Write(asp.yaml), Write(universes/*), Edit(asp.yaml), Edit(universes/*), Glob, Grep, Bash(asp:*), Bash(mkdir:*), WebSearch, WebFetch, AskUserQuestion
 ---
 
 # /asp-new
 
-Create a new ASP analysis project through direct conversation. Follow each step in order, printing the step header to the user before starting it.
+Create a new ASP analysis project through conversation. Build the spec iteratively so the user can watch it take shape in the navigator.
+
+## References
+
+- [ASP Reference](./../asp/SKILL.md) — core concepts, CLI, validation
+- [Decision Guide](./decision-guide.md) — how to identify and structure decisions
 
 ## Setup
 
-1. Read the ASP reference guide: `.claude/skills/asp/SKILL.md`
-2. Read `asp.yaml` if it exists (to avoid overwriting)
+1. Read `asp.yaml` if it exists (to understand context or avoid overwriting)
+2. Note the analysis directory for later
 
-## Step 1: Scope the Research Question
+---
 
-Print: `## Step 1: Scope the Research Question`
+## Phase 1: Research Question
 
-You are a research collaborator, not an interviewer running through a checklist. Your job is to take a fuzzy idea and sharpen it into a testable question with defensible methodology.
+Print: `## Phase 1: Research Question`
 
-**Start with the question.** Before anything else, ask the user to describe their research question or what they want to learn in their own words. Use a plain text prompt — no multiple choice here. Let them explain freely. This is the most important input you'll get.
+Start with an open question:
 
-Example opener: "What's the question you're trying to answer? Describe it in your own words — what do you want to learn, and why does it matter?"
+> "What are you trying to learn? Describe the question in your own words."
 
-Once you have their answer, follow the energy — whatever they're most uncertain or excited about, dig there first.
+Then sharpen:
+- "What would a clear answer look like?" (becomes success criteria)
+- "Why does this matter?" (context for decisions)
 
-Techniques:
-- **Make it concrete**: "What would a clear answer look like? A number, a plot, a comparison?"
-- **Challenge vagueness**: If they say "analyze the data," ask what question the analysis answers.
-- **Test completeness**: "If I handed you [these outputs], would you be done?"
-- **Probe stages**: "Would you want to inspect intermediate results, or does this flow straight through?"
+Don't checklist-walk. Follow what the user is uncertain or excited about.
 
-Don't ask all of these. Pick what matters. Two sharp questions beat five routine ones.
-
-**Ask about substance, not methodology.** Focus on the science — priors, algorithm families, domain constraints, what counts as a good result. Don't ask HOW to implement things (that's `/asp-build`). Good questions: "What model families make sense here — generative, discriminative, or both?" / "Are there known priors or constraints on these parameters?" / "What baseline would you compare against?" Bad questions: "What preprocessing should we use?" / "How should we split the data?"
-
-When the user answers a question and it maps to a decision (e.g., they pick an algorithm family or a prior), note it — you'll mark that decision `reviewed: true` when you write the spec.
-
-Keep a mental checklist — don't walk through it out loud:
-- What they're studying and why it matters
-- What data exists (or needs to be created)
-- What a "clear answer" looks like (this becomes success criteria)
-- What scientific choices matter (algorithm families, priors, domain constraints — these become decisions)
-- What chunks the analysis needs (even a simple analysis has a `main` chunk)
-
-You have enough when every item has at least a rough answer.
-
-**How to ask questions:**
-- Start with a plain text prompt to get the user's research question in their own words.
-- After you understand the core question, use `AskUserQuestion` with multiple-choice options for follow-up decisions. Put your recommendation first with "(Recommended)" in the label.
-- Batch related questions into a single `AskUserQuestion` call (up to 4 questions). For example, ask about algorithm family, prior choice, and comparison baseline in one go rather than three separate rounds.
-
-**Anti-patterns to avoid:**
-- Starting with multiple choice before understanding the question — always let the user describe their goal first
-- Checklist walking — asking every question in order regardless of what the user said
-- Accepting vague goals — "Analyze this dataset" is not a research question
-- Rushing past the question — a clear problem is worth more than a complete spec
-- Over-splitting — don't create many chunks when one would do. A single chunk is fine
-- Jargon dumping — don't explain ASP concepts unless the user asks
-- One-at-a-time questions — batch them. The user shouldn't need 5 round trips when 2 would do
-- Asking implementation questions — "what preprocessing?" or "what test split?" belongs in `/asp-build`, not here
-
-## Step 2: Write the Specification
-
-Print: `## Step 2: Write the Specification`
-
-Based on what you learned in Step 1, write `asp.yaml` directly. Don't ask for permission first — just draft the best spec you can from the conversation.
-
-Any decision the user explicitly weighed in on during Step 1 gets `reviewed: true`. Decisions you inferred or filled in with sensible defaults stay unreviewed — `/asp-plan` will surface those later.
-
-Structure:
-- **analysis**: problem, success_criteria, inputs, outputs
-- **chunks**: use a single `main` chunk unless the conversation clearly called for multiple stages. All decisions live under chunks — there are no top-level decisions.
-  - The `main` chunk only needs `decisions` — it inherits `problem` and `success_criteria` from the analysis, and its outputs are the analysis-level `outputs`.
-  - Non-main chunks should set their own `problem`, `success_criteria`, and `artefacts` as needed.
-
-Then:
-1. Write `asp.yaml`
-2. Generate baseline universe: `asp universe generate -n baseline`
-3. Validate: `asp validate asp.yaml`
-
-**Universe structure**: The baseline universe organizes all decisions under their chunk:
-
+**Write to asp.yaml:**
 ```yaml
-id: baseline
-description: "Standard configuration"
-
-chunks:
-  build_mocks:
-    noise_model: heteroscedastic
-  train_network:
-    architecture: maf
+version: "1.0"
+analysis:
+  name: "<analysis name>"
+  problem: |
+    <problem statement from conversation>
+  success_criteria:
+    - "<concrete criterion>"
 ```
 
-After writing, present a brief summary of what you wrote (problem, inputs, outputs, chunks, key decisions) and ask the user:
+This gives the user something to see in the navigator immediately.
 
-"Want to continue to `/asp-build <first_chunk>`? Or tell me what to change."
+---
 
-If the user gives edit instructions, apply them to `asp.yaml`, re-validate, and ask again.
+## Phase 2: Analysis Structure
 
-## Restrictions
+Print: `## Phase 2: Analysis Structure`
 
-**You are a specification agent, not an implementation agent.**
+Understand the pipeline:
 
-You MUST NOT write any Python, R, or other implementation code.
+> "Walk me through how you'd do this step by step. What happens first? What would you want to check before moving on?"
 
-You MUST ONLY modify:
-- `asp.yaml`
-- `universes/*.yaml`
+From this, identify **chunks**:
+- Single `main` chunk if it's a straightforward analysis
+- Multiple chunks if there are clear stages with inspectable outputs
 
-## Step 3: Done
+For multi-chunk analyses, map:
+- What does each chunk produce? (artefacts)
+- What does the next chunk consume?
+- What decisions belong where?
 
-When the user confirms they want to continue, print:
+Then ask:
+
+> "Want to fully scope all chunks now, or start with [first chunk]?"
+
+**Update asp.yaml** with chunk structure:
+```yaml
+analysis:
+  inputs:
+    - id: <input_id>
+      type: data
+      source: "<path or URL>"
+  outputs:
+    - id: <output_id>
+      type: <figure|table|data|report>
+
+chunks:
+  first_chunk:
+    problem: "What this chunk accomplishes"
+    artefacts:
+      - id: intermediate_output
+        type: data
+
+  second_chunk:
+    problem: "What this chunk accomplishes"
+    # decisions TBD
+```
+
+---
+
+## Phase 3: Deep Dive
+
+Print: `## Phase 3: Deep Dive — [chunk name]`
+
+For each chunk being scoped, explore:
+
+1. **Decisions** — What choices matter? See [decision-guide.md](./decision-guide.md)
+2. **Data** — What does the input look like? (characteristics that affect decisions)
+3. **Assumptions** — What could go wrong? What's load-bearing?
+
+This is one exploratory conversation, not a rigid sequence. Cover what's relevant.
+
+**Update asp.yaml incrementally** as decisions are identified. Don't wait until the end.
+
+### Literature Notes
+
+As methods are mentioned, note papers for Phase 4:
+- Ask: "Are there specific papers that should inform this?"
+- Note any papers/methods the user mentions
+- Don't extract insights yet — that happens in Phase 4
+
+### Tracking Reviewed Decisions
+
+When the user explicitly weighs in on a decision, mark it `reviewed: true` in the spec. Decisions you infer or fill with defaults stay unreviewed — `/asp-build` will surface those.
+
+---
+
+## Phase 4: Literature
+
+Print: `## Phase 4: Literature`
+
+Ensure key decisions have literature support.
+
+1. **Survey** — List decisions without insight links
+2. **Ask** — "These decisions don't have literature support yet: [list]. Want me to search, or do you have papers in mind?"
+3. **Search** — `WebSearch` for "[method] [domain]" per decision
+4. **Download** — `asp paper add <doi>` for each paper
+5. **Extract** — For each paper:
+   - Read the PDF
+   - Extract 1-2 insights relevant to decisions
+   - Add to asp.yaml with quote evidence (see [Insight Extraction](#insight-extraction))
+6. **Link** — Add insight refs to decision options
+
+Target: 1-2 papers per major decision. Skip if user explicitly declines.
+
+---
+
+## Checkpoint
+
+> "Anything else that should inform this analysis?"
+
+Review the spec with the user. Update asp.yaml with any additions.
+
+---
+
+## Finalize
+
+Print: `## Finalizing`
+
+1. Validate: `asp validate asp.yaml`
+2. Fix any validation errors
+3. Generate baseline universe: `asp universe generate -n baseline`
+
+Present a brief summary:
+- Problem statement
+- Chunks and their purposes
+- Key decisions (noting which are reviewed)
+- Insights added
+
+Then:
+
+> "Want to continue to `/asp-build [first_chunk]`? Or tell me what to change."
+
+If edits requested, apply and re-validate.
+
+---
+
+## Done
+
+When ready to proceed:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -119,4 +182,69 @@ When the user confirms they want to continue, print:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-"Analysis project created with [N] chunk(s)." List the chunks, then: "Run `/asp-build <first_chunk_name>` to start building."
+List chunks and their status (scoped vs. pending), then: "Run `/asp-build [chunk]` to start building."
+
+---
+
+## Insight Extraction
+
+When adding insights from papers:
+
+1. Get the DOI (format: `10.XXXX/...`)
+2. Fetch and read the paper
+3. Extract relevant claims with evidence
+4. **Update asp.yaml immediately** with the insight and decision links
+
+```yaml
+insights:
+  method_comparison:
+    claim: "MAFs outperform NPE for posterior estimation in low dimensions"
+    source:
+      doi: "10.48550/arXiv.1234.5678"
+    evidence:
+      - quote: "Exact quote from paper"
+        location: "Section 3.2, p.8"
+
+chunks:
+  main:
+    decisions:
+      architecture:
+        options:
+          maf:
+            insights: [method_comparison]
+```
+
+### Verification (before finalizing)
+
+If you've added quote evidence, verify it:
+
+```bash
+asp paper add <doi>
+asp validate asp.yaml --verify-evidence
+```
+
+Fix any quotes that don't verify.
+
+---
+
+## Restrictions
+
+**You are a specification agent, not an implementation agent.**
+
+You MUST NOT write Python, R, or other implementation code.
+
+You MUST ONLY create/modify:
+- `asp.yaml`
+- `universes/*.yaml`
+
+---
+
+## Anti-patterns
+
+- **Waiting to write** — Update asp.yaml after each phase so the user sees progress
+- **Checklist walking** — Don't ask every question regardless of context
+- **Over-chunking** — Single chunk is fine for simple analyses
+- **Accepting vague goals** — "Analyze this data" is not a research question
+- **Implementation questions** — "What preprocessing?" belongs in `/asp-build`
+- **Drowning in papers** — 1-2 key papers per decision is enough
+- **Skipping Phase 4** — Always run the Literature phase unless user explicitly declines

@@ -92,6 +92,15 @@ def init(directory: Path, no_git: bool, no_venv: bool) -> None:
         asp init my-analysis --no-git    # Without git initialization
         asp init my-analysis --no-venv   # Without virtual environment
     """
+    # Check if this is already an ASP project
+    if (directory / "asp.yaml").exists():
+        console.print(
+            f"[red]Error:[/red] [cyan]{directory}[/cyan] is already an ASP project "
+            f"(asp.yaml exists)."
+        )
+        console.print("Use [cyan]asp validate[/cyan] to check it, or delete asp.yaml to re-init.")
+        raise SystemExit(1)
+
     # Create project directory
     if directory != Path("."):
         if directory.exists() and any(directory.iterdir()):
