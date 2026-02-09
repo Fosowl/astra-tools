@@ -1,7 +1,7 @@
 ---
 name: asp-new
 description: Create a new ASP analysis project - scope research question, structure chunks, identify decisions with literature support
-allowed-tools: Read, Write(asp.yaml), Write(universes/*), Edit(asp.yaml), Edit(universes/*), Glob, Grep, Bash(asp:*), Bash(mkdir:*), WebSearch, WebFetch, AskUserQuestion
+allowed-tools: Read, Write(asp.yaml), Write(universes/*), Write(CLAUDE.md), Edit(asp.yaml), Edit(universes/*), Edit(CLAUDE.md), Glob, Grep, Bash(asp:*), Bash(mkdir:*), WebSearch, WebFetch, AskUserQuestion
 ---
 
 # /asp-new
@@ -12,6 +12,7 @@ Create a new ASP analysis project through conversation. Build the spec iterative
 
 - [ASP Reference](./../asp/SKILL.md) — core concepts, CLI, validation
 - [Decision Guide](./decision-guide.md) — how to identify and structure decisions
+- [UI Brand](./../ui-brand.md) — visual formatting patterns
 
 ## Setup
 
@@ -22,7 +23,13 @@ Create a new ASP analysis project through conversation. Build the spec iterative
 
 ## Phase 1: Research Question
 
-Print: `## Phase 1: Research Question`
+Display stage banner:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► RESEARCH QUESTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 
 Start with an open question:
 
@@ -51,7 +58,13 @@ This gives the user something to see in the navigator immediately.
 
 ## Phase 2: Analysis Structure
 
-Print: `## Phase 2: Analysis Structure`
+Display stage banner:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► ANALYSIS STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 
 Understand the pipeline:
 
@@ -97,7 +110,13 @@ chunks:
 
 ## Phase 3: Deep Dive
 
-Print: `## Phase 3: Deep Dive — [chunk name]`
+Display stage banner (repeat for each chunk being scoped):
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► DEEP DIVE — [CHUNK NAME]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 
 For each chunk being scoped, explore:
 
@@ -111,34 +130,14 @@ This is one exploratory conversation, not a rigid sequence. Cover what's relevan
 
 ### Literature Notes
 
-As methods are mentioned, note papers for Phase 4:
+As methods are mentioned, note papers for later:
 - Ask: "Are there specific papers that should inform this?"
 - Note any papers/methods the user mentions
-- Don't extract insights yet — that happens in Phase 4
+- Don't extract insights yet — that's a separate step with `/asp-insights`
 
 ### Tracking Reviewed Decisions
 
-When the user explicitly weighs in on a decision, mark it `reviewed: true` in the spec. Decisions you infer or fill with defaults stay unreviewed — `/asp-build` will surface those.
-
----
-
-## Phase 4: Literature
-
-Print: `## Phase 4: Literature`
-
-Ensure key decisions have literature support.
-
-1. **Survey** — List decisions without insight links
-2. **Ask** — "These decisions don't have literature support yet: [list]. Want me to search, or do you have papers in mind?"
-3. **Search** — `WebSearch` for "[method] [domain]" per decision
-4. **Download** — `asp paper add <doi>` for each paper
-5. **Extract** — For each paper:
-   - Read the PDF
-   - Extract 1-2 insights relevant to decisions
-   - Add to asp.yaml with quote evidence (see [Insight Extraction](#insight-extraction))
-6. **Link** — Add insight refs to decision options
-
-Target: 1-2 papers per major decision. Skip if user explicitly declines.
+When the user explicitly weighs in on a decision, mark it `reviewed: true` in the spec. Decisions you infer or fill with defaults stay unreviewed.
 
 ---
 
@@ -152,23 +151,67 @@ Review the spec with the user. Update asp.yaml with any additions.
 
 ## Finalize
 
-Print: `## Finalizing`
+Display stage banner:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► FINALIZING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 
 1. Validate: `asp validate asp.yaml`
 2. Fix any validation errors
 3. Generate baseline universe: `asp universe generate -n baseline`
 
+### Populate CLAUDE.md
+
+Read the existing `CLAUDE.md` (created by `asp init`). Replace the
+`## Analysis Details` section at the bottom with project-specific content:
+
+```markdown
+## Analysis Details
+
+### Problem
+<problem statement from asp.yaml>
+
+### Chunks
+
+**<chunk_name>** — <chunk problem>
+- Decisions: <list of decision IDs with labels>
+- Artefacts: <list of artefact IDs if any>
+
+(Repeat for each chunk)
+
+### Key Decisions
+<For each reviewed decision, briefly note what it controls and the default>
+
+### Implementation Notes
+<Any domain-specific guidance that came up during the conversation —
+libraries mentioned, data format notes, known gotchas, etc.>
+```
+
+This section is what makes CLAUDE.md useful for building — it gives Claude Code
+the context to implement without re-reading the entire conversation.
+
+### Summary
+
 Present a brief summary:
+
+```
+| Chunk | Decisions | Artefacts | Status |
+|-------|-----------|-----------|--------|
+| main  | 3         | 2         | ✓      |
+| ...   | ...       | ...       | ...    |
+```
+
 - Problem statement
-- Chunks and their purposes
-- Key decisions (noting which are reviewed)
-- Insights added
+- Key decisions (noting which are ✓ reviewed vs ○ unreviewed)
 
 Then:
 
-> "Want to continue to `/asp-build [first_chunk]`? Or tell me what to change."
+> "Anything you'd like to change? Otherwise the specification is ready."
 
-If edits requested, apply and re-validate.
+If edits requested, apply, re-validate, and update CLAUDE.md.
 
 ---
 
@@ -178,52 +221,39 @@ When ready to proceed:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- ASP ► PROJECT CREATED ✓
+ ASP ► SPECIFICATION COMPLETE ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-List chunks and their status (scoped vs. pending), then: "Run `/asp-build [chunk]` to start building."
+List chunks and their status:
+
+```
+| Chunk | Decisions | Reviewed | Artefacts |
+|-------|-----------|----------|-----------|
+| main  | 3         | 2/3      | 2         |
+```
+
+Then the Next Up block:
+
+```
+───────────────────────────────────────────────────────────────
+
+▶ Next Up
+
+Start building — ask me to implement a chunk
+(e.g. "implement the main chunk")
+
+<sub>/clear first → CLAUDE.md has everything needed to pick back up</sub>
+
+───────────────────────────────────────────────────────────────
+
+Also available:
+- `/asp-insights` — add literature support to decisions
+
+───────────────────────────────────────────────────────────────
+```
 
 ---
-
-## Insight Extraction
-
-When adding insights from papers:
-
-1. Get the DOI (format: `10.XXXX/...`)
-2. Fetch and read the paper
-3. Extract relevant claims with evidence
-4. **Update asp.yaml immediately** with the insight and decision links
-
-```yaml
-insights:
-  method_comparison:
-    claim: "MAFs outperform NPE for posterior estimation in low dimensions"
-    source:
-      doi: "10.48550/arXiv.1234.5678"
-    evidence:
-      - quote: "Exact quote from paper"
-        location: "Section 3.2, p.8"
-
-chunks:
-  main:
-    decisions:
-      architecture:
-        options:
-          maf:
-            insights: [method_comparison]
-```
-
-### Verification (before finalizing)
-
-If you've added quote evidence, verify it:
-
-```bash
-asp paper add <doi>
-asp validate asp.yaml --verify-evidence
-```
-
-Fix any quotes that don't verify.
 
 ---
 
@@ -236,6 +266,38 @@ You MUST NOT write Python, R, or other implementation code.
 You MUST ONLY create/modify:
 - `asp.yaml`
 - `universes/*.yaml`
+- `CLAUDE.md` (during Finalize step only)
+
+---
+
+## Visual Formatting
+
+Use consistent formatting throughout:
+
+**Stage banners** — for major phase transitions:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► STAGE NAME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Status symbols:**
+- ✓ Complete / Reviewed
+- ○ Pending / Unreviewed
+- ◆ In progress
+
+**Action prompts** — when user input needed:
+```
+───────────────────────────────────────────────────────────────
+→ ACTION DESCRIPTION
+───────────────────────────────────────────────────────────────
+```
+
+**Anti-patterns:**
+- Varying banner widths
+- Mixing banner styles
+- Random emoji
+- Skipping `ASP ►` prefix in banners
 
 ---
 
@@ -245,6 +307,5 @@ You MUST ONLY create/modify:
 - **Checklist walking** — Don't ask every question regardless of context
 - **Over-chunking** — Single chunk is fine for simple analyses
 - **Accepting vague goals** — "Analyze this data" is not a research question
-- **Implementation questions** — "What preprocessing?" belongs in `/asp-build`
-- **Drowning in papers** — 1-2 key papers per decision is enough
-- **Skipping Phase 4** — Always run the Literature phase unless user explicitly declines
+- **Implementation questions** — "What preprocessing?" belongs in the build phase, not here
+- **Writing insights directly** — Always defer to `/asp-insights` for evidence extraction

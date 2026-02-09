@@ -8,6 +8,10 @@ allowed-tools: Read, Edit(asp.yaml), Glob, Grep, Bash(asp:*), WebSearch, WebFetc
 
 Extract insights from scientific literature and link them to analysis decisions. This skill orchestrates **parallel subagents** — one per paper — to efficiently process multiple sources.
 
+## References
+
+- [UI Brand](./../ui-brand.md) — visual formatting patterns
+
 **Key principle**: The agent writes evidence, but `asp validate --verify-evidence` is the gatekeeper. Quotes that don't exist in the PDF will fail validation.
 
 ## Workflow Overview

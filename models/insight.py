@@ -188,7 +188,7 @@ class InsightCollection(BaseModel):
         extra="forbid",
         populate_by_name=True,
         json_schema_extra={
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$schema": "http://json-schema.org/draft-07/schema#",
             "$id": "https://asp-spec.org/v1/insights.schema.json",
             "title": "ASP Insights Collection",
         },

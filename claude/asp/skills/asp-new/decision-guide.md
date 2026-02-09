@@ -14,7 +14,7 @@ A decision is a choice point in your analysis where multiple valid options exist
 
 **Not decisions:**
 - Fixed requirements ("must use Python") — these are constraints, not choices
-- Implementation details ("use pandas") — these belong in `/asp-build`
+- Implementation details ("use pandas") — these belong in the build phase, not the spec
 - Obvious best practices — only capture choices that could reasonably go either way
 
 ## Decision Types

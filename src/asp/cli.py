@@ -134,6 +134,9 @@ __pycache__/
     # Create boilerplate asp.yaml
     _create_boilerplate_asp_yaml(directory)
 
+    # Create CLAUDE.md with ASP conventions
+    _create_claude_md(directory)
+
     # Create Claude Code settings with local skills
     _create_claude_settings(directory)
 
@@ -411,29 +414,54 @@ An ASP (Agentic Science Protocol) analysis project.
 ## Quick Start
 
 ```bash
-# Validate the specification
-asp validate asp.yaml
+# Open in Claude Code
+claude
 
-# Show analysis info
-asp info
+# Scope the analysis
+/asp-new
 
-# Generate a universe from defaults
-asp universe generate -n baseline
+# Then start building (Claude reads CLAUDE.md for conventions)
 ```
 
 ## Structure
 
-- `asp.yaml` - Analysis specification (source of truth)
-- `universes/` - Universe definitions (decision selections)
-- `workflows/` - CWL workflow files
-- `steps/` - Reusable workflow steps
-- `results/` - Execution outputs (gitignored)
+- `asp.yaml` — Analysis specification (source of truth)
+- `CLAUDE.md` — Build conventions and project context for Claude Code
+- `universes/` — Decision selections (one YAML per universe)
+- `workflows/` — CWL workflow definitions
+- `steps/` — Workflow step implementations
+- `results/` — Execution outputs (gitignored)
 
 ## Documentation
 
 See [ASP documentation](https://github.com/LightconeResearch/ASP) for more information.
 """
     (directory / "README.md").write_text(readme)
+
+
+def _create_claude_md(directory: Path) -> None:
+    """Create CLAUDE.md from the template in the plugin source.
+
+    Copies the template and substitutes {{name}} with the project name.
+    The /asp-new skill fills in project-specific sections later.
+    """
+    name = directory.name if directory != Path(".") else "My Analysis"
+
+    # Find the template
+    plugin_source = _get_plugin_source_dir()
+    template_path = plugin_source / "templates" / "CLAUDE.md" if plugin_source else None
+
+    if template_path and template_path.exists():
+        content = template_path.read_text()
+        content = content.replace("{{name}}", name)
+        (directory / "CLAUDE.md").write_text(content)
+    else:
+        # Fallback: minimal CLAUDE.md if template not found
+        (directory / "CLAUDE.md").write_text(
+            f"# CLAUDE.md\n\n## Project: {name}\n\n"
+            "This is an ASP analysis project. Read `asp.yaml` for the specification.\n\n"
+            "Read `.claude/skills/asp/SKILL.md` for how ASP works.\n"
+        )
 
 
 def _get_plugin_source_dir() -> Path | None:

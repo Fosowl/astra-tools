@@ -173,6 +173,12 @@ class Chunk(BaseModel):
         default=None,
         description="Concrete criteria for determining if this chunk succeeded.",
     )
+    plan: str | None = Field(
+        default=None,
+        description="Relative path to implementation notes for this chunk "
+        "(e.g. steps/main/PLAN.md). Documents approach, libraries, and "
+        "how decisions map to code.",
+    )
     decisions: dict[str, Decision] = Field(
         default_factory=dict,
         description="Map of decision IDs to decision specifications scoped to this chunk",
