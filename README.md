@@ -63,14 +63,11 @@ pip install -e ".[dev]"
 Canvas is an optional visual editor for ASP projects — a Python-served web app with no Node.js required:
 
 ```bash
-pip install asp-canvas
+git clone https://github.com/LightconeResearch/Canvas.git
+pip install -e Canvas/
 ```
 
-This installs into the same venv as ASP. Canvas can also be installed as an optional dependency:
-
-```bash
-pip install asp[canvas]
-```
+This installs into the same venv as ASP.
 
 ## Getting Started
 
