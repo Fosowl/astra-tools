@@ -150,7 +150,7 @@ __pycache__/
     console.print(f"[green]✓[/green] Created ASP analysis project: [cyan]{directory}[/cyan]")
 
     console.print(f"\n[bold]cd {directory}[/bold], then either:")
-    console.print("  • [cyan]asp navigator[/cyan] to open the visual canvas")
+    console.print("  • [cyan]asp canvas[/cyan] to open the visual canvas")
     console.print("  • [cyan]claude[/cyan] to work from the command line")
     console.print("\nThen run [cyan]/asp:new[/cyan] to scope your research question.")
 
@@ -1971,6 +1971,48 @@ def _get_navigator_path() -> Path | None:
             return path
 
     return None
+
+
+@main.command()
+@click.argument("target", default=".")
+@click.option("--port", default=8080, type=int, help="Port to serve on")
+@click.option("--no-browser", is_flag=True, help="Don't auto-open browser")
+@click.option("--jupyter", is_flag=True, help="Print JupyterHub proxied URL")
+def canvas(target: str, port: int, no_browser: bool, jupyter: bool) -> None:
+    """Open the ASP Canvas visual editor.
+
+    Launches a Python-served web UI for visualizing and interacting with
+    ASP projects. No Node.js required.
+
+    Install with: pip install asp[canvas]
+
+    Examples:
+
+        asp canvas                     # Open current project
+
+        asp canvas /some/path          # Open specific project
+
+        asp canvas --port 9000         # Custom port
+
+        asp canvas --jupyter           # Print JupyterHub proxied URL
+    """
+    try:
+        from asp_canvas.cli import main as canvas_main
+    except ImportError:
+        console.print("[red]Error:[/red] Canvas not installed.")
+        console.print("  Install with: [cyan]pip install asp[canvas][/cyan]")
+        raise SystemExit(1)
+
+    # Build args list for the canvas CLI
+    args = [target]
+    if port != 8080:
+        args.extend(["--port", str(port)])
+    if no_browser:
+        args.append("--no-browser")
+    if jupyter:
+        args.append("--jupyter")
+
+    canvas_main(args, standalone_mode=False)
 
 
 @main.command()

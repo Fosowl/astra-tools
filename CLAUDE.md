@@ -92,9 +92,9 @@ agentic-science-protocol/
 
 4. **CLI** (`src/asp/cli.py`)
    - Built with Click and Rich for terminal UI
-   - Commands: init, validate, info, universe, viz, schema, paper, navigator
+   - Commands: init, validate, info, universe, viz, schema, paper, canvas
    - Uses `find_analysis_file()` to locate `asp.yaml`
-   - `navigator` command launches the visual canvas editor (separate repo)
+   - `canvas` command launches the visual editor (asp-canvas package, lazy import)
 
 5. **Helpers** (`src/asp/helpers.py`)
    - Dict-based utilities: `load_yaml`, `get_decision`, `get_default_universe`

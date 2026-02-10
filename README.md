@@ -58,17 +58,19 @@ For development (includes pytest, ruff, mypy):
 pip install -e ".[dev]"
 ```
 
-### Navigator (Visual Editor)
+### Canvas (Visual Editor)
 
-Navigator is an optional visual canvas editor for ASP projects. To install:
+Canvas is an optional visual editor for ASP projects — a Python-served web app with no Node.js required:
 
 ```bash
-git clone https://github.com/LightconeResearch/Navigator.git
-cd Navigator
-npm install
+pip install asp-canvas
 ```
 
-The first time you run `asp navigator`, it will prompt you to configure the Navigator path.
+This installs into the same venv as ASP. Canvas can also be installed as an optional dependency:
+
+```bash
+pip install asp[canvas]
+```
 
 ## Getting Started
 
@@ -81,13 +83,13 @@ cd my-analysis
 
 Then choose your workflow:
 
-### Visual Canvas (Navigator)
+### Visual Canvas
 
 ```bash
-asp navigator
+asp canvas
 ```
 
-Opens the visual canvas editor where you can manipulate inputs, decisions, and outputs. Copy the URL printed in the terminal (with the `?project=` parameter) and open it in your browser.
+Opens the visual canvas editor where you can manipulate inputs, decisions, and outputs. The browser opens automatically. Works on local machines, HPC clusters (via `--jupyter`), and VS Code Remote-SSH (auto port forwarding).
 
 ### Command Line (Claude Code)
 
@@ -268,9 +270,11 @@ See [DESIGN.md](DESIGN.md#chunks) for full details.
 asp init my-analysis                   # Create new analysis project
 asp init my-analysis --no-git          # Create without git initialization
 
-# Navigator (visual editor)
-asp navigator                          # Launch Navigator for current project
-asp navigator --configure              # Reconfigure Navigator path
+# Canvas (visual editor)
+asp canvas                             # Launch Canvas for current project
+asp canvas --port 9000                 # Custom port
+asp canvas --no-browser                # Don't auto-open browser
+asp canvas --jupyter                   # Print JupyterHub proxied URL
 
 # Validation
 asp validate asp.yaml                  # Validate analysis specification
