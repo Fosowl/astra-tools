@@ -308,37 +308,6 @@ You MUST ONLY create/modify:
 
 ---
 
-## Visual Formatting
-
-Use consistent formatting throughout:
-
-**Stage banners** — for major phase transitions:
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- ASP ► STAGE NAME
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-**Status symbols:**
-- ✓ Complete / Reviewed
-- ○ Pending / Unreviewed
-- ◆ In progress
-
-**Action prompts** — when user input needed:
-```
-───────────────────────────────────────────────────────────────
-→ ACTION DESCRIPTION
-───────────────────────────────────────────────────────────────
-```
-
-**Anti-patterns:**
-- Varying banner widths
-- Mixing banner styles
-- Random emoji
-- Skipping `ASP ►` prefix in banners
-
----
-
 ## Anti-patterns
 
 - **Waiting to write** — Update asp.yaml after each phase so the user sees progress

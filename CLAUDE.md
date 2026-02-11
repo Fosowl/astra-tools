@@ -19,13 +19,8 @@ agentic-science-protocol/
 │       └── insights.schema.json
 │   # 1.0/, 1.1/, 2.0/, etc. created at release (immutable once released)
 │
-├── .claude-plugin/                # Claude Code plugin marketplace (at repo root)
-│   └── marketplace.json           # Marketplace definition
-│
-├── claude/                        # Claude Code plugin implementations
-│   └── asp/                       # ASP plugin
-│       ├── .claude-plugin/
-│       │   └── plugin.json        # Plugin manifest
+├── claude/                        # Claude Code skills
+│   └── asp/                       # ASP skills
 │       └── skills/
 │           └── asp/
 │               └── SKILL.md       # Skill instructions

@@ -1,0 +1,171 @@
+---
+name: asp-verify
+description: Verify a completed ASP analysis — check that results exist, decisions match code, success criteria are met, and the spec is up to date. Run after building an analysis.
+allowed-tools: Read, Glob, Grep, Bash(asp:*), Bash(python:*), Bash(ls:*), Bash(cat:*), AskUserQuestion
+---
+
+# /asp-verify
+
+Verify a completed ASP analysis. Checks that implementation matches specification, results are present and valid, and success criteria are met.
+
+## References
+
+- [ASP Reference](./../asp/SKILL.md) — core concepts, CLI, validation
+- [UI Brand](./../ui-brand.md) — visual formatting patterns
+
+## Setup
+
+1. Read `asp.yaml`
+2. Read universe file — default `universes/baseline.yaml`, or user-specified
+3. Read `CLAUDE.md` for project context
+4. Ask: "Should I also check success criteria against results, or just verify spec-implementation alignment?"
+
+Display banner, then run all checks. Collect findings and present the full report at the end.
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► VERIFY — <universe_id>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## Check 1: Schema & Semantic Validation
+
+```bash
+asp validate asp.yaml
+asp universe check universes/<universe_id>.yaml
+```
+
+Record pass/fail. Continue with remaining checks even if validation fails.
+
+---
+
+## Check 2: Result Files
+
+For every **output** and **artefact** (with a `path` field) in `asp.yaml`, check that `results/<universe_id>/<path>` exists. Record each as present or missing.
+
+---
+
+## Check 3: Metric Validation
+
+For each `type: metric` output where the result file exists:
+
+1. Check it has `{"value": ...}` JSON structure
+2. If `dtype` declared, check the value type matches
+3. If `range: [min, max]` declared, check value is within bounds
+
+---
+
+## Check 4: Decision-Code Alignment
+
+**The most important check.** For each chunk:
+
+1. Read `steps/<chunk>/PLAN.md` (or `steps/PLAN.md` for single-chunk). Note if missing.
+2. Read the universe selections and implementation code for this chunk
+3. For each decision: find where it's used in code and check the **selected option's value** matches what the code actually uses. If the option has an explicit `value` field, check that exact value appears.
+
+Flag mismatches: e.g., universe says `scaling: standard` but code uses `MinMaxScaler`.
+
+Be pragmatic — don't flag stylistic differences (e.g., `"standard"` vs `StandardScaler` if PLAN.md documents this mapping). The spec defines what's a decision, not the code.
+
+---
+
+## Check 5: Success Criteria (optional)
+
+**Skip if the user opted out during Setup.**
+
+For each success criterion in `asp.yaml` (analysis-level and per-chunk):
+1. If a metric can directly verify it (e.g., "accuracy > 95%" → check `accuracy.json`), do so
+2. If verification requires qualitative judgment, note as "needs manual review"
+3. If no results relate to it, flag as unverifiable
+
+---
+
+## Check 6: Spec Freshness
+
+Scan for drift between spec and implementation:
+
+1. **Undeclared outputs** — files in `results/<universe_id>/` not declared as outputs or artefacts
+2. **Stale descriptions** — PLAN.md describes an approach that diverges from asp.yaml
+
+Only flag things you're reasonably confident about.
+
+---
+
+## Report
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► VERIFICATION REPORT — <universe_id>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### Summary Table
+
+```
+| Check                    | Status |
+|--------------------------|--------|
+| Schema validation        | ✓      |
+| Semantic validation      | ✓      |
+| Result files (5/5)       | ✓      |
+| Metric validation (2/2)  | ✓      |
+| Decision-code alignment  | ⚠      |
+| Success criteria (2/3)   | ⚠      |
+| Spec freshness           | ✓      |
+```
+
+Omit success criteria row if skipped. Status: ✓ passed, ⚠ warnings, ✗ failures.
+
+### Findings
+
+List each finding grouped by check:
+
+```
+**Decision-Code Alignment**
+⚠ `main.scaling` — universe selects `standard` but code imports MinMaxScaler
+  at steps/main/preprocess.py:42
+
+**Success Criteria**
+⚠ "Model size under 10MB" — no metric declared, verify manually
+✓ "Accuracy > 95%" — accuracy.json reports 0.97
+```
+
+### Suggested Fixes
+
+If there are warnings or failures:
+
+```
+───────────────────────────────────────────────────────────────
+→ SUGGESTED FIXES
+───────────────────────────────────────────────────────────────
+
+1. Fix scaling in steps/main/preprocess.py:42 to use StandardScaler
+2. Add model_size metric to asp.yaml outputs
+3. Add missing result file: results/baseline/conclusion.md
+───────────────────────────────────────────────────────────────
+```
+
+If everything passes:
+
+```
+───────────────────────────────────────────────────────────────
+
+▶ All checks passed
+
+This analysis is verified for universe `baseline`.
+
+<sub>/clear first → CLAUDE.md has everything needed to pick back up</sub>
+
+───────────────────────────────────────────────────────────────
+```
+
+---
+
+## Rules
+
+- **Read-only** — report findings and suggest fixes, never modify files
+- **One universe at a time** — run again for additional universes
+- **Pragmatic** — flag real problems, not style differences
+- **Never skip Check 4** — decision-code alignment is the core value of this skill
+- **Always read actual files** — don't assume metrics pass based on code logic
