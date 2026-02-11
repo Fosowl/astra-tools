@@ -175,7 +175,6 @@ The `settings.json` configures Claude Code permissions and hooks directly (e.g.,
 1. `asp init` creates the project scaffold including `CLAUDE.md` with conventions
 2. `/asp-new` scopes the analysis and populates `CLAUDE.md` with project-specific details (chunks, decisions, implementation notes)
 3. The user starts building — Claude Code reads `CLAUDE.md` + `asp.yaml` and implements naturally
-4. There is no `/asp-build` skill — Claude Code IS the build tool, guided by the CLAUDE.md conventions
 
 ## Important Design Patterns
 

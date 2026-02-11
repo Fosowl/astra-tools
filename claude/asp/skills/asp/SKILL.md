@@ -13,15 +13,14 @@ Help users work with the Agentic Science Protocol (ASP) - a declarative specific
 | Command | Purpose |
 |---------|---------|
 | `/asp-new` | Create a new analysis — scope question, structure chunks, identify decisions with literature |
-| `/asp-build [chunk]` | Plan, build, and run an analysis chunk (HOW to do it) |
 
 ### Workflow
 
 ```
-/asp-new  →  /asp-build <chunk>  →  /asp-build <next_chunk>  → ...
+/asp-new  →  build each chunk with Claude Code  → ...
 ```
 
-`/asp-new` scopes the research question, structures chunks, identifies decisions, and proactively searches for supporting literature. Run `/asp-build` for each chunk in turn.
+`/asp-new` scopes the research question, structures chunks, identifies decisions, and proactively searches for supporting literature. Then start building — Claude Code reads `CLAUDE.md` + `asp.yaml` and implements each chunk.
 
 ## Chunks
 
@@ -177,7 +176,7 @@ Use `/asp-new` to interactively scope your project:
 2. Define top-level inputs, outputs, success criteria
 3. Define chunks with wiring
 
-Then use `/asp-build <chunk>` to plan and build each chunk.
+Then start building each chunk — Claude Code reads `CLAUDE.md` + `asp.yaml` and implements naturally.
 
 Alternatively, scaffold manually:
 ```bash
@@ -336,12 +335,12 @@ my-analysis/
 ├── workflows/            # CWL workflow definitions
 │   └── main.cwl
 ├── plans/                # Implementation plans per chunk
-├── steps/                # Workflow implementation (created during /asp-build)
+├── steps/                # Workflow step implementations
 ├── results/              # Execution outputs (gitignored)
 └── .claude/
 ```
 
-Chunks are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is created during `/asp-build`:
+Chunks are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is:
 - **Single chunk**: implementation goes directly in `steps/` (no subdirectory)
 - **Multiple chunks**: each chunk gets `steps/<chunk_name>/`
 

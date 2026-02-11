@@ -135,7 +135,7 @@ When the user confirms they're satisfied, print:
 "Codebase migrated to ASP with [N] decision(s) in [M] chunk(s)."
 
 Suggest next steps:
-- "Run `/asp-build` to create/update the CWL workflow"
+- "Start building — Claude Code reads `CLAUDE.md` + `asp.yaml` to implement the analysis"
 
 ## Restrictions
 

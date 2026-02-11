@@ -111,7 +111,7 @@ Constraints are scoped within a chunk — they reference other decisions in the 
 - **reviewed: true** — User explicitly discussed and chose this
 - **reviewed: false** — Agent inferred or used sensible default
 
-During `/asp-build`, unreviewed decisions get surfaced for confirmation before implementation.
+During the build phase, unreviewed decisions get surfaced for confirmation before implementation.
 
 ## Common Mistakes
 
@@ -158,4 +158,4 @@ use_pandas:  # Too implementation-focused
       label: "No"
 ```
 
-This isn't a scientific decision — it's an implementation choice for `/asp-build`.
+This isn't a scientific decision — it's an implementation choice for the build phase.
