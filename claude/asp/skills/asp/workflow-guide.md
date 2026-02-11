@@ -329,17 +329,19 @@ inputs:
 
 ## Writing Results
 
-Outputs and artefacts in `asp.yaml` declare a `path` field. Write result files to `results/<universe_id>/<path>`:
+Results use a convention-based layout — file names are `<id>.<ext>` derived from the output/artefact `id` and its format.
+
+**Outputs** (analysis-level) → `results/<universe_id>/<output_id>.<ext>`
+**Artefacts** (chunk-level) → `results/<universe_id>/<chunk>/<artefact_id>.<ext>`
 
 ```yaml
-# asp.yaml
+# asp.yaml — no path field needed
 outputs:
   - id: accuracy
-    type: metric
-    path: accuracy.json
+    type: metric             # → results/<universe_id>/accuracy.json
   - id: corner_plot
     type: figure
-    path: corner_plot.png
+    formats: ["png"]         # → results/<universe_id>/corner_plot.png
 ```
 
 The agent writes files to `results/<universe_id>/`:

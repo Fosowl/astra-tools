@@ -36,23 +36,29 @@ When implementing a chunk:
    how decisions map to code, data flow, key implementation choices
 3. Implement the code in that directory
 4. Link the plan in asp.yaml: set `plan: steps/<chunk>/PLAN.md` on the chunk
-5. Write results to `results/<universe_id>/<path>` matching output declarations
+5. Write results to `results/<universe_id>/` using the output `id` as the filename
 6. Validate: `asp validate asp.yaml`
 
 For single-chunk analyses, use `steps/` directly (or `steps/main/`).
 
 ### Writing Results
 
-Outputs and artefacts in `asp.yaml` declare a `path` field. Write result files
-to `results/<universe_id>/<path>`:
+Results use a convention-based layout — no `path` field in `asp.yaml`. File
+names are derived from the output/artefact `id` plus its format extension.
 
-| Output type | Format | Example |
-|-------------|--------|---------|
-| metric | JSON | `{"value": 0.95}` |
-| figure | PNG, SVG, PDF | `results/baseline/confusion_matrix.png` |
+**Outputs** (analysis-level) → `results/<universe_id>/<output_id>.<ext>`
+**Artefacts** (chunk-level) → `results/<universe_id>/<chunk>/<artefact_id>.<ext>`
+
+| Output type | Format | Example path |
+|-------------|--------|--------------|
+| metric | JSON | `results/baseline/accuracy.json` → `{"value": 0.95}` |
+| figure | PNG | `results/baseline/corner_plot.png` |
 | table | CSV | `results/baseline/deg_table.csv` |
-| data | Parquet, CSV, HDF5 | `results/baseline/processed_data.parquet` |
+| data | Parquet, HDF5 | `results/baseline/processed_data.parquet` |
 | report | Markdown | `results/baseline/summary.md` |
+
+Canvas looks in `results/<universe_id>/` for outputs and
+`results/<universe_id>/<chunk>/` for artefacts automatically.
 
 ### Keeping the Spec in Sync
 

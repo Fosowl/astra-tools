@@ -43,7 +43,7 @@ Record pass/fail. Continue with remaining checks even if validation fails.
 
 ## Check 2: Result Files
 
-For every **output** and **artefact** (with a `path` field) in `asp.yaml`, check that `results/<universe_id>/<path>` exists. Record each as present or missing.
+For every **output**, check that `results/<universe_id>/<output_id>.<ext>` exists. For every **artefact**, check that `results/<universe_id>/<chunk>/<artefact_id>.<ext>` exists. Record each as present or missing.
 
 ---
 

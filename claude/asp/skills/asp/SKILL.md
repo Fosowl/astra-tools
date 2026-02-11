@@ -103,20 +103,23 @@ asp params universes/baseline.yaml           # Output CWL parameters to stdout
 
 ### Writing Results
 
-Outputs and artefacts declare a `path` field in `asp.yaml`. Write result files to `results/<universe_id>/<path>`:
+Results use a convention-based layout — file names are `<id>.<ext>` derived from the output/artefact `id` and its format.
+
+**Outputs** (analysis-level) → `results/<universe_id>/<output_id>.<ext>`
+**Artefacts** (chunk-level) → `results/<universe_id>/<chunk>/<artefact_id>.<ext>`
 
 ```yaml
+# asp.yaml — no path field needed
 outputs:
   - id: accuracy
-    type: metric
-    path: accuracy.json      # Write to results/<universe_id>/accuracy.json
+    type: metric             # → results/<universe_id>/accuracy.json
   - id: corner_plot
     type: figure
-    path: corner_plot.png    # Write to results/<universe_id>/corner_plot.png
+    formats: ["png"]         # → results/<universe_id>/corner_plot.png
 ```
 
 For metrics, write a JSON file with the value: `{"value": 0.95}`
-Navigator watches the `results/` directory and auto-detects new files.
+Canvas watches the `results/` directory and auto-detects new files.
 
 **Chunk note:** All chunks are defined inline in the root `asp.yaml`. No separate directories or files needed for chunk specifications.
 
