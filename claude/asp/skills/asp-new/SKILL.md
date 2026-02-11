@@ -1,7 +1,7 @@
 ---
 name: asp-new
 description: Create a new ASP analysis project - scope research question, structure chunks, identify decisions with literature support
-allowed-tools: Read, Write(asp.yaml), Write(universes/*), Write(CLAUDE.md), Edit(asp.yaml), Edit(universes/*), Edit(CLAUDE.md), Glob, Grep, Bash(asp:*), Bash(mkdir:*), WebSearch, WebFetch, AskUserQuestion
+allowed-tools: Read, Write(asp.yaml), Write(universes/*), Write(CLAUDE.md), Write(.claude/hpc.yaml), Edit(asp.yaml), Edit(universes/*), Edit(CLAUDE.md), Edit(.claude/hpc.yaml), Glob, Grep, Bash(asp:*), Bash(mkdir:*), WebSearch, WebFetch, AskUserQuestion
 ---
 
 # /asp-new
@@ -146,6 +146,44 @@ When the user explicitly weighs in on a decision, mark it `reviewed: true` in th
 > "Anything else that should inform this analysis?"
 
 Review the spec with the user. Update asp.yaml with any additions.
+
+---
+
+## Compute Configuration (optional)
+
+**Only activate this phase if `.claude/hpc.yaml` exists in the project.**
+
+Display stage banner:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ASP ► COMPUTE CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Read `.claude/hpc.yaml` and show current resource limits:
+
+```
+Current HPC limits:
+  Max nodes/job: 4
+  Max walltime: 120 min
+  Max node-hours/session: 16
+```
+
+If the config has a `notes` field, display it:
+
+```
+Compute notes:
+  <notes from config>
+```
+
+> "These are your current HPC resource limits. Want to adjust them for this analysis?"
+
+If yes:
+- Update `.claude/hpc.yaml` with new limits
+- Update the Compute Environment section in `CLAUDE.md` to reflect changes
+
+If no, continue to Finalize.
 
 ---
 

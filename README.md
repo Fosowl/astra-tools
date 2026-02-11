@@ -105,6 +105,32 @@ Follow these steps:
 3. **Implement** - Write implementation scripts
 4. **Run** - Execute via `asp workflow run` (always use the workflow!)
 
+## HPC/Remote Targets
+
+ASP supports HPC clusters as execution targets. Target configuration provides
+guardrails so Claude Code can't burn allocations, clog queues, or delete
+important files.
+
+### One-time setup
+
+```bash
+asp remote setup perlmutter       # Interactive setup for any cluster
+asp remote setup --list            # List saved targets
+asp remote show perlmutter         # Show saved config
+```
+
+### Create a project with a target
+
+```bash
+asp init my-analysis --target perlmutter
+```
+
+This adds to the project:
+- `.claude/hpc.yaml` — Per-project resource limits and auth (gitignored, user-specific)
+- `CLAUDE.md` — Compute environment notes (committed, team-shared)
+- `.claude/settings.json` — HPC-specific permissions and hooks (committed, team-shared)
+- `.claude/scripts/hpc-guard.sh` — Enforces resource limits on every job submission
+
 ## Workflow
 
 **ASP is the source of truth. Always follow this order:**
@@ -266,6 +292,7 @@ See [DESIGN.md](DESIGN.md#chunks) for full details.
 # Project setup
 asp init my-analysis                   # Create new analysis project
 asp init my-analysis --no-git          # Create without git initialization
+asp init my-analysis --target perlmutter  # Create with HPC configuration
 
 # Canvas (visual editor)
 asp canvas                             # Launch Canvas for current project
@@ -294,6 +321,12 @@ asp workflow show --cwl main.cwl       # Show parameter mapping
 asp workflow run universes/x.yaml --cwl main.cwl -o results/  # Run workflow
 asp params universes/baseline.yaml     # Generate CWL parameters from universe
 
+# HPC/remote targets
+asp remote setup perlmutter            # Configure target (one-time)
+asp remote setup --list                # List saved targets
+asp remote show perlmutter             # Show target configuration
+asp remote edit perlmutter             # Show path for manual editing
+
 # Schema utilities
 asp schema export                      # Export JSON schemas to schemas/
 asp schema show analysis               # Print analysis schema to stdout
@@ -314,7 +347,10 @@ my-analysis/
 ├── steps/                # Reusable workflow steps
 ├── results/              # Execution outputs (gitignored)
 └── .claude/              # Claude Code configuration
-    └── settings.json     # Auto-installs ASP plugin
+    ├── settings.json     # Permissions and hooks
+    ├── scripts/          # Hook scripts
+    ├── hpc.yaml          # HPC config (only with --target, gitignored)
+    └── skills/           # ASP skills for Claude Code
 ```
 
 ## Design Principles
