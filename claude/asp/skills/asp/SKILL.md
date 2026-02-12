@@ -94,10 +94,10 @@ asp viz                           # Visualize decision space
 asp schema show analysis          # Show JSON schema
 
 # Workflow Integration
-asp workflow run universes/baseline.yaml --cwl main.cwl  # Run workflow
-asp workflow run universes/x.yaml --cwl main.cwl -o out/ # Run with output dir
-asp workflow validate --cwl main.cwl         # Validate CWL mapping
-asp workflow show --cwl main.cwl             # Show parameter mapping table
+asp workflow run universes/baseline.yaml --cwl workflows/main.cwl  # Run workflow
+asp workflow run universes/x.yaml --cwl workflows/main.cwl -o out/ # Run with output dir
+asp workflow validate --cwl workflows/main.cwl         # Validate CWL mapping
+asp workflow show --cwl workflows/main.cwl             # Show parameter mapping table
 asp params universes/baseline.yaml           # Output CWL parameters to stdout
 ```
 
@@ -369,10 +369,11 @@ my-analysis/
 ├── asp.yaml              # Full spec with chunks defined inline
 ├── universes/
 │   └── baseline.yaml     # Decision selections organized by chunk
-├── workflows/            # CWL workflow definitions
-│   └── main.cwl
+├── workflows/            # CWL Workflow definitions (class: Workflow)
+│   └── main.cwl          #   Orchestrates steps, wires inputs/outputs
 ├── plans/                # Implementation plans per chunk
-├── steps/                # Workflow step implementations
+├── steps/                # CWL CommandLineTool steps (class: CommandLineTool)
+│   └── main.cwl          #   Runs the actual code
 ├── results/              # Execution outputs (gitignored)
 └── .claude/
 ```

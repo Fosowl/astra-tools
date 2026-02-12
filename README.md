@@ -316,9 +316,9 @@ asp universe check universes/foo.yaml  # Check universe constraints
 
 # Workflow commands
 asp workflow generate                  # Generate CWL skeleton from ASP
-asp workflow validate --cwl main.cwl   # Validate CWL against ASP
-asp workflow show --cwl main.cwl       # Show parameter mapping
-asp workflow run universes/x.yaml --cwl main.cwl -o results/  # Run workflow
+asp workflow validate --cwl workflows/main.cwl   # Validate CWL against ASP
+asp workflow show --cwl workflows/main.cwl       # Show parameter mapping
+asp workflow run universes/x.yaml --cwl workflows/main.cwl -o results/  # Run workflow
 asp params universes/baseline.yaml     # Generate CWL parameters from universe
 
 # HPC/remote targets

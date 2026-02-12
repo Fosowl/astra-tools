@@ -225,44 +225,82 @@ decisions:
         value: 0.3
 ```
 
-Build this CWL workflow:
+Build the CWL workflow (`workflows/main.cwl`) and its step (`steps/main.cwl`):
+
+> **`workflows/` = Workflow class** (orchestration — wires inputs to steps).
+> **`steps/` = CommandLineTool class** (implementation — runs code).
+> The generator creates `workflows/main.cwl`; you implement `steps/main.cwl`.
+
 ```yaml
-# workflows/main.cwl
+# workflows/main.cwl — Workflow that orchestrates the analysis
+cwlVersion: v1.2
+class: Workflow
+
+inputs:
+  dataset:
+    type: File
+    doc: "Input dataset"
+  scaling_method:
+    type: string
+    doc: "From 'scaling' decision, key 'method'"
+  scaling_with_mean:
+    type: boolean?
+    doc: "From 'scaling' decision, key 'with_mean'"
+  classifier:
+    type: string
+    doc: "From 'classifier' decision (no value field)"
+  test_split:
+    type: float
+    doc: "From 'test_split' decision (simple value)"
+
+outputs:
+  accuracy:
+    type: File
+    outputSource: run_analysis/accuracy
+  model:
+    type: File
+    outputSource: run_analysis/model
+
+steps:
+  run_analysis:
+    run: steps/main.cwl          # <-- references the CommandLineTool
+    in:
+      dataset: dataset
+      scaling_method: scaling_method
+      scaling_with_mean: scaling_with_mean
+      classifier: classifier
+      test_split: test_split
+    out: [accuracy, model]
+```
+
+```yaml
+# steps/main.cwl — CommandLineTool that runs the code
 cwlVersion: v1.2
 class: CommandLineTool
 baseCommand: [python, run_analysis.py]
 
 inputs:
-  # Data input
   dataset:
     type: File
     inputBinding: { prefix: --dataset }
-
-  # From 'scaling' decision (dict value)
   scaling_method:
     type: string
     inputBinding: { prefix: --scaling-method }
   scaling_with_mean:
     type: boolean?
     inputBinding: { prefix: --scaling-with-mean }
-
-  # From 'classifier' decision (no value field)
   classifier:
     type: string
     inputBinding: { prefix: --classifier }
-
-  # From 'test_split' decision (simple value)
   test_split:
     type: float
     inputBinding: { prefix: --test-split }
 
 outputs:
   accuracy:
-    type: float
+    type: File
     outputBinding:
-      glob: results/accuracy.txt
-      loadContents: true
-      outputEval: $(parseFloat(self[0].contents))
+      glob: results/accuracy.json
   model:
     type: File
     outputBinding:
