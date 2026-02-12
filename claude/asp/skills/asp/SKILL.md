@@ -172,6 +172,39 @@ inputs:
       url: "https://example.com/data.csv"  # Remote URL
 ```
 
+## Universe Lifecycle
+
+Decisions emerge during analysis — you don't know all of them upfront. When you run baseline and realize "I should try X," that's a new decision (or a new option on an existing decision).
+
+### Adding a new decision after baseline
+
+1. **Identify the scope**: New option on an existing decision, or an entirely new decision?
+   - New option → add it to the existing decision in `asp.yaml`
+   - New decision → add a new decision entry under the relevant chunk
+
+2. **Add to `asp.yaml`**: Define the decision with all options, a default, and a rationale.
+
+3. **Update existing universes**: Add the new decision to all existing universe files, selecting the default to preserve their behavior.
+
+4. **Create the new universe**: `asp universe generate -n <name>`, then edit to select the new option.
+
+5. **Validate**: `asp validate asp.yaml && asp universe check universes/<name>.yaml`
+
+Results for each universe go to `results/<universe_id>/`. Always use `asp workflow run` to execute — it resolves decision values from the universe file, passes them to the code via CWL, and writes run metadata automatically.
+
+### What is and isn't a universe
+
+A universe captures a **defensible alternative analysis path** — a choice a reasonable researcher might make differently. These are universes:
+- Different hyperparameter selections
+- Different data subsets or filtering criteria
+- Different algorithmic approaches
+
+These are NOT universes (just normal commits):
+- Bug fixes
+- Adding a missing output to `asp.yaml`
+- Improving plot formatting
+- Refactoring code without changing behavior
+
 ## Creating a New Analysis
 
 Use `/asp-new` to interactively scope your project:
@@ -322,11 +355,12 @@ analysis:
 ```
 
 ### Creating a New Universe
+
 ```bash
 asp universe generate -n experiment1 -d "Testing hypothesis X"
 ```
 
-Then edit `universes/experiment1.yaml` to customize decisions.
+Then edit `universes/experiment1.yaml` to customize decisions. If this requires a new decision or option that doesn't exist yet, see **Universe Lifecycle** above — add it to `asp.yaml` first and update all existing universe files with the default.
 
 ## File Locations
 
@@ -350,15 +384,18 @@ Chunks are defined inline in `asp.yaml` — no separate directories needed for t
 **Important**:
 - Universes are the source of truth for CWL parameters. Use `asp workflow run` to execute workflows directly from universes, or `asp params` to inspect the generated parameters.
 
-## Building CWL Workflows
+## CWL Workflows
 
-For detailed guidance on building CWL workflows from ASP analyses, see [workflow-guide.md](workflow-guide.md).
+CWL workflows are the execution path for ASP analyses. After building the code,
+generate a CWL workflow and use `asp workflow run` to execute with any universe.
+See [workflow-guide.md](workflow-guide.md) for full details.
 
 Key points:
 - ASP inputs map to CWL `File` inputs using the same ID
 - ASP decisions map to CWL parameters (naming depends on `value` structure)
-- Use `asp workflow validate` to check CWL matches ASP spec
-- Use `asp workflow run` to execute with a universe
+- `asp workflow generate` creates/updates the CWL from `asp.yaml`
+- `asp workflow validate` checks CWL matches the ASP spec
+- `asp workflow run` executes with a universe and writes run metadata
 
 ## Tips
 

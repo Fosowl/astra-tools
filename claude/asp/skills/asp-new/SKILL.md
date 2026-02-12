@@ -281,6 +281,11 @@ Then the Next Up block:
 Start building — ask me to implement a chunk
 (e.g. "implement the main chunk")
 
+Every decision becomes a CLI argument — no hardcoded values.
+After building, a CWL workflow is generated and all runs go
+through `asp workflow run`. New decisions can be added later.
+See CLAUDE.md for details.
+
 <sub>/clear first → CLAUDE.md has everything needed to pick back up</sub>
 
 ───────────────────────────────────────────────────────────────

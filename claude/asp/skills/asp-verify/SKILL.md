@@ -47,7 +47,24 @@ For every **output**, check that `results/<universe_id>/<output_id>.<ext>` exist
 
 ---
 
-## Check 3: Metric Validation
+## Check 3: Run Metadata
+
+Check that `results/<universe_id>/run_metadata.yaml` exists and is consistent.
+This file is written automatically by `asp workflow run` — its presence confirms
+the results were produced through the workflow.
+
+1. **Exists** — file is present in the results directory. If missing, flag as a
+   warning: results may not have been produced through `asp workflow run`
+2. **Universe ID matches** — `universe_id` field matches the results directory name
+3. **Decisions recorded** — `decisions` field is present and non-empty
+4. **Decisions match universe file** — compare recorded decisions against the
+   current universe file. If they differ, flag as a warning (the universe file
+   may have been edited after the run)
+5. **Git commit recorded** — `git_commit` field is present
+
+---
+
+## Check 4: Metric Validation
 
 For each `type: metric` output where the result file exists:
 
@@ -57,21 +74,22 @@ For each `type: metric` output where the result file exists:
 
 ---
 
-## Check 4: Decision-Code Alignment
+## Check 5: Decision-Code Alignment
 
 **The most important check.** For each chunk:
 
 1. Read `steps/<chunk>/PLAN.md` (or `steps/PLAN.md` for single-chunk). Note if missing.
-2. Read the universe selections and implementation code for this chunk
-3. For each decision: find where it's used in code and check the **selected option's value** matches what the code actually uses. If the option has an explicit `value` field, check that exact value appears.
+2. Check that a CWL workflow exists in `workflows/` and that it declares inputs matching the ASP decisions.
+3. Check that the code accepts CLI arguments for each decision and that no decision values are hardcoded.
+4. Run `asp workflow validate --cwl workflows/main.cwl` to verify the CWL maps correctly to the ASP spec.
 
-Flag mismatches: e.g., universe says `scaling: standard` but code uses `MinMaxScaler`.
+Flag: hardcoded decision values, missing CLI arguments for decisions, missing or invalid CWL workflow.
 
-Be pragmatic — don't flag stylistic differences (e.g., `"standard"` vs `StandardScaler` if PLAN.md documents this mapping). The spec defines what's a decision, not the code.
+Be pragmatic — the code may parse option IDs into internal representations (e.g., `"w10_s5"` → `width=10, stride=5`). That's fine as long as the parsing is driven by the CLI argument value.
 
 ---
 
-## Check 5: Success Criteria (optional)
+## Check 6: Success Criteria (optional)
 
 **Skip if the user opted out during Setup.**
 
@@ -82,7 +100,7 @@ For each success criterion in `asp.yaml` (analysis-level and per-chunk):
 
 ---
 
-## Check 6: Spec Freshness
+## Check 7: Spec Freshness
 
 Scan for drift between spec and implementation:
 
@@ -109,6 +127,7 @@ Only flag things you're reasonably confident about.
 | Schema validation        | ✓      |
 | Semantic validation      | ✓      |
 | Result files (5/5)       | ✓      |
+| Run metadata             | ✓      |
 | Metric validation (2/2)  | ✓      |
 | Decision-code alignment  | ⚠      |
 | Success criteria (2/3)   | ⚠      |
@@ -167,5 +186,5 @@ This analysis is verified for universe `baseline`.
 - **Read-only** — report findings and suggest fixes, never modify files
 - **One universe at a time** — run again for additional universes
 - **Pragmatic** — flag real problems, not style differences
-- **Never skip Check 4** — decision-code alignment is the core value of this skill
+- **Never skip Check 5** — decision-code alignment is the core value of this skill
 - **Always read actual files** — don't assume metrics pass based on code logic

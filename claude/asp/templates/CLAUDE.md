@@ -23,7 +23,7 @@ steps/                      # Implementation (one folder per chunk)
   <chunk>/
     PLAN.md                 # Implementation notes: approach, libraries, decision mapping
     ...                     # Code files
-workflows/                  # CWL workflow definitions (optional)
+workflows/                  # CWL workflow definitions
 results/<universe_id>/      # Output files, organized by universe
 ```
 
@@ -33,13 +33,68 @@ When implementing a chunk:
 
 1. Create `steps/<chunk>/` for the implementation
 2. Write `steps/<chunk>/PLAN.md` documenting your approach — what libraries,
-   how decisions map to code, data flow, key implementation choices
-3. Implement the code in that directory
-4. Link the plan in asp.yaml: set `plan: steps/<chunk>/PLAN.md` on the chunk
-5. Write results to `results/<universe_id>/` using the output `id` as the filename
-6. Validate: `asp validate asp.yaml`
+   data flow, key implementation choices, and a **decision mapping** showing how
+   each decision maps to a CLI argument
+3. **Parameterize all decisions** (see below)
+4. Implement the code in that directory
+5. Link the plan in asp.yaml: set `plan: steps/<chunk>/PLAN.md` on the chunk
+6. Generate and validate the CWL workflow (see "Running with CWL" below)
+7. Run with `asp workflow run` — outputs go to `results/<universe_id>/`
+8. Validate: `asp validate asp.yaml`
 
 For single-chunk analyses, use `steps/` directly (or `steps/main/`).
+
+### Decision Parameterization
+
+**Every decision in `asp.yaml` must be parameterized in the code.** No decision
+value should ever be hardcoded. The code accepts CLI arguments matching the
+decision IDs — it does not read universe files directly.
+
+How to handle each decision type:
+- **Parameter decisions** (learning rate, layer count): accept as a CLI arg,
+  pass the value directly
+- **Data decisions** (dataset version, filtering): accept as a CLI arg, use
+  the value to select which data to load or how to filter it
+- **Method decisions** (algorithm choice): accept as a CLI arg, dispatch to
+  the appropriate implementation
+
+`PLAN.md` must include a decision mapping table:
+
+```markdown
+## Decision Mapping
+
+| Decision | CLI arg | Code location | Notes |
+|----------|---------|---------------|-------|
+| learning_rate | --learning-rate | train.py | Passed to optimizer |
+| scaling | --scaling | preprocess.py | Selects scaler class |
+```
+
+### Running with CWL
+
+**Always use `asp workflow run` for execution.** This ensures decision values
+are correctly propagated from the universe file to the code, and that run
+metadata is recorded.
+
+```bash
+# Generate CWL from asp.yaml (do this after building the code)
+asp workflow generate --cwl workflows/main.cwl
+
+# Validate the CWL matches the ASP spec
+asp workflow validate --cwl workflows/main.cwl
+
+# Run with a universe
+asp workflow run universes/baseline.yaml --cwl workflows/main.cwl
+```
+
+`asp workflow run` handles:
+- Reading the universe file and resolving decision values
+- Passing values to the code as CLI args via CWL
+- Collecting outputs to `results/<universe_id>/`
+- Writing `run_metadata.yaml` with provenance (universe, decisions, git commit)
+
+During development you can run `python run.py --learning-rate 1e-3 ...` directly
+for quick iteration, but official runs that write to `results/` must go through
+the workflow. See `workflow-guide.md` in the ASP skill for CWL details.
 
 ### Writing Results
 
@@ -64,6 +119,39 @@ Canvas looks in `results/<universe_id>/` for outputs and
 
 If you change decisions, outputs, or analysis structure, update `asp.yaml` to
 match. Run `asp validate asp.yaml` after changes.
+
+### Universe Management
+
+Universes select one option per decision. The baseline universe uses all defaults.
+
+**Trying different values for existing decisions:**
+```bash
+asp universe generate -n experiment1 -d "Testing hypothesis X"
+# Edit universes/experiment1.yaml to change selections
+asp workflow run universes/experiment1.yaml --cwl workflows/main.cwl
+```
+No code changes needed — CWL propagates the new values automatically.
+
+**When a new decision emerges** (you realize something should be varied):
+
+1. Add the decision to `asp.yaml` with options, default, and rationale
+2. Add a CLI argument to the code for the new decision
+3. Update `PLAN.md` with the new decision mapping
+4. Regenerate the CWL: `asp workflow generate --cwl workflows/main.cwl`
+5. Add the decision to all existing universe files (select the default to
+   preserve their behavior)
+6. Create the new universe file with the variant selection
+7. Validate: `asp validate asp.yaml && asp workflow validate --cwl workflows/main.cwl`
+
+**Run and compare** — results are organized by universe:
+```
+results/baseline/    # First run
+results/experiment1/ # New universe
+```
+
+A universe represents a **defensible alternative analysis path** — a choice a
+reasonable researcher might make differently. Bug fixes, refactors, and cosmetic
+changes are normal commits, not new universes.
 
 ---
 
