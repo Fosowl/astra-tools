@@ -1305,7 +1305,7 @@ def workflow_run(
         asp workflow run universes/baseline.yaml --cwl workflows/main.cwl
     """
     import tempfile
-    from datetime import datetime, timezone
+    from datetime import UTC, datetime
 
     from asp.workflow.mapping import extract_decision_values, resolve_inputs
 
@@ -1368,7 +1368,7 @@ def workflow_run(
             "universe_id": universe_id,
             "universe_file": str(universe_file),
             "workflow": str(cwl),
-            "run_at": datetime.now(timezone.utc).isoformat(),
+            "run_at": datetime.now(UTC).isoformat(),
             "git_commit": git_commit,
             "decisions": decision_values,
         }
@@ -2135,7 +2135,9 @@ def _customize_permissions(permissions: dict[str, list[str]]) -> dict[str, list[
     result = copy.deepcopy(permissions)
 
     add_auto = click.prompt(
-        "    Add to auto-approve (comma-separated, or Enter to skip)", default="", show_default=False
+        "    Add to auto-approve (comma-separated, or Enter to skip)",
+        default="",
+        show_default=False,
     )
     if add_auto.strip():
         result["auto_approve"].extend(cmd.strip() for cmd in add_auto.split(",") if cmd.strip())
@@ -2261,7 +2263,7 @@ def canvas(target: str, port: int, no_browser: bool, jupyter: bool) -> None:
         asp canvas --jupyter           # Print JupyterHub proxied URL
     """
     try:
-        from asp_canvas.cli import main as canvas_main
+        from asp_canvas.cli import main as canvas_main  # type: ignore[import-not-found]
     except ImportError:
         console.print("[red]Error:[/red] Canvas not installed.")
         console.print("  Install with: [cyan]pip install asp[canvas][/cyan]")
@@ -2336,7 +2338,7 @@ def navigator(path: Path | None, configure: bool) -> None:
             config["navigator"] = {}
         config["navigator"]["path"] = str(navigator_path)
         _save_asp_config(config)
-        console.print(f"[green]✓[/green] Saved Navigator path to ~/.asp/config.yaml")
+        console.print("[green]✓[/green] Saved Navigator path to ~/.asp/config.yaml")
 
         if configure:
             return

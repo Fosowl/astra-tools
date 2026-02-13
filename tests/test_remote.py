@@ -205,7 +205,8 @@ class TestRemoteCLI:
         assert "Error" in result.output
 
     def test_remote_setup_interactive(self, runner: CliRunner, targets_dir: Path):
-        # Input: scheduler, account, 4x resource limits (accept defaults), no customize, no notes, confirm
+        # Input: scheduler, account, 4x resource limits (defaults),
+        # no customize, no notes, confirm
         result = runner.invoke(
             main,
             ["remote", "setup", "test-cluster"],
