@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.insight import Insight
@@ -20,28 +18,16 @@ class Checksum(BaseModel):
     value: str = Field(description="Hash value")
 
 
-class Source(BaseModel):
-    """Source specification for inputs."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    type: Literal["url", "s3", "sklearn", "asp", "file"] = Field(description="Type of source")
-    url: str | None = Field(default=None, description="URL for url type sources")
-    bucket: str | None = Field(default=None, description="S3 bucket name")
-    key: str | None = Field(default=None, description="S3 object key")
-    version_id: str | None = Field(default=None, description="S3 version ID")
-    region: str | None = Field(default=None, description="AWS region")
-    dataset: str | None = Field(default=None, description="sklearn dataset name")
-    analysis: str | None = Field(default=None, description="ASP analysis reference")
-    version: str | None = Field(default=None, description="Version of referenced analysis")
-    output: str | None = Field(default=None, description="Output ID from referenced analysis")
-    execution: str | None = Field(default=None, description="Specific execution ID")
-    path: str | None = Field(default=None, description="Local file path")
-    checksum: Checksum | None = Field(default=None, description="Checksum for verification")
-
-
 class Input(BaseModel):
-    """An input to the analysis."""
+    """An input to the analysis.
+
+    Two kinds of inputs:
+    - ``type: data`` — a dataset, file, or external resource (specify ``source``)
+    - ``type: analysis`` — outputs from another ASP analysis (specify ``ref``)
+
+    Sub-analysis inputs can also use ``from`` to reference a parent input
+    or a sibling's output (e.g., ``from: sibling_id.output_id``).
+    """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -49,51 +35,62 @@ class Input(BaseModel):
         pattern=r"^[a-z][a-z0-9_]*$",
         description="Unique identifier for the input",
     )
-    type: Literal["data", "analysis", "literature"] = Field(description="Type of input")
-    source: str | Source | None = Field(
-        default=None, description="Source specification for the input"
+    type: Literal["data", "analysis"] = Field(description="Type of input")
+    description: str | None = Field(default=None, description="Description of the input")
+
+    # Data inputs
+    source: str | None = Field(
+        default=None, description="URI or path to the data source"
     )
-    from_: str | None = Field(
-        default=None,
-        alias="from",
-        description="Reference to parent input or sibling output (e.g., 'input_id' or "
-        "'sibling.output_id')",
+    checksum: Checksum | None = Field(
+        default=None, description="Checksum for data integrity verification"
     )
+
+    # Analysis inputs
     ref: str | None = Field(
-        default=None, description="Reference to another analysis (for type: analysis)"
+        default=None, description="Reference to another ASP analysis"
     )
-    version: str | None = Field(default=None, description="Version of the referenced analysis")
+    ref_version: str | None = Field(
+        default=None, description="Version of the referenced analysis"
+    )
     use_outputs: list[str] | None = Field(
         default=None, description="Specific outputs to use from referenced analysis"
     )
-    description: str | None = Field(default=None, description="Description of the input")
+
+    # Sub-analysis wiring
+    from_: str | None = Field(
+        default=None,
+        alias="from",
+        description="Reference to parent input or sibling output "
+        "(e.g., 'input_id' or 'sibling.output_id')",
+    )
 
 
 class Output(BaseModel):
-    """An expected output from the analysis."""
+    """An expected output from the analysis.
 
-    model_config = ConfigDict(extra="forbid")
+    Outputs can declare their provenance via ``from`` to trace which
+    sub-analysis produces them (e.g., ``from: inference.posterior``).
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     id: str = Field(
         pattern=r"^[a-z][a-z0-9_]*$",
         description="Unique identifier for the output",
     )
-    type: Literal["metric", "figure", "table", "data", "model", "report"] = Field(
+    type: Literal["metric", "figure", "table", "data", "report"] = Field(
         description="Type of output"
     )
-    dtype: Literal["float", "int", "bool", "string"] | None = Field(
-        default=None, description="Data type for metrics"
-    )
-    range: tuple[float, float] | None = Field(
-        default=None, description="Valid range for numeric metrics [min, max]"
-    )
-    formats: list[str] | None = Field(
-        default=None, description="Supported file formats for artifacts"
-    )
-    path: str | None = Field(
-        default=None, description="Relative path for result file within results directory"
-    )
     description: str | None = Field(default=None, description="Description of the output")
+
+    # Provenance: which sub-analysis produces this output
+    from_: str | None = Field(
+        default=None,
+        alias="from",
+        description="Sub-analysis output that produces this "
+        "(e.g., 'sub_analysis.output_id')",
+    )
 
 
 class Option(BaseModel):
@@ -103,7 +100,6 @@ class Option(BaseModel):
 
     label: str = Field(description="Human-readable name for the option")
     description: str | None = Field(default=None, description="Detailed description of the option")
-    value: Any | None = Field(default=None, description="Configuration value for this option")
     insights: list[str] | None = Field(
         default=None, description="List of insight IDs supporting this option"
     )
@@ -124,17 +120,7 @@ class Decision(BaseModel):
 
     label: str = Field(description="Human-readable name for the decision")
     type: Literal["data", "method", "parameter"] = Field(description="Category of decision")
-    importance: int = Field(
-        ge=1,
-        le=5,
-        default=3,
-        description="Importance level (1=critical, 5=implementation detail)",
-    )
     rationale: str | None = Field(default=None, description="Why this decision exists")
-    reviewed: bool | None = Field(
-        default=None,
-        description="Whether a human has reviewed and confirmed this decision",
-    )
     default: str | None = Field(
         default=None, description="Default option ID for baseline universes"
     )
@@ -148,83 +134,16 @@ class Decision(BaseModel):
         return self
 
 
-class AnalysisNode(BaseModel):
-    """A self-similar analysis node. Can contain sub-analyses recursively."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    problem: str | None = Field(
-        default=None,
-        description="Problem statement for this analysis node",
-    )
-    description: str | None = Field(
-        default=None, description="Detailed description of this analysis node"
-    )
-    success_criteria: list[str] | None = Field(
-        default=None,
-        description="Concrete criteria for determining if this analysis node succeeded.",
-    )
-    plan: str | None = Field(
-        default=None,
-        description="Relative path to implementation notes "
-        "(e.g. steps/main/PLAN.md). Documents approach, libraries, and "
-        "how decisions map to code.",
-    )
-    inputs: list[Input] | None = Field(
-        default=None,
-        description="List of inputs for this analysis node",
-    )
-    outputs: list[Output] | None = Field(
-        default=None,
-        description="List of expected outputs from this analysis node",
-    )
-    decisions: dict[str, Decision] = Field(
-        default_factory=dict,
-        description="Map of decision IDs to decision specifications",
-    )
-    analyses: dict[str, AnalysisNode] | None = Field(
-        default=None,
-        description="Map of sub-analysis IDs to nested analysis nodes",
-    )
-
-
-# Required for Pydantic self-referencing models
-AnalysisNode.model_rebuild()
-
-
-class AnalysisContent(BaseModel):
-    """The content of an analysis specification (root level with metadata)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    name: str = Field(description="Human-readable name for the analysis")
-    description: str | None = Field(
-        default=None, description="Detailed description of the analysis"
-    )
-    authors: list[str] | None = Field(default=None, description="List of authors")
-    tags: list[str] | None = Field(default=None, description="Tags for categorization")
-    problem: str = Field(
-        description="Problem statement describing what the analysis aims to achieve"
-    )
-    success_criteria: list[str] | None = Field(
-        default=None,
-        description="Concrete criteria for determining if the analysis succeeded. "
-        "Each criterion should be specific and verifiable.",
-    )
-    inputs: list[Input] = Field(description="List of inputs for the analysis")
-    outputs: list[Output] = Field(description="List of expected outputs")
-    decisions: dict[str, Decision] = Field(
-        default_factory=dict,
-        description="Map of decision IDs to decision specifications",
-    )
-    analyses: dict[str, AnalysisNode] | None = Field(
-        default=None,
-        description="Map of sub-analysis IDs to nested analysis nodes",
-    )
-
-
 class Analysis(BaseModel):
-    """Complete ASP analysis specification."""
+    """A self-similar analysis specification.
+
+    Every level has the same structure: metadata, problem, inputs, outputs,
+    decisions, insights, and optional sub-analyses. A sub-analysis extracted
+    to its own file is a valid Analysis on its own.
+
+    At the root level, ``version``, ``name``, ``problem``, ``inputs``, and
+    ``outputs`` are required. In sub-analyses they are optional.
+    """
 
     model_config = ConfigDict(
         extra="forbid",
@@ -235,126 +154,54 @@ class Analysis(BaseModel):
         },
     )
 
+    # Document metadata
     schema_: str | None = Field(default=None, alias="$schema", description="JSON Schema reference")
-    version: str = Field(pattern=r"^\d+\.\d+$", description="ASP specification version")
-    analysis: AnalysisContent = Field(description="The analysis specification")
+    version: str | None = Field(
+        default=None,
+        pattern=r"^\d+\.\d+$",
+        description="ASP specification version",
+    )
+
+    # Analysis identity
+    name: str | None = Field(default=None, description="Human-readable name for the analysis")
+    authors: list[str] | None = Field(default=None, description="List of authors")
+    tags: list[str] | None = Field(default=None, description="Tags for categorization")
+
+    # Analysis content
+    problem: str | None = Field(
+        default=None,
+        description="Problem statement describing what the analysis aims to achieve",
+    )
+    description: str | None = Field(
+        default=None, description="Detailed description of this analysis"
+    )
+    success_criteria: list[str] | None = Field(
+        default=None,
+        description="Concrete criteria for determining if this analysis succeeded.",
+    )
+    inputs: list[Input] | None = Field(
+        default=None,
+        description="List of inputs for this analysis",
+    )
+    outputs: list[Output] | None = Field(
+        default=None,
+        description="List of expected outputs from this analysis",
+    )
+    decisions: dict[str, Decision] = Field(
+        default_factory=dict,
+        description="Map of decision IDs to decision specifications",
+    )
     insights: dict[str, Insight] = Field(
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
     )
 
-    @classmethod
-    def from_yaml(cls, path: str | Path) -> Analysis:
-        """Load an analysis from a YAML file."""
-        with open(path) as f:
-            data = yaml.safe_load(f)
-        return cls.model_validate(data)
+    # Self-similar nesting
+    analyses: dict[str, Analysis] | None = Field(
+        default=None,
+        description="Map of sub-analysis IDs to nested analyses",
+    )
 
-    def to_yaml(self, path: str | Path) -> None:
-        """Save the analysis to a YAML file."""
-        data = self.model_dump(by_alias=True, exclude_none=True)
-        with open(path, "w") as f:
-            yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
 
-    def get_input(self, input_id: str) -> Input | None:
-        """Get an input by ID."""
-        for inp in self.analysis.inputs:
-            if inp.id == input_id:
-                return inp
-        return None
-
-    def get_output(self, output_id: str) -> Output | None:
-        """Get an output by ID."""
-        for out in self.analysis.outputs:
-            if out.id == output_id:
-                return out
-        return None
-
-    def get_decision(self, decision_id: str, path: str | None = None) -> Decision | None:
-        """Get a decision by ID, optionally scoped to a path.
-
-        Args:
-            decision_id: The decision ID to find.
-            path: Dot-separated path to a sub-analysis (e.g., 'build_mocks').
-                  If None, searches root decisions then all sub-analyses.
-        """
-        if path is not None:
-            node = self._resolve_node(path)
-            if node is not None:
-                return node.decisions.get(decision_id)
-            return None
-        # Search root decisions first
-        if decision_id in self.analysis.decisions:
-            return self.analysis.decisions[decision_id]
-        # Search sub-analyses
-        if self.analysis.analyses:
-            for sub in self.analysis.analyses.values():
-                found = self._search_node_decision(sub, decision_id)
-                if found is not None:
-                    return found
-        return None
-
-    def _resolve_node(self, path: str) -> AnalysisNode | None:
-        """Resolve a dot-separated path to a sub-analysis node."""
-        analyses = self.analysis.analyses
-        for part in path.split("."):
-            if analyses is None or part not in analyses:
-                return None
-            node = analyses[part]
-            analyses = node.analyses
-        return node
-
-    def _search_node_decision(self, node: AnalysisNode, decision_id: str) -> Decision | None:
-        """Recursively search a node and its children for a decision."""
-        if decision_id in node.decisions:
-            return node.decisions[decision_id]
-        if node.analyses:
-            for sub in node.analyses.values():
-                found = self._search_node_decision(sub, decision_id)
-                if found is not None:
-                    return found
-        return None
-
-    def get_insight(self, insight_id: str) -> Insight | None:
-        """Get an insight by ID."""
-        return self.insights.get(insight_id)
-
-    def get_default_universe(self) -> dict[str, Any]:
-        """Get the default universe based on decision defaults across entire tree."""
-        result: dict[str, Any] = {}
-        # Root decisions
-        root_defaults: dict[str, str] = {}
-        for decision_id, decision in self.analysis.decisions.items():
-            if decision.default is not None:
-                root_defaults[decision_id] = decision.default
-        if root_defaults:
-            result["decisions"] = root_defaults
-        # Sub-analyses
-        if self.analysis.analyses:
-            analyses_defaults: dict[str, Any] = {}
-            for node_id, node in self.analysis.analyses.items():
-                node_defaults = self._get_node_defaults(node)
-                if node_defaults:
-                    analyses_defaults[node_id] = node_defaults
-            if analyses_defaults:
-                result["analyses"] = analyses_defaults
-        return result
-
-    def _get_node_defaults(self, node: AnalysisNode) -> dict[str, Any]:
-        """Recursively get defaults from a node."""
-        result: dict[str, Any] = {}
-        decisions: dict[str, str] = {}
-        for decision_id, decision in node.decisions.items():
-            if decision.default is not None:
-                decisions[decision_id] = decision.default
-        if decisions:
-            result["decisions"] = decisions
-        if node.analyses:
-            analyses_defaults: dict[str, Any] = {}
-            for sub_id, sub_node in node.analyses.items():
-                sub_defaults = self._get_node_defaults(sub_node)
-                if sub_defaults:
-                    analyses_defaults[sub_id] = sub_defaults
-            if analyses_defaults:
-                result["analyses"] = analyses_defaults
-        return result
+# Required for Pydantic self-referencing models
+Analysis.model_rebuild()
