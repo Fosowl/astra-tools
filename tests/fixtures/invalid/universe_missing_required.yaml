@@ -3,9 +3,8 @@
 id: missing-required
 description: "Violates requires constraint"
 
-chunks:
-  main:
-    preprocessing: none  # svm requires standard
-    model: svm
-    test_split: split_20
-    seed: seed_42
+decisions:
+  preprocessing: none
+  model: svm
+  test_split: split_20
+  seed: seed_42

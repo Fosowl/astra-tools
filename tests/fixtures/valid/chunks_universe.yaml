@@ -1,8 +1,0 @@
-id: baseline
-description: "Standard pipeline configuration"
-
-chunks:
-  build_mocks:
-    noise_model: heteroscedastic
-  train_network:
-    architecture: maf

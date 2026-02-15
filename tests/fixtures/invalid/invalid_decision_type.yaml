@@ -10,13 +10,10 @@ analysis:
   outputs:
     - id: result
       type: metric
-
-chunks:
-  main:
-    decisions:
-      method:
-        label: "Method"
-        type: invalid_type  # Should be data, method, or parameter
-        options:
-          a:
-            label: "A"
+  decisions:
+    method:
+      label: "Method"
+      type: invalid_type
+      options:
+        a:
+          label: "A"

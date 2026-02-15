@@ -11,16 +11,13 @@ analysis:
     - id: result
       type: metric
       dtype: float
-
-chunks:
-  main:
-    decisions:
-      method:
-        label: "Method"
-        type: method
-        default: option_a
-        options:
-          option_a:
-            label: "Option A"
-          option_b:
-            label: "Option B"
+  decisions:
+    method:
+      label: "Method"
+      type: method
+      default: option_a
+      options:
+        option_a:
+          label: "Option A"
+        option_b:
+          label: "Option B"

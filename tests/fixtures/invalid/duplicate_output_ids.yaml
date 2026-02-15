@@ -10,8 +10,5 @@ analysis:
   outputs:
     - id: result
       type: metric
-    - id: result  # Duplicate ID
+    - id: result
       type: figure
-
-chunks:
-  main: {}

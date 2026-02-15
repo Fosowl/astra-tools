@@ -43,7 +43,7 @@ class Source(BaseModel):
 class Input(BaseModel):
     """An input to the analysis."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     id: str = Field(
         pattern=r"^[a-z][a-z0-9_]*$",
@@ -52,6 +52,12 @@ class Input(BaseModel):
     type: Literal["data", "analysis", "literature"] = Field(description="Type of input")
     source: str | Source | None = Field(
         default=None, description="Source specification for the input"
+    )
+    from_: str | None = Field(
+        default=None,
+        alias="from",
+        description="Reference to parent input or sibling output (e.g., 'input_id' or "
+        "'sibling.output_id')",
     )
     ref: str | None = Field(
         default=None, description="Reference to another analysis (for type: analysis)"
@@ -142,55 +148,52 @@ class Decision(BaseModel):
         return self
 
 
-class Artefact(BaseModel):
-    """An artefact produced by a chunk."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: str = Field(
-        pattern=r"^[a-z][a-z0-9_]*$",
-        description="Unique identifier for the artefact",
-    )
-    type: Literal["figure", "table", "data", "report"] = Field(description="Type of artefact")
-    path: str | None = Field(
-        default=None, description="Relative path for result file within results directory"
-    )
-    description: str | None = Field(default=None, description="Description of the artefact")
-
-
-class Chunk(BaseModel):
-    """An inline chunk within an analysis — a scoped stage with its own problem,
-    decisions, and optional artefacts."""
+class AnalysisNode(BaseModel):
+    """A self-similar analysis node. Can contain sub-analyses recursively."""
 
     model_config = ConfigDict(extra="forbid")
 
     problem: str | None = Field(
         default=None,
-        description="Problem statement for this chunk (optional for 'main' chunk, "
-        "which inherits from analysis)",
+        description="Problem statement for this analysis node",
+    )
+    description: str | None = Field(
+        default=None, description="Detailed description of this analysis node"
     )
     success_criteria: list[str] | None = Field(
         default=None,
-        description="Concrete criteria for determining if this chunk succeeded.",
+        description="Concrete criteria for determining if this analysis node succeeded.",
     )
     plan: str | None = Field(
         default=None,
-        description="Relative path to implementation notes for this chunk "
+        description="Relative path to implementation notes "
         "(e.g. steps/main/PLAN.md). Documents approach, libraries, and "
         "how decisions map to code.",
     )
+    inputs: list[Input] | None = Field(
+        default=None,
+        description="List of inputs for this analysis node",
+    )
+    outputs: list[Output] | None = Field(
+        default=None,
+        description="List of expected outputs from this analysis node",
+    )
     decisions: dict[str, Decision] = Field(
         default_factory=dict,
-        description="Map of decision IDs to decision specifications scoped to this chunk",
+        description="Map of decision IDs to decision specifications",
     )
-    artefacts: list[Artefact] | None = Field(
+    analyses: dict[str, AnalysisNode] | None = Field(
         default=None,
-        description="List of artefacts produced by this chunk",
+        description="Map of sub-analysis IDs to nested analysis nodes",
     )
+
+
+# Required for Pydantic self-referencing models
+AnalysisNode.model_rebuild()
 
 
 class AnalysisContent(BaseModel):
-    """The content of an analysis specification."""
+    """The content of an analysis specification (root level with metadata)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -210,6 +213,14 @@ class AnalysisContent(BaseModel):
     )
     inputs: list[Input] = Field(description="List of inputs for the analysis")
     outputs: list[Output] = Field(description="List of expected outputs")
+    decisions: dict[str, Decision] = Field(
+        default_factory=dict,
+        description="Map of decision IDs to decision specifications",
+    )
+    analyses: dict[str, AnalysisNode] | None = Field(
+        default=None,
+        description="Map of sub-analysis IDs to nested analysis nodes",
+    )
 
 
 class Analysis(BaseModel):
@@ -230,11 +241,6 @@ class Analysis(BaseModel):
     insights: dict[str, Insight] = Field(
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
-    )
-    chunks: dict[str, Chunk] = Field(
-        description="Map of chunk IDs to chunk definitions. "
-        "Single-stage analyses use a 'main' chunk. "
-        "All decisions live under chunks.",
     )
 
     @classmethod
@@ -264,31 +270,91 @@ class Analysis(BaseModel):
                 return out
         return None
 
-    def get_decision(self, decision_id: str, chunk_id: str | None = None) -> Decision | None:
-        """Get a decision by ID, searching across chunks or within a specific chunk."""
-        if chunk_id is not None:
-            chunk = self.chunks.get(chunk_id)
-            if chunk:
-                return chunk.decisions.get(decision_id)
+    def get_decision(self, decision_id: str, path: str | None = None) -> Decision | None:
+        """Get a decision by ID, optionally scoped to a path.
+
+        Args:
+            decision_id: The decision ID to find.
+            path: Dot-separated path to a sub-analysis (e.g., 'build_mocks').
+                  If None, searches root decisions then all sub-analyses.
+        """
+        if path is not None:
+            node = self._resolve_node(path)
+            if node is not None:
+                return node.decisions.get(decision_id)
             return None
-        # Search all chunks
-        for chunk in self.chunks.values():
-            if decision_id in chunk.decisions:
-                return chunk.decisions[decision_id]
+        # Search root decisions first
+        if decision_id in self.analysis.decisions:
+            return self.analysis.decisions[decision_id]
+        # Search sub-analyses
+        if self.analysis.analyses:
+            for sub in self.analysis.analyses.values():
+                found = self._search_node_decision(sub, decision_id)
+                if found is not None:
+                    return found
+        return None
+
+    def _resolve_node(self, path: str) -> AnalysisNode | None:
+        """Resolve a dot-separated path to a sub-analysis node."""
+        analyses = self.analysis.analyses
+        for part in path.split("."):
+            if analyses is None or part not in analyses:
+                return None
+            node = analyses[part]
+            analyses = node.analyses
+        return node
+
+    def _search_node_decision(self, node: AnalysisNode, decision_id: str) -> Decision | None:
+        """Recursively search a node and its children for a decision."""
+        if decision_id in node.decisions:
+            return node.decisions[decision_id]
+        if node.analyses:
+            for sub in node.analyses.values():
+                found = self._search_node_decision(sub, decision_id)
+                if found is not None:
+                    return found
         return None
 
     def get_insight(self, insight_id: str) -> Insight | None:
         """Get an insight by ID."""
         return self.insights.get(insight_id)
 
-    def get_default_universe(self) -> dict[str, dict[str, str]]:
-        """Get the default universe based on decision defaults across all chunks."""
-        result: dict[str, dict[str, str]] = {}
-        for chunk_id, chunk in self.chunks.items():
-            chunk_defaults: dict[str, str] = {}
-            for decision_id, decision in chunk.decisions.items():
-                if decision.default is not None:
-                    chunk_defaults[decision_id] = decision.default
-            if chunk_defaults:
-                result[chunk_id] = chunk_defaults
+    def get_default_universe(self) -> dict[str, Any]:
+        """Get the default universe based on decision defaults across entire tree."""
+        result: dict[str, Any] = {}
+        # Root decisions
+        root_defaults: dict[str, str] = {}
+        for decision_id, decision in self.analysis.decisions.items():
+            if decision.default is not None:
+                root_defaults[decision_id] = decision.default
+        if root_defaults:
+            result["decisions"] = root_defaults
+        # Sub-analyses
+        if self.analysis.analyses:
+            analyses_defaults: dict[str, Any] = {}
+            for node_id, node in self.analysis.analyses.items():
+                node_defaults = self._get_node_defaults(node)
+                if node_defaults:
+                    analyses_defaults[node_id] = node_defaults
+            if analyses_defaults:
+                result["analyses"] = analyses_defaults
+        return result
+
+    def _get_node_defaults(self, node: AnalysisNode) -> dict[str, Any]:
+        """Recursively get defaults from a node."""
+        result: dict[str, Any] = {}
+        decisions: dict[str, str] = {}
+        for decision_id, decision in node.decisions.items():
+            if decision.default is not None:
+                decisions[decision_id] = decision.default
+        if decisions:
+            result["decisions"] = decisions
+        if node.analyses:
+            analyses_defaults: dict[str, Any] = {}
+            for sub_id, sub_node in node.analyses.items():
+                sub_defaults = self._get_node_defaults(sub_node)
+                if sub_defaults:
+                    analyses_defaults[sub_id] = sub_defaults
+            if analyses_defaults:
+                result["analyses"] = analyses_defaults
         return result

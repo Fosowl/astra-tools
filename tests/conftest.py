@@ -1,6 +1,7 @@
 """Pytest configuration and fixtures."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -53,7 +54,7 @@ def svm_universe_path() -> Path:
 
 
 @pytest.fixture
-def minimal_analysis_data() -> dict:
+def minimal_analysis_data() -> dict[str, Any]:
     """Return minimal analysis data as dict."""
     return {
         "version": "1.0",
@@ -62,27 +63,23 @@ def minimal_analysis_data() -> dict:
             "problem": "Test problem statement",
             "inputs": [{"id": "test_data", "type": "data"}],
             "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
-        },
-        "chunks": {
-            "main": {
-                "decisions": {
-                    "method": {
-                        "label": "Method",
-                        "type": "method",
-                        "default": "a",
-                        "options": {"a": {"label": "A"}, "b": {"label": "B"}},
-                    }
+            "decisions": {
+                "method": {
+                    "label": "Method",
+                    "type": "method",
+                    "default": "a",
+                    "options": {"a": {"label": "A"}, "b": {"label": "B"}},
                 }
-            }
+            },
         },
     }
 
 
 @pytest.fixture
-def baseline_universe_data() -> dict:
+def baseline_universe_data() -> dict[str, Any]:
     """Return baseline universe data as dict."""
     return {
         "id": "baseline",
         "description": "Test baseline",
-        "chunks": {"main": {"method": "a"}},
+        "decisions": {"method": "a"},
     }

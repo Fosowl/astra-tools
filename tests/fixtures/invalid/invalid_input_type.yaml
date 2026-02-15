@@ -6,10 +6,7 @@ analysis:
   problem: "Test problem"
   inputs:
     - id: data
-      type: invalid_type  # Should be data, analysis, or literature
+      type: invalid_type
   outputs:
     - id: result
       type: metric
-
-chunks:
-  main: {}

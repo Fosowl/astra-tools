@@ -282,6 +282,22 @@ class TestFullValidationWorkflow:
                 "problem": "Test the evidence verification system",
                 "inputs": [{"id": "data", "type": "data"}],
                 "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
+                "decisions": {
+                    "method": {
+                        "label": "Method",
+                        "type": "method",
+                        "default": "flexion",
+                        "options": {
+                            "flexion": {
+                                "label": "Use flexion",
+                                "insights": ["flexion_insight"],
+                            },
+                            "shear_only": {
+                                "label": "Shear only",
+                            },
+                        },
+                    }
+                },
             },
             "insights": {
                 "flexion_insight": {
@@ -299,26 +315,6 @@ class TestFullValidationWorkflow:
                             },
                         }
                     ],
-                }
-            },
-            "chunks": {
-                "main": {
-                    "decisions": {
-                        "method": {
-                            "label": "Method",
-                            "type": "method",
-                            "default": "flexion",
-                            "options": {
-                                "flexion": {
-                                    "label": "Use flexion",
-                                    "insights": ["flexion_insight"],
-                                },
-                                "shear_only": {
-                                    "label": "Shear only",
-                                },
-                            },
-                        }
-                    }
                 }
             },
         }

@@ -10,15 +10,12 @@ analysis:
   outputs:
     - id: result
       type: metric
-
-chunks:
-  main:
-    decisions:
-      method:
-        label: "Method"
-        type: method
-        options:
-          a:
-            label: "A"
-            requires:
-              - nonexistent.option  # This decision doesn't exist
+  decisions:
+    method:
+      label: "Method"
+      type: method
+      options:
+        a:
+          label: "A"
+          requires:
+            - nonexistent.option

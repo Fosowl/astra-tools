@@ -9,7 +9,4 @@ analysis:
       type: data
   outputs:
     - id: result
-      type: invalid_type  # Should be metric, figure, table, data, model, or report
-
-chunks:
-  main: {}
+      type: invalid_type

@@ -15,7 +15,7 @@ from rich.tree import Tree
 
 from asp.helpers import (
     create_universe_from_defaults,
-    get_chunk_decisions,
+    get_analysis_decisions,
     get_decisions,
     get_inputs,
     get_outputs,
@@ -157,22 +157,20 @@ analysis:
       type: report
       description: "Summary addressing the problem statement"
 
-chunks:
-  main:
-    decisions:
-      example_method:
-        label: "Example Method Choice"
-        type: method
-        importance: 3
-        rationale: "TODO: Explain why this decision matters"
-        default: option_a
-        options:
-          option_a:
-            label: "Option A"
-            description: "TODO: Describe option A"
-          option_b:
-            label: "Option B"
-            description: "TODO: Describe option B"
+  decisions:
+    example_method:
+      label: "Example Method Choice"
+      type: method
+      importance: 3
+      rationale: "TODO: Explain why this decision matters"
+      default: option_a
+      options:
+        option_a:
+          label: "Option A"
+          description: "TODO: Describe option A"
+        option_b:
+          label: "Option B"
+          description: "TODO: Describe option B"
 """
     (directory / "asp.yaml").write_text(asp_yaml)
 
@@ -183,9 +181,8 @@ chunks:
 id: baseline
 description: "Default configuration using standard practices"
 
-chunks:
-  main:
-    example_method: option_a
+decisions:
+  example_method: option_a
 """
     (directory / "universes" / "baseline.yaml").write_text(baseline_universe)
 
@@ -334,22 +331,22 @@ def _verify_insights_evidence(insights: dict[str, Any]) -> None:
 
     for insight_id, result in results.items():
         for ev_result in result.evidence_results:
-            if ev_result.status == VerificationStatus.VERIFIED:
+            status = ev_result.status
+            if status in (VerificationStatus.VERIFIED, VerificationStatus.CACHED):
                 verified_count += 1
-            elif ev_result.status == VerificationStatus.CACHED:
-                verified_count += 1
-                cached_count += 1
-            elif ev_result.status == VerificationStatus.SKIPPED:
+                if status == VerificationStatus.CACHED:
+                    cached_count += 1
+            elif status == VerificationStatus.SKIPPED:
                 skipped_count += 1
             else:
                 failed_count += 1
                 has_errors = True
-                status_icon = "[red]✗[/red]"
-                if ev_result.status == VerificationStatus.ERROR:
-                    status_icon = "[yellow]![/yellow]"
-
+                if status == VerificationStatus.ERROR:
+                    icon = "[yellow]![/yellow]"
+                else:
+                    icon = "[red]✗[/red]"
                 console.print(
-                    f"  {status_icon} [{insight_id}] {ev_result.evidence_id}: {ev_result.message}"
+                    f"  {icon} [{insight_id}] {ev_result.evidence_id}: {ev_result.message}"
                 )
 
     # Summary
@@ -442,32 +439,43 @@ def info(
             table.add_row(out.get("id", ""), out.get("type", ""), out.get("description", ""))
         console.print(table)
 
-    # Decisions (grouped by chunk)
+    # Decisions (recursive tree)
     if decisions or show_all:
         console.print("\n[bold]Decisions:[/bold]")
-        chunk_decisions = get_chunk_decisions(data)
-        for chunk_id, chunk_decs in chunk_decisions.items():
-            if len(chunk_decisions) > 1:
-                console.print(f"\n  [bold magenta]Chunk: {chunk_id}[/bold magenta]")
-            for decision_id, decision in chunk_decs.items():
-                tree = Tree(f"[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
-                tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
-                tree.add(f"[dim]Importance:[/dim] {decision.get('importance', 3)}/5")
-                if decision.get("rationale"):
-                    tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
+        decision_tree = get_analysis_decisions(data)
+        _display_decisions(decision_tree.get("decisions", {}))
+        _display_analysis_decisions(decision_tree.get("analyses", {}))
 
-                options_branch = tree.add("[dim]Options:[/dim]")
-                options = decision.get("options", {})
-                default = decision.get("default")
-                for option_id, option in options.items():
-                    default_marker = " [yellow](default)[/yellow]" if option_id == default else ""
-                    option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
-                    if option.get("description"):
-                        option_text += f" - [dim]{option['description']}[/dim]"
-                    options_branch.add(option_text)
 
-                console.print(tree)
-                console.print()
+def _display_decisions(decisions: dict[str, Any], indent: str = "") -> None:
+    """Display decisions as Rich trees."""
+    for decision_id, decision in decisions.items():
+        tree = Tree(f"{indent}[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
+        tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
+        tree.add(f"[dim]Importance:[/dim] {decision.get('importance', 3)}/5")
+        if decision.get("rationale"):
+            tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
+
+        options_branch = tree.add("[dim]Options:[/dim]")
+        options = decision.get("options", {})
+        default = decision.get("default")
+        for option_id, option in options.items():
+            default_marker = " [yellow](default)[/yellow]" if option_id == default else ""
+            option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
+            if option.get("description"):
+                option_text += f" - [dim]{option['description']}[/dim]"
+            options_branch.add(option_text)
+
+        console.print(tree)
+        console.print()
+
+
+def _display_analysis_decisions(analyses: dict[str, Any], depth: int = 0) -> None:
+    """Recursively display decisions grouped by sub-analysis."""
+    for analysis_id, analysis_tree in analyses.items():
+        console.print(f"\n  [bold magenta]{'  ' * depth}Analysis: {analysis_id}[/bold magenta]")
+        _display_decisions(analysis_tree.get("decisions", {}), indent="  " * (depth + 1))
+        _display_analysis_decisions(analysis_tree.get("analyses", {}), depth + 1)
 
 
 @main.group()
@@ -501,13 +509,9 @@ def generate_universe(
     analysis_path = _require_analysis(analysis)
     data = load_yaml(analysis_path)
 
-    # Check all decisions have defaults (across all chunks)
-    chunk_decs = get_chunk_decisions(data)
+    # Check all decisions have defaults (across entire tree)
     missing_defaults: list[str] = []
-    for chunk_id, decs in chunk_decs.items():
-        for d_id, d in decs.items():
-            if d.get("default") is None:
-                missing_defaults.append(f"{chunk_id}.{d_id}")
+    _check_missing_defaults(data.get("analysis", {}), missing_defaults, "")
     if missing_defaults:
         console.print("[red]Error:[/red] Some decisions don't have defaults:")
         for d_id in missing_defaults:
@@ -524,11 +528,25 @@ def generate_universe(
 
     console.print(f"[green]✓[/green] Generated universe at [cyan]{output}[/cyan]")
     console.print("\nDecisions:")
-    for chunk_id, chunk_selections in uni.get("chunks", {}).items():
-        if len(uni.get("chunks", {})) > 1:
-            console.print(f"  [magenta]{chunk_id}:[/magenta]")
-        for d_id, opt_id in chunk_selections.items():
-            console.print(f"  {d_id}: {opt_id}")
+    _print_universe_decisions(uni)
+
+
+def _check_missing_defaults(node: dict[str, Any], missing: list[str], prefix: str = "") -> None:
+    """Recursively check for decisions without defaults."""
+    for d_id, d in (node.get("decisions") or {}).items():
+        if d.get("default") is None:
+            missing.append(f"{prefix}{d_id}")
+    for analysis_id, sub_node in (node.get("analyses") or {}).items():
+        _check_missing_defaults(sub_node, missing, f"{prefix}{analysis_id}.")
+
+
+def _print_universe_decisions(uni: dict[str, Any], indent: str = "  ") -> None:
+    """Recursively print universe decisions."""
+    for d_id, opt_id in (uni.get("decisions") or {}).items():
+        console.print(f"{indent}{d_id}: {opt_id}")
+    for analysis_id, sub in (uni.get("analyses") or {}).items():
+        console.print(f"{indent}[magenta]{analysis_id}:[/magenta]")
+        _print_universe_decisions(sub, indent + "  ")
 
 
 @universe.command("check")
@@ -583,72 +601,92 @@ def _viz_ascii(data: dict[str, Any]) -> None:
     analysis_name = data.get("analysis", {}).get("name", "Unknown")
     tree = Tree(f"[bold]{analysis_name}[/bold]")
 
-    for chunk_id, decisions in get_chunk_decisions(data).items():
-        chunk_branch = tree.add(f"[bold magenta]{chunk_id}[/bold magenta]")
-        for decision_id, decision in decisions.items():
-            importance = decision.get("importance", 3)
-            importance_stars = "★" * importance + "☆" * (5 - importance)
-            branch = chunk_branch.add(
-                f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')}) [{importance_stars}]"
-            )
-
-            options = decision.get("options", {})
-            default = decision.get("default")
-            for option_id, option in options.items():
-                default_marker = " [default]" if option_id == default else ""
-                constraints = []
-                if option.get("incompatible_with"):
-                    constraints.append(f"✗ {', '.join(option['incompatible_with'])}")
-                if option.get("requires"):
-                    constraints.append(f"→ {', '.join(option['requires'])}")
-
-                option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
-                if constraints:
-                    option_text += f" [dim]({'; '.join(constraints)})[/dim]"
-                branch.add(option_text)
+    analysis_content = data.get("analysis", {})
+    _viz_ascii_node(tree, analysis_content)
 
     console.print(tree)
+
+
+def _viz_ascii_node(parent_tree: Tree, node: dict[str, Any]) -> None:
+    """Recursively add decisions to an ASCII tree."""
+    decisions = node.get("decisions") or {}
+    for decision_id, decision in decisions.items():
+        importance = decision.get("importance", 3)
+        importance_stars = "\u2605" * importance + "\u2606" * (5 - importance)
+        branch = parent_tree.add(
+            f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')}) [{importance_stars}]"
+        )
+
+        options = decision.get("options", {})
+        default = decision.get("default")
+        for option_id, option in options.items():
+            default_marker = " [default]" if option_id == default else ""
+            constraints = []
+            if option.get("incompatible_with"):
+                constraints.append(f"\u2717 {', '.join(option['incompatible_with'])}")
+            if option.get("requires"):
+                constraints.append(f"\u2192 {', '.join(option['requires'])}")
+
+            option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
+            if constraints:
+                option_text += f" [dim]({'; '.join(constraints)})[/dim]"
+            branch.add(option_text)
+
+    for analysis_id, sub_node in (node.get("analyses") or {}).items():
+        sub_tree = parent_tree.add(f"[bold magenta]{analysis_id}[/bold magenta]")
+        _viz_ascii_node(sub_tree, sub_node)
 
 
 def _viz_mermaid(data: dict[str, Any]) -> None:
     """Generate Mermaid diagram for decisions."""
     lines = ["graph TD"]
 
-    for chunk_id, decisions in get_chunk_decisions(data).items():
-        # Chunk subgraph
-        lines.append(f"    subgraph {chunk_id}[{chunk_id}]")
-        for decision_id, decision in decisions.items():
-            # Use chunk-qualified node IDs to avoid collisions
-            node_prefix = f"{chunk_id}__{decision_id}"
-            # Decision node
-            lines.append(f"        {node_prefix}[{decision.get('label', decision_id)}]")
-
-            # Option nodes
-            options = decision.get("options", {})
-            default = decision.get("default")
-            for option_id, option in options.items():
-                node_id = f"{node_prefix}_{option_id}"
-                style = ":::default" if option_id == default else ""
-                lines.append(f"        {node_id}(({option.get('label', option_id)})){style}")
-                lines.append(f"        {node_prefix} --> {node_id}")
-
-                # Constraints
-                if option.get("incompatible_with"):
-                    for ref in option["incompatible_with"]:
-                        # Constraints are chunk-scoped, qualify with current chunk
-                        target = f"{chunk_id}__{ref.replace('.', '_')}"
-                        lines.append(f"        {node_id} -.->|incompatible| {target}")
-
-                if option.get("requires"):
-                    for ref in option["requires"]:
-                        target = f"{chunk_id}__{ref.replace('.', '_')}"
-                        lines.append(f"        {node_id} -->|requires| {target}")
-        lines.append("    end")
+    analysis_content = data.get("analysis", {})
+    _viz_mermaid_node(lines, analysis_content, "root")
 
     lines.append("")
     lines.append("    classDef default fill:#90EE90")
 
     console.print("\n".join(lines))
+
+
+def _viz_mermaid_node(lines: list[str], node: dict[str, Any], node_prefix: str) -> None:
+    """Recursively generate Mermaid subgraphs for an analysis node."""
+    decisions = node.get("decisions") or {}
+    sub_analyses = node.get("analyses") or {}
+
+    # If this node has decisions or sub-analyses, wrap in subgraph
+    has_content = decisions or sub_analyses
+    if has_content and node_prefix != "root":
+        lines.append(f"    subgraph {node_prefix}[{node_prefix}]")
+
+    for decision_id, decision in decisions.items():
+        qualified = f"{node_prefix}__{decision_id}"
+        lines.append(f"        {qualified}[{decision.get('label', decision_id)}]")
+
+        options = decision.get("options", {})
+        default = decision.get("default")
+        for option_id, option in options.items():
+            node_id = f"{qualified}_{option_id}"
+            style = ":::default" if option_id == default else ""
+            lines.append(f"        {node_id}(({option.get('label', option_id)})){style}")
+            lines.append(f"        {qualified} --> {node_id}")
+
+            if option.get("incompatible_with"):
+                for ref in option["incompatible_with"]:
+                    target = f"{node_prefix}__{ref.replace('.', '_')}"
+                    lines.append(f"        {node_id} -.->|incompatible| {target}")
+
+            if option.get("requires"):
+                for ref in option["requires"]:
+                    target = f"{node_prefix}__{ref.replace('.', '_')}"
+                    lines.append(f"        {node_id} -->|requires| {target}")
+
+    for analysis_id, sub_node in sub_analyses.items():
+        _viz_mermaid_node(lines, sub_node, f"{node_prefix}__{analysis_id}")
+
+    if has_content and node_prefix != "root":
+        lines.append("    end")
 
 
 @main.group()
@@ -1202,10 +1240,7 @@ def paper_verify_quote(
         else:
             console.print(f"[red]✗ Not found[/red] {message}")
 
-    if status == VerificationStatus.VERIFIED:
-        raise SystemExit(0)
-    else:
-        raise SystemExit(1)
+    raise SystemExit(0 if status == VerificationStatus.VERIFIED else 1)
 
 
 if __name__ == "__main__":

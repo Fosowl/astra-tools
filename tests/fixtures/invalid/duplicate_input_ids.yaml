@@ -7,11 +7,8 @@ analysis:
   inputs:
     - id: data
       type: data
-    - id: data  # Duplicate ID
+    - id: data
       type: analysis
   outputs:
     - id: result
       type: metric
-
-chunks:
-  main: {}

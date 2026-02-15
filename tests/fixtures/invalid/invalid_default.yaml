@@ -10,16 +10,13 @@ analysis:
   outputs:
     - id: result
       type: metric
-
-chunks:
-  main:
-    decisions:
-      method:
-        label: "Method"
-        type: method
-        default: nonexistent  # This option doesn't exist
-        options:
-          a:
-            label: "A"
-          b:
-            label: "B"
+  decisions:
+    method:
+      label: "Method"
+      type: method
+      default: nonexistent
+      options:
+        a:
+          label: "A"
+        b:
+          label: "B"

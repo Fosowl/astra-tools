@@ -1,0 +1,8 @@
+id: incomplete
+description: "Universe missing a sub-analysis decision"
+
+analyses:
+  build_mocks:
+    decisions:
+      noise_model: heteroscedastic
+  # train_network decisions are missing entirely
