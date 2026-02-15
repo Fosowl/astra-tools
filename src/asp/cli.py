@@ -600,9 +600,7 @@ def _viz_ascii_node(parent_tree: Tree, node: dict[str, Any]) -> None:
     """Recursively add decisions to an ASCII tree."""
     decisions = node.get("decisions") or {}
     for decision_id, decision in decisions.items():
-        branch = parent_tree.add(
-            f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')})"
-        )
+        branch = parent_tree.add(f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')})")
 
         options = decision.get("options", {})
         default = decision.get("default")
