@@ -41,6 +41,10 @@ analyses:
             label: "Homoscedastic"
           heteroscedastic:
             label: "Heteroscedastic"
+    recipes:
+      generate:
+        command: python src/generate_mocks.py
+        outputs: [mock_catalog, mock_sample_plot]
 
   train_network:
     problem: "Train SBI neural network on mock catalog."
@@ -61,6 +65,13 @@ analyses:
             label: "Masked Autoregressive Flow"
           npe:
             label: "Neural Posterior Estimation"
+    recipes:
+      train:
+        command: python src/train.py
+        outputs: [trained_model]
+        resources:
+          gpus: 1
+          memory: "32GB"
 
   validate:
     problem: "Validate trained model against observed data."

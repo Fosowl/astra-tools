@@ -39,6 +39,8 @@ class TestSchemaGeneration:
         assert "Output" in defs
         assert "Decision" in defs
         assert "Option" in defs
+        assert "Recipe" in defs
+        assert "Resources" in defs
 
     def test_schema_is_valid_json(self):
         # Schemas should be JSON-serializable

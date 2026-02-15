@@ -1,0 +1,15 @@
+version: "1.0"
+name: "Recipe Invalid Dep"
+problem: "Test invalid recipe dependency"
+inputs:
+  - id: test_data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions: {}
+recipes:
+  run:
+    command: python src/main.py
+    outputs: [result]
+    depends_on: [nonexistent_recipe]

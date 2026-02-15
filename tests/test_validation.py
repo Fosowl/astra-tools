@@ -146,6 +146,34 @@ class TestNestedAnalysisValidation:
         assert any(e.code == "MISSING_DECISION" for e in errors)
 
 
+class TestRecipeValidation:
+    """Tests for recipe semantic validation."""
+
+    def test_valid_recipes(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "full.yaml")
+        assert errors == []
+
+    def test_orphan_recipe_output(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "recipe_orphan_output.yaml")
+        assert any(e.code == "ORPHAN_RECIPE_OUTPUT" for e in errors)
+
+    def test_duplicate_recipe_output(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "recipe_duplicate_output.yaml")
+        assert any(e.code == "DUPLICATE_RECIPE_OUTPUT" for e in errors)
+
+    def test_invalid_recipe_dependency(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "recipe_invalid_dep.yaml")
+        assert any(e.code == "INVALID_RECIPE_DEP" for e in errors)
+
+    def test_recipe_cycle(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "recipe_cycle.yaml")
+        assert any(e.code == "RECIPE_CYCLE" for e in errors)
+
+    def test_nested_recipes(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "nested.yaml")
+        assert errors == []
+
+
 class TestSemanticError:
     """Tests for SemanticError class."""
 

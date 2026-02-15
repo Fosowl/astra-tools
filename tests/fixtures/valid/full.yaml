@@ -98,3 +98,12 @@ decisions:
         label: "42"
       seed_123:
         label: "123"
+
+recipes:
+  preprocess:
+    command: python src/preprocess.py
+    outputs: [trained_output]
+  evaluate:
+    command: python src/evaluate.py
+    outputs: [accuracy, f1_score, plot, summary, conclusion]
+    depends_on: [preprocess]

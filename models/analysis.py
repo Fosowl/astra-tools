@@ -93,6 +93,48 @@ class Output(BaseModel):
     )
 
 
+class Resources(BaseModel):
+    """Compute resource requirements for a recipe."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cpus: int | None = Field(default=None, ge=1, description="Number of CPUs")
+    memory: str | None = Field(default=None, description="Memory requirement (e.g., '8GB', '512MB')")
+    gpus: int | None = Field(default=None, ge=1, description="Number of GPUs")
+    time_limit: str | None = Field(
+        default=None, description="Maximum wall time (e.g., '2h', '30m')"
+    )
+
+
+class Recipe(BaseModel):
+    """A build rule that produces one or more outputs.
+
+    Recipes are the execution contract: run this command (optionally in a
+    container) to produce the declared outputs.  Dependencies between
+    recipes within the same analysis node form a DAG.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    command: str = Field(description="Command to execute (e.g., 'python src/train.py')")
+    outputs: list[str] = Field(
+        min_length=1,
+        description="Output IDs this recipe produces (must match declared outputs)",
+    )
+    container: str | None = Field(
+        default=None,
+        description="Container image override (defaults to node-level container)",
+    )
+    depends_on: list[str] | None = Field(
+        default=None,
+        description="Recipe IDs that must complete before this recipe runs",
+    )
+    resources: Resources | None = Field(
+        default=None,
+        description="Compute resource requirements",
+    )
+
+
 class Option(BaseModel):
     """An option for a decision."""
 
@@ -194,6 +236,16 @@ class Analysis(BaseModel):
     insights: dict[str, Insight] = Field(
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
+    )
+
+    # Execution
+    container: str | None = Field(
+        default=None,
+        description="Default container image for recipes in this node",
+    )
+    recipes: dict[str, Recipe] | None = Field(
+        default=None,
+        description="Map of recipe IDs to build rules that produce outputs",
     )
 
     # Self-similar nesting

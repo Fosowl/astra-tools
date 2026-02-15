@@ -166,6 +166,35 @@
       "title": "Insights",
       "type": "object"
     },
+    "container": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Default container image for recipes in this node",
+      "title": "Container"
+    },
+    "recipes": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/Recipe"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Map of recipe IDs to build rules that produce outputs",
+      "title": "Recipes"
+    },
     "analyses": {
       "anyOf": [
         {
@@ -353,6 +382,35 @@
           "description": "Map of insight IDs to insight specifications",
           "title": "Insights",
           "type": "object"
+        },
+        "container": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default container image for recipes in this node",
+          "title": "Container"
+        },
+        "recipes": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/Recipe"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Map of recipe IDs to build rules that produce outputs",
+          "title": "Recipes"
         },
         "analyses": {
           "anyOf": [
@@ -979,6 +1037,135 @@
         "type"
       ],
       "title": "Output",
+      "type": "object"
+    },
+    "Recipe": {
+      "additionalProperties": false,
+      "description": "A build rule that produces one or more outputs.\n\nRecipes are the execution contract: run this command (optionally in a\ncontainer) to produce the declared outputs.  Dependencies between\nrecipes within the same analysis node form a DAG.",
+      "properties": {
+        "command": {
+          "description": "Command to execute (e.g., 'python src/train.py')",
+          "title": "Command",
+          "type": "string"
+        },
+        "outputs": {
+          "description": "Output IDs this recipe produces (must match declared outputs)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "container": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Container image override (defaults to node-level container)",
+          "title": "Container"
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Recipe IDs that must complete before this recipe runs",
+          "title": "Depends On"
+        },
+        "resources": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Resources"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Compute resource requirements"
+        }
+      },
+      "required": [
+        "command",
+        "outputs"
+      ],
+      "title": "Recipe",
+      "type": "object"
+    },
+    "Resources": {
+      "additionalProperties": false,
+      "description": "Compute resource requirements for a recipe.",
+      "properties": {
+        "cpus": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of CPUs",
+          "title": "Cpus"
+        },
+        "memory": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Memory requirement (e.g., '8GB', '512MB')",
+          "title": "Memory"
+        },
+        "gpus": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of GPUs",
+          "title": "Gpus"
+        },
+        "time_limit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum wall time (e.g., '2h', '30m')",
+          "title": "Time Limit"
+        }
+      },
+      "title": "Resources",
       "type": "object"
     },
     "TableSelector": {

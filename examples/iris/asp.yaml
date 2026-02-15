@@ -110,3 +110,12 @@ decisions:
         label: "42"
       seed_123:
         label: "123"
+
+recipes:
+  train:
+    command: python src/train.py
+    outputs: [trained_output]
+  evaluate:
+    command: python src/evaluate.py
+    outputs: [accuracy, f1_score, confusion_matrix, model_comparison, conclusion]
+    depends_on: [train]

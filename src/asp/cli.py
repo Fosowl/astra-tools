@@ -105,10 +105,12 @@ def init(directory: Path, no_git: bool) -> None:
 
     # Create directory structure
     (directory / "universes").mkdir(parents=True, exist_ok=True)
+    (directory / "outputs").mkdir(parents=True, exist_ok=True)
+    (directory / "src").mkdir(parents=True, exist_ok=True)
 
     # Create .gitignore
     gitignore = """# ASP Analysis
-results/
+outputs/
 __pycache__/
 *.py[cod]
 .venv/
@@ -167,6 +169,11 @@ decisions:
       option_b:
         label: "Option B"
         description: "TODO: Describe option B"
+
+recipes:
+  run:
+    command: python src/main.py
+    outputs: [main_result, conclusion]
 """
     (directory / "asp.yaml").write_text(asp_yaml)
 
