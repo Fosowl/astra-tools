@@ -365,7 +365,7 @@
     }
   },
   "$id": "https://asp-spec.org/v1/insights.schema.json",
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Collection of insights, usable standalone or embedded in an analysis.",
   "properties": {

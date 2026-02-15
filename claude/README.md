@@ -1,53 +1,19 @@
-# ASP Claude Code Plugins
+# ASP Claude Code Skills
 
-This directory contains Claude Code plugins for working with ASP (Agentic Science Protocol).
+This directory contains Claude Code skills for working with ASP (Agentic Science Protocol).
 
-## Available Plugins
+## Available Skills
 
 ### asp
 
 Work with ASP analyses - create specs, extract insights, validate, and manage universes.
 
 **Skills provided:**
-- `asp`: Help design and execute ASP analyses
+- `asp`: Core ASP reference and commands
+- `asp-new`: Create a new analysis project
+- `asp-insights`: Extract insights from papers
+- `asp-verify`: Verify a completed analysis
 
-## Plugin Installation
+## Installation
 
-When you run `asp init` to create a new analysis project, Claude Code is automatically configured to install the ASP plugin. Just run `claude` in your project directory and the plugin will be available.
-
-## Manual Installation
-
-To manually install the plugin in any project, add this to your `.claude/settings.json`:
-
-```json
-{
-  "permissions": {
-    "allow": [
-      "Bash(asp:*)",
-      "Bash(python:*)",
-      "Bash(cwltool:*)",
-      "Edit",
-      "WebSearch",
-      "WebFetch"
-    ]
-  },
-  "extraKnownMarketplaces": {
-    "asp": {
-      "source": {
-        "source": "github",
-        "repo": "LightconeResearch/ASP"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "asp@asp": true
-  }
-}
-```
-
-## Plugin Development
-
-The marketplace is defined in `/.claude-plugin/marketplace.json` at the repository root. Each plugin has its own directory under `claude/` with:
-
-- `.claude-plugin/plugin.json` - Plugin manifest
-- `skills/` - Skill definitions (markdown files with frontmatter)
+When you run `asp init` to create a new analysis project, Claude Code is automatically configured with skills and hooks. Just run `claude` in your project directory.

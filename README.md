@@ -43,8 +43,10 @@ flowchart LR
 
 ## Installation
 
+### ASP CLI
+
 ```bash
-git clone https://github.com/EiffL/ASP.git
+git clone https://github.com/LightconeResearch/ASP.git
 cd ASP
 python -m venv .venv
 source .venv/bin/activate
@@ -56,33 +58,78 @@ For development (includes pytest, ruff, mypy):
 pip install -e ".[dev]"
 ```
 
-## Getting Started
+### Canvas (Visual Editor)
 
-### With Claude Code (Recommended)
+Canvas is an optional visual editor for ASP projects — a Python-served web app with no Node.js required:
+
+```bash
+git clone https://github.com/LightconeResearch/Canvas.git
+pip install -e Canvas/
+```
+
+This installs into the same venv as ASP.
+
+## Getting Started
 
 Create a new analysis project:
 
 ```bash
 asp init my-analysis
 cd my-analysis
+```
+
+Then choose your workflow:
+
+### Visual Canvas
+
+```bash
+asp canvas
+```
+
+Opens the visual canvas editor where you can manipulate inputs, decisions, and outputs. The browser opens automatically. Works on local machines, HPC clusters (via `--jupyter`), and VS Code Remote-SSH (auto port forwarding).
+
+### Command Line (Claude Code)
+
+```bash
 claude
 ```
 
-This creates the project structure and configures Claude Code to auto-install the ASP plugin, which provides skills and tools for designing and executing your analysis.
+Work directly with Claude Code in the terminal. The ASP plugin provides skills and tools for designing and executing your analysis.
 
 ### Manual Workflow
 
-```bash
-asp init my-analysis
-cd my-analysis
-```
-
-Then follow the workflow:
+Follow these steps:
 
 1. **Design** - Edit `asp.yaml` to define inputs, outputs, and decisions
 2. **Generate** - Run `asp workflow generate` to create CWL skeleton
 3. **Implement** - Write implementation scripts
 4. **Run** - Execute via `asp workflow run` (always use the workflow!)
+
+## HPC/Remote Targets
+
+ASP supports HPC clusters as execution targets. Target configuration provides
+guardrails so Claude Code can't burn allocations, clog queues, or delete
+important files.
+
+### One-time setup
+
+```bash
+asp remote setup perlmutter       # Interactive setup for any cluster
+asp remote setup --list            # List saved targets
+asp remote show perlmutter         # Show saved config
+```
+
+### Create a project with a target
+
+```bash
+asp init my-analysis --target perlmutter
+```
+
+This adds to the project:
+- `.claude/hpc.yaml` — Per-project resource limits and auth (gitignored, user-specific)
+- `CLAUDE.md` — Compute environment notes (committed, team-shared)
+- `.claude/settings.json` — HPC-specific permissions and hooks (committed, team-shared)
+- `.claude/scripts/hpc-guard.sh` — Enforces resource limits on every job submission
 
 ## Workflow
 
@@ -243,9 +290,15 @@ See [DESIGN.md](DESIGN.md#chunks) for full details.
 
 ```bash
 # Project setup
-asp init my-analysis                   # Create new analysis project (with Claude Code plugin)
+asp init my-analysis                   # Create new analysis project
 asp init my-analysis --no-git          # Create without git initialization
-asp init my-analysis --local           # Copy skills locally (for development)
+asp init my-analysis --target perlmutter  # Create with HPC configuration
+
+# Canvas (visual editor)
+asp canvas                             # Launch Canvas for current project
+asp canvas --port 9000                 # Custom port
+asp canvas --no-browser                # Don't auto-open browser
+asp canvas --jupyter                   # Print JupyterHub proxied URL
 
 # Validation
 asp validate asp.yaml                  # Validate analysis specification
@@ -263,10 +316,16 @@ asp universe check universes/foo.yaml  # Check universe constraints
 
 # Workflow commands
 asp workflow generate                  # Generate CWL skeleton from ASP
-asp workflow validate --cwl main.cwl   # Validate CWL against ASP
-asp workflow show --cwl main.cwl       # Show parameter mapping
-asp workflow run universes/x.yaml --cwl main.cwl -o results/  # Run workflow
+asp workflow validate --cwl workflows/main.cwl   # Validate CWL against ASP
+asp workflow show --cwl workflows/main.cwl       # Show parameter mapping
+asp workflow run universes/x.yaml --cwl workflows/main.cwl -o results/  # Run workflow
 asp params universes/baseline.yaml     # Generate CWL parameters from universe
+
+# HPC/remote targets
+asp remote setup perlmutter            # Configure target (one-time)
+asp remote setup --list                # List saved targets
+asp remote show perlmutter             # Show target configuration
+asp remote edit perlmutter             # Show path for manual editing
 
 # Schema utilities
 asp schema export                      # Export JSON schemas to schemas/
@@ -288,29 +347,11 @@ my-analysis/
 ├── steps/                # Reusable workflow steps
 ├── results/              # Execution outputs (gitignored)
 └── .claude/              # Claude Code configuration
-    └── settings.json     # Auto-installs ASP plugin
+    ├── settings.json     # Permissions and hooks
+    ├── scripts/          # Hook scripts
+    ├── hpc.yaml          # HPC config (only with --target, gitignored)
+    └── skills/           # ASP skills for Claude Code
 ```
-
-### Plugin Modes
-
-By default, `asp init` configures Claude Code to fetch the ASP plugin from GitHub (marketplace mode). Use `--local` to copy skills directly into the project:
-
-```bash
-asp init my-analysis --local
-```
-
-This creates:
-```
-.claude/
-├── settings.json         # Hooks configured directly
-├── scripts/              # Hook scripts (activate-venv, validate-on-save, etc.)
-└── skills/asp/           # Skill files (SKILL.md, workflow-guide.md)
-```
-
-**When to use `--local`:**
-- Developing or customizing ASP skills
-- Offline environments
-- Self-contained projects that don't depend on external repos
 
 ## Design Principles
 

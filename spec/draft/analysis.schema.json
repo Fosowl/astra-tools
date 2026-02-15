@@ -122,6 +122,19 @@
           "title": "Type",
           "type": "string"
         },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative path for result file within results directory",
+          "title": "Path"
+        },
         "description": {
           "anyOf": [
             {
@@ -202,6 +215,19 @@
           "default": null,
           "description": "Concrete criteria for determining if this chunk succeeded.",
           "title": "Success Criteria"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative path to implementation notes for this chunk (e.g. steps/main/PLAN.md). Documents approach, libraries, and how decisions map to code.",
+          "title": "Plan"
         },
         "decisions": {
           "additionalProperties": {
@@ -846,6 +872,19 @@
           "default": null,
           "description": "Supported file formats for artifacts",
           "title": "Formats"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative path for result file within results directory",
+          "title": "Path"
         },
         "description": {
           "anyOf": [

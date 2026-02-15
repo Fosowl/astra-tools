@@ -19,13 +19,8 @@ agentic-science-protocol/
 │       └── insights.schema.json
 │   # 1.0/, 1.1/, 2.0/, etc. created at release (immutable once released)
 │
-├── .claude-plugin/                # Claude Code plugin marketplace (at repo root)
-│   └── marketplace.json           # Marketplace definition
-│
-├── claude/                        # Claude Code plugin implementations
-│   └── asp/                       # ASP plugin
-│       ├── .claude-plugin/
-│       │   └── plugin.json        # Plugin manifest
+├── claude/                        # Claude Code skills
+│   └── asp/                       # ASP skills
 │       └── skills/
 │           └── asp/
 │               └── SKILL.md       # Skill instructions
@@ -92,8 +87,9 @@ agentic-science-protocol/
 
 4. **CLI** (`src/asp/cli.py`)
    - Built with Click and Rich for terminal UI
-   - Commands: init, validate, info, universe, viz, schema, paper
+   - Commands: init, validate, info, universe, viz, schema, paper, canvas
    - Uses `find_analysis_file()` to locate `asp.yaml`
+   - `canvas` command launches the visual editor (asp-canvas package, lazy import)
 
 5. **Helpers** (`src/asp/helpers.py`)
    - Dict-based utilities: `load_yaml`, `get_decision`, `get_default_universe`
@@ -156,17 +152,24 @@ When users create a new analysis with `asp init my-analysis`:
 ```
 my-analysis/
 ├── asp.yaml              # Analysis specification (edit this)
+├── CLAUDE.md             # Build conventions + project context for Claude Code
 ├── .gitignore
 ├── universes/
 │   └── baseline.yaml     # Default universe (decision selections)
-├── workflows/            # Generated workflows
-├── steps/                # Reusable workflow steps
+├── workflows/            # CWL workflow definitions
+├── steps/                # Workflow step implementations
 ├── results/              # Execution outputs (gitignored)
 ├── .claude/              # Claude Code configuration
 │   └── settings.json     # Configures permissions and hooks for ASP workflows
 ```
 
 The `settings.json` configures Claude Code permissions and hooks directly (e.g., venv activation, skill loading) for working with ASP projects.
+
+### Workflow: Specification → Build
+
+1. `asp init` creates the project scaffold including `CLAUDE.md` with conventions
+2. `/asp-new` scopes the analysis and populates `CLAUDE.md` with project-specific details (chunks, decisions, implementation notes)
+3. The user starts building — Claude Code reads `CLAUDE.md` + `asp.yaml` and implements naturally
 
 ## Important Design Patterns
 

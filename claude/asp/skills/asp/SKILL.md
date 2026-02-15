@@ -12,17 +12,15 @@ Help users work with the Agentic Science Protocol (ASP) - a declarative specific
 
 | Command | Purpose |
 |---------|---------|
-| `/asp-new` | Create a new analysis project — scope research question, define `asp.yaml` (WHAT we want) |
-| `/asp-insights` | Extract insights from papers — find literature, verify evidence, link to decisions |
-| `/asp-build [chunk]` | Plan, build, and run the analysis or a specific chunk (HOW to do it) |
+| `/asp-new` | Create a new analysis — scope question, structure chunks, identify decisions with literature |
 
 ### Workflow
 
 ```
-/asp-new  →  /asp-insights  →  /asp-build <chunk>  →  /asp-build <next_chunk>  → ...
+/asp-new  →  build each chunk with Claude Code  → ...
 ```
 
-Use `/asp-insights` to add literature support for decisions. Run `/asp-build` for each chunk in turn. Omit the argument to target all chunks.
+`/asp-new` scopes the research question, structures chunks, identifies decisions, and proactively searches for supporting literature. Then start building — Claude Code reads `CLAUDE.md` + `asp.yaml` and implements each chunk.
 
 ## Chunks
 
@@ -96,12 +94,32 @@ asp viz                           # Visualize decision space
 asp schema show analysis          # Show JSON schema
 
 # Workflow Integration
-asp workflow run universes/baseline.yaml --cwl main.cwl  # Run workflow
-asp workflow run universes/x.yaml --cwl main.cwl -o out/ # Run with output dir
-asp workflow validate --cwl main.cwl         # Validate CWL mapping
-asp workflow show --cwl main.cwl             # Show parameter mapping table
+asp workflow run universes/baseline.yaml --cwl workflows/main.cwl  # Run workflow
+asp workflow run universes/x.yaml --cwl workflows/main.cwl -o out/ # Run with output dir
+asp workflow validate --cwl workflows/main.cwl         # Validate CWL mapping
+asp workflow show --cwl workflows/main.cwl             # Show parameter mapping table
 asp params universes/baseline.yaml           # Output CWL parameters to stdout
 ```
+
+### Writing Results
+
+Results use a convention-based layout — file names are `<id>.<ext>` derived from the output/artefact `id` and its format.
+
+**Outputs** (analysis-level) → `results/<universe_id>/<output_id>.<ext>`
+**Artefacts** (chunk-level) → `results/<universe_id>/<chunk>/<artefact_id>.<ext>`
+
+```yaml
+# asp.yaml — no path field needed
+outputs:
+  - id: accuracy
+    type: metric             # → results/<universe_id>/accuracy.json
+  - id: corner_plot
+    type: figure
+    formats: ["png"]         # → results/<universe_id>/corner_plot.png
+```
+
+For metrics, write a JSON file with the value: `{"value": 0.95}`
+Canvas watches the `results/` directory and auto-detects new files.
 
 **Chunk note:** All chunks are defined inline in the root `asp.yaml`. No separate directories or files needed for chunk specifications.
 
@@ -154,6 +172,39 @@ inputs:
       url: "https://example.com/data.csv"  # Remote URL
 ```
 
+## Universe Lifecycle
+
+Decisions emerge during analysis — you don't know all of them upfront. When you run baseline and realize "I should try X," that's a new decision (or a new option on an existing decision).
+
+### Adding a new decision after baseline
+
+1. **Identify the scope**: New option on an existing decision, or an entirely new decision?
+   - New option → add it to the existing decision in `asp.yaml`
+   - New decision → add a new decision entry under the relevant chunk
+
+2. **Add to `asp.yaml`**: Define the decision with all options, a default, and a rationale.
+
+3. **Update existing universes**: Add the new decision to all existing universe files, selecting the default to preserve their behavior.
+
+4. **Create the new universe**: `asp universe generate -n <name>`, then edit to select the new option.
+
+5. **Validate**: `asp validate asp.yaml && asp universe check universes/<name>.yaml`
+
+Results for each universe go to `results/<universe_id>/`. Always use `asp workflow run` to execute — it resolves decision values from the universe file, passes them to the code via CWL, and writes run metadata automatically.
+
+### What is and isn't a universe
+
+A universe captures a **defensible alternative analysis path** — a choice a reasonable researcher might make differently. These are universes:
+- Different hyperparameter selections
+- Different data subsets or filtering criteria
+- Different algorithmic approaches
+
+These are NOT universes (just normal commits):
+- Bug fixes
+- Adding a missing output to `asp.yaml`
+- Improving plot formatting
+- Refactoring code without changing behavior
+
 ## Creating a New Analysis
 
 Use `/asp-new` to interactively scope your project:
@@ -161,7 +212,7 @@ Use `/asp-new` to interactively scope your project:
 2. Define top-level inputs, outputs, success criteria
 3. Define chunks with wiring
 
-Then use `/asp-build <chunk>` to plan and build each chunk.
+Then start building each chunk — Claude Code reads `CLAUDE.md` + `asp.yaml` and implements naturally.
 
 Alternatively, scaffold manually:
 ```bash
@@ -304,11 +355,12 @@ analysis:
 ```
 
 ### Creating a New Universe
+
 ```bash
 asp universe generate -n experiment1 -d "Testing hypothesis X"
 ```
 
-Then edit `universes/experiment1.yaml` to customize decisions.
+Then edit `universes/experiment1.yaml` to customize decisions. If this requires a new decision or option that doesn't exist yet, see **Universe Lifecycle** above — add it to `asp.yaml` first and update all existing universe files with the default.
 
 ## File Locations
 
@@ -317,30 +369,34 @@ my-analysis/
 ├── asp.yaml              # Full spec with chunks defined inline
 ├── universes/
 │   └── baseline.yaml     # Decision selections organized by chunk
-├── workflows/            # CWL workflow definitions
-│   └── main.cwl
+├── workflows/            # CWL Workflow definitions (class: Workflow)
+│   └── main.cwl          #   Orchestrates steps, wires inputs/outputs
 ├── plans/                # Implementation plans per chunk
-├── steps/                # Workflow implementation (created during /asp-build)
+├── steps/                # CWL CommandLineTool steps (class: CommandLineTool)
+│   └── main.cwl          #   Runs the actual code
 ├── results/              # Execution outputs (gitignored)
 └── .claude/
 ```
 
-Chunks are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is created during `/asp-build`:
+Chunks are defined inline in `asp.yaml` — no separate directories needed for the specification. The `steps/` structure is:
 - **Single chunk**: implementation goes directly in `steps/` (no subdirectory)
 - **Multiple chunks**: each chunk gets `steps/<chunk_name>/`
 
 **Important**:
 - Universes are the source of truth for CWL parameters. Use `asp workflow run` to execute workflows directly from universes, or `asp params` to inspect the generated parameters.
 
-## Building CWL Workflows
+## CWL Workflows
 
-For detailed guidance on building CWL workflows from ASP analyses, see [workflow-guide.md](workflow-guide.md).
+CWL workflows are the execution path for ASP analyses. After building the code,
+generate a CWL workflow and use `asp workflow run` to execute with any universe.
+See [workflow-guide.md](workflow-guide.md) for full details.
 
 Key points:
 - ASP inputs map to CWL `File` inputs using the same ID
 - ASP decisions map to CWL parameters (naming depends on `value` structure)
-- Use `asp workflow validate` to check CWL matches ASP spec
-- Use `asp workflow run` to execute with a universe
+- `asp workflow generate` creates/updates the CWL from `asp.yaml`
+- `asp workflow validate` checks CWL matches the ASP spec
+- `asp workflow run` executes with a universe and writes run metadata
 
 ## Tips
 

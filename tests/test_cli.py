@@ -341,6 +341,45 @@ class TestInitCommand:
         # asp.yaml should NOT have been created
         assert not (project_dir / "asp.yaml").exists()
 
+    def test_init_refuses_if_asp_yaml_exists(self, runner: CliRunner, tmp_path: Path):
+        """Test that init refuses to run in an existing ASP project."""
+        project_dir = tmp_path / "already-init"
+        # First init should succeed
+        result = runner.invoke(
+            main,
+            ["init", str(project_dir), "--no-git"],
+        )
+        assert result.exit_code == 0
+        assert (project_dir / "asp.yaml").exists()
+
+        # Second init should fail
+        result = runner.invoke(
+            main,
+            ["init", str(project_dir), "--no-git"],
+        )
+        assert result.exit_code == 1
+        assert "already an ASP project" in result.output
+
+    def test_init_refuses_if_asp_yaml_exists_current_dir(
+        self, runner: CliRunner, tmp_path: Path
+    ):
+        """Test that init refuses to run in current dir if asp.yaml exists."""
+        import os
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            # First init
+            result = runner.invoke(main, ["init", "--no-git"])
+            assert result.exit_code == 0
+
+            # Second init should fail
+            result = runner.invoke(main, ["init", "--no-git"])
+            assert result.exit_code == 1
+            assert "already an ASP project" in result.output
+        finally:
+            os.chdir(old_cwd)
+
     def test_init_existing_nonempty_dir_confirm(self, runner: CliRunner, tmp_path: Path):
         """Test confirming to overwrite existing non-empty directory."""
         project_dir = tmp_path / "existing-confirm"
