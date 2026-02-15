@@ -29,14 +29,46 @@ from models.universe import Universe
 SPEC_DIR = REPO_ROOT / "spec" / "draft"
 
 
+def _inline_root_ref(schema: dict) -> dict:
+    """Inline a root $ref into the top-level schema.
+
+    Pydantic self-referencing models produce schemas like:
+        {"$defs": {"Model": {...}}, "$ref": "#/$defs/Model"}
+
+    This hoists the referenced definition's properties to the root level
+    while keeping $defs for recursive references.
+    """
+    if "$ref" not in schema:
+        return schema
+
+    ref = schema["$ref"]  # e.g., "#/$defs/Analysis"
+    def_name = ref.split("/")[-1]
+    defs = schema.get("$defs", {})
+
+    if def_name not in defs:
+        return schema
+
+    root_def = dict(defs[def_name])
+    result = dict(root_def)
+    # Keep $defs for recursive references (e.g., analyses references Analysis)
+    result["$defs"] = defs
+    return result
+
+
 def main() -> None:
     """Generate JSON schemas from Pydantic models."""
     SPEC_DIR.mkdir(parents=True, exist_ok=True)
 
     schemas = {
-        "analysis.schema.json": Analysis.model_json_schema(mode="serialization"),
-        "universe.schema.json": Universe.model_json_schema(mode="serialization"),
-        "insights.schema.json": InsightCollection.model_json_schema(mode="serialization"),
+        "analysis.schema.json": _inline_root_ref(
+            Analysis.model_json_schema(mode="serialization")
+        ),
+        "universe.schema.json": _inline_root_ref(
+            Universe.model_json_schema(mode="serialization")
+        ),
+        "insights.schema.json": _inline_root_ref(
+            InsightCollection.model_json_schema(mode="serialization")
+        ),
     }
 
     for name, schema in schemas.items():

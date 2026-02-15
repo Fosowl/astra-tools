@@ -1,14 +1,12 @@
 # Duplicate input IDs
 version: "1.0"
-
-analysis:
-  name: "Test"
-  problem: "Test problem"
-  inputs:
-    - id: data
-      type: data
-    - id: data
-      type: analysis
-  outputs:
-    - id: result
-      type: metric
+name: "Test"
+problem: "Test problem"
+inputs:
+  - id: data
+    type: data
+  - id: data
+    type: analysis
+outputs:
+  - id: result
+    type: metric

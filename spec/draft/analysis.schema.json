@@ -1,15 +1,198 @@
 {
-  "$defs": {
-    "AnalysisContent": {
-      "additionalProperties": false,
-      "description": "The content of an analysis specification (root level with metadata).",
-      "properties": {
-        "name": {
-          "description": "Human-readable name for the analysis",
-          "title": "Name",
+  "$id": "https://asp-spec.org/v1/analysis.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "A self-similar analysis specification.\n\nEvery level has the same structure: metadata, problem, inputs, outputs,\ndecisions, insights, and optional sub-analyses. A sub-analysis extracted\nto its own file is a valid Analysis on its own.\n\nAt the root level, ``version``, ``name``, ``problem``, ``inputs``, and\n``outputs`` are required. In sub-analyses they are optional.",
+  "properties": {
+    "$schema": {
+      "anyOf": [
+        {
           "type": "string"
         },
-        "description": {
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "JSON Schema reference",
+      "title": "$Schema"
+    },
+    "version": {
+      "anyOf": [
+        {
+          "pattern": "^\\d+\\.\\d+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ASP specification version",
+      "title": "Version"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Human-readable name for the analysis",
+      "title": "Name"
+    },
+    "authors": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "List of authors",
+      "title": "Authors"
+    },
+    "tags": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Tags for categorization",
+      "title": "Tags"
+    },
+    "problem": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Problem statement describing what the analysis aims to achieve",
+      "title": "Problem"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Detailed description of this analysis",
+      "title": "Description"
+    },
+    "success_criteria": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Concrete criteria for determining if this analysis succeeded.",
+      "title": "Success Criteria"
+    },
+    "inputs": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Input"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "List of inputs for this analysis",
+      "title": "Inputs"
+    },
+    "outputs": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Output"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "List of expected outputs from this analysis",
+      "title": "Outputs"
+    },
+    "decisions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Decision"
+      },
+      "description": "Map of decision IDs to decision specifications",
+      "title": "Decisions",
+      "type": "object"
+    },
+    "insights": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Insight"
+      },
+      "description": "Map of insight IDs to insight specifications",
+      "title": "Insights",
+      "type": "object"
+    },
+    "analyses": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/Analysis"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Map of sub-analysis IDs to nested analyses",
+      "title": "Analyses"
+    }
+  },
+  "title": "ASP Analysis Specification",
+  "type": "object",
+  "$defs": {
+    "Analysis": {
+      "$id": "https://asp-spec.org/v1/analysis.schema.json",
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "description": "A self-similar analysis specification.\n\nEvery level has the same structure: metadata, problem, inputs, outputs,\ndecisions, insights, and optional sub-analyses. A sub-analysis extracted\nto its own file is a valid Analysis on its own.\n\nAt the root level, ``version``, ``name``, ``problem``, ``inputs``, and\n``outputs`` are required. In sub-analyses they are optional.",
+      "properties": {
+        "$schema": {
           "anyOf": [
             {
               "type": "string"
@@ -19,8 +202,35 @@
             }
           ],
           "default": null,
-          "description": "Detailed description of the analysis",
-          "title": "Description"
+          "description": "JSON Schema reference",
+          "title": "$Schema"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ASP specification version",
+          "title": "Version"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human-readable name for the analysis",
+          "title": "Name"
         },
         "authors": {
           "anyOf": [
@@ -55,81 +265,6 @@
           "title": "Tags"
         },
         "problem": {
-          "description": "Problem statement describing what the analysis aims to achieve",
-          "title": "Problem",
-          "type": "string"
-        },
-        "success_criteria": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Concrete criteria for determining if the analysis succeeded. Each criterion should be specific and verifiable.",
-          "title": "Success Criteria"
-        },
-        "inputs": {
-          "description": "List of inputs for the analysis",
-          "items": {
-            "$ref": "#/$defs/Input"
-          },
-          "title": "Inputs",
-          "type": "array"
-        },
-        "outputs": {
-          "description": "List of expected outputs",
-          "items": {
-            "$ref": "#/$defs/Output"
-          },
-          "title": "Outputs",
-          "type": "array"
-        },
-        "decisions": {
-          "additionalProperties": {
-            "$ref": "#/$defs/Decision"
-          },
-          "description": "Map of decision IDs to decision specifications",
-          "title": "Decisions",
-          "type": "object"
-        },
-        "analyses": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/AnalysisNode"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Map of sub-analysis IDs to nested analysis nodes",
-          "title": "Analyses"
-        }
-      },
-      "required": [
-        "name",
-        "problem",
-        "inputs",
-        "outputs"
-      ],
-      "title": "AnalysisContent",
-      "type": "object"
-    },
-    "AnalysisNode": {
-      "additionalProperties": false,
-      "description": "A self-similar analysis node. Can contain sub-analyses recursively.",
-      "properties": {
-        "problem": {
           "anyOf": [
             {
               "type": "string"
@@ -139,7 +274,7 @@
             }
           ],
           "default": null,
-          "description": "Problem statement for this analysis node",
+          "description": "Problem statement describing what the analysis aims to achieve",
           "title": "Problem"
         },
         "description": {
@@ -152,7 +287,7 @@
             }
           ],
           "default": null,
-          "description": "Detailed description of this analysis node",
+          "description": "Detailed description of this analysis",
           "title": "Description"
         },
         "success_criteria": {
@@ -168,21 +303,8 @@
             }
           ],
           "default": null,
-          "description": "Concrete criteria for determining if this analysis node succeeded.",
+          "description": "Concrete criteria for determining if this analysis succeeded.",
           "title": "Success Criteria"
-        },
-        "plan": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Relative path to implementation notes (e.g. steps/main/PLAN.md). Documents approach, libraries, and how decisions map to code.",
-          "title": "Plan"
         },
         "inputs": {
           "anyOf": [
@@ -197,7 +319,7 @@
             }
           ],
           "default": null,
-          "description": "List of inputs for this analysis node",
+          "description": "List of inputs for this analysis",
           "title": "Inputs"
         },
         "outputs": {
@@ -213,7 +335,7 @@
             }
           ],
           "default": null,
-          "description": "List of expected outputs from this analysis node",
+          "description": "List of expected outputs from this analysis",
           "title": "Outputs"
         },
         "decisions": {
@@ -224,11 +346,19 @@
           "title": "Decisions",
           "type": "object"
         },
+        "insights": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Insight"
+          },
+          "description": "Map of insight IDs to insight specifications",
+          "title": "Insights",
+          "type": "object"
+        },
         "analyses": {
           "anyOf": [
             {
               "additionalProperties": {
-                "$ref": "#/$defs/AnalysisNode"
+                "$ref": "#/$defs/Analysis"
               },
               "type": "object"
             },
@@ -237,11 +367,11 @@
             }
           ],
           "default": null,
-          "description": "Map of sub-analysis IDs to nested analysis nodes",
+          "description": "Map of sub-analysis IDs to nested analyses",
           "title": "Analyses"
         }
       },
-      "title": "AnalysisNode",
+      "title": "ASP Analysis Specification",
       "type": "object"
     },
     "Checksum": {
@@ -290,14 +420,6 @@
           "title": "Type",
           "type": "string"
         },
-        "importance": {
-          "default": 3,
-          "description": "Importance level (1=critical, 5=implementation detail)",
-          "maximum": 5,
-          "minimum": 1,
-          "title": "Importance",
-          "type": "integer"
-        },
         "rationale": {
           "anyOf": [
             {
@@ -310,19 +432,6 @@
           "default": null,
           "description": "Why this decision exists",
           "title": "Rationale"
-        },
-        "reviewed": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Whether a human has reviewed and confirmed this decision",
-          "title": "Reviewed"
         },
         "default": {
           "anyOf": [
@@ -525,7 +634,7 @@
     },
     "Input": {
       "additionalProperties": false,
-      "description": "An input to the analysis.",
+      "description": "An input to the analysis.\n\nTwo kinds of inputs:\n- ``type: data`` \u2014 a dataset, file, or external resource (specify ``source``)\n- ``type: analysis`` \u2014 outputs from another ASP analysis (specify ``ref``)\n\nSub-analysis inputs can also use ``from`` to reference a parent input\nor a sibling's output (e.g., ``from: sibling_id.output_id``).",
       "properties": {
         "id": {
           "description": "Unique identifier for the input",
@@ -537,11 +646,23 @@
           "description": "Type of input",
           "enum": [
             "data",
-            "analysis",
-            "literature"
+            "analysis"
           ],
           "title": "Type",
           "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Description of the input",
+          "title": "Description"
         },
         "source": {
           "anyOf": [
@@ -549,28 +670,24 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/Source"
-            },
-            {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Source specification for the input",
+          "description": "URI or path to the data source",
           "title": "Source"
         },
-        "from": {
+        "checksum": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/Checksum"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Reference to parent input or sibling output (e.g., 'input_id' or 'sibling.output_id')",
-          "title": "From"
+          "description": "Checksum for data integrity verification"
         },
         "ref": {
           "anyOf": [
@@ -582,10 +699,10 @@
             }
           ],
           "default": null,
-          "description": "Reference to another analysis (for type: analysis)",
+          "description": "Reference to another ASP analysis",
           "title": "Ref"
         },
-        "version": {
+        "ref_version": {
           "anyOf": [
             {
               "type": "string"
@@ -596,7 +713,7 @@
           ],
           "default": null,
           "description": "Version of the referenced analysis",
-          "title": "Version"
+          "title": "Ref Version"
         },
         "use_outputs": {
           "anyOf": [
@@ -614,7 +731,7 @@
           "description": "Specific outputs to use from referenced analysis",
           "title": "Use Outputs"
         },
-        "description": {
+        "from": {
           "anyOf": [
             {
               "type": "string"
@@ -624,8 +741,8 @@
             }
           ],
           "default": null,
-          "description": "Description of the input",
-          "title": "Description"
+          "description": "Reference to parent input or sibling output (e.g., 'input_id' or 'sibling.output_id')",
+          "title": "From"
         }
       },
       "required": [
@@ -753,17 +870,6 @@
           "description": "Detailed description of the option",
           "title": "Description"
         },
-        "value": {
-          "anyOf": [
-            {},
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Configuration value for this option",
-          "title": "Value"
-        },
         "insights": {
           "anyOf": [
             {
@@ -821,7 +927,7 @@
     },
     "Output": {
       "additionalProperties": false,
-      "description": "An expected output from the analysis.",
+      "description": "An expected output from the analysis.\n\nOutputs can declare their provenance via ``from`` to trace which\nsub-analysis produces them (e.g., ``from: inference.posterior``).",
       "properties": {
         "id": {
           "description": "Unique identifier for the output",
@@ -836,82 +942,10 @@
             "figure",
             "table",
             "data",
-            "model",
             "report"
           ],
           "title": "Type",
           "type": "string"
-        },
-        "dtype": {
-          "anyOf": [
-            {
-              "enum": [
-                "float",
-                "int",
-                "bool",
-                "string"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Data type for metrics",
-          "title": "Dtype"
-        },
-        "range": {
-          "anyOf": [
-            {
-              "maxItems": 2,
-              "minItems": 2,
-              "prefixItems": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "number"
-                }
-              ],
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Valid range for numeric metrics [min, max]",
-          "title": "Range"
-        },
-        "formats": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Supported file formats for artifacts",
-          "title": "Formats"
-        },
-        "path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Relative path for result file within results directory",
-          "title": "Path"
         },
         "description": {
           "anyOf": [
@@ -925,6 +959,19 @@
           "default": null,
           "description": "Description of the output",
           "title": "Description"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sub-analysis output that produces this (e.g., 'sub_analysis.output_id')",
+          "title": "From"
         }
       },
       "required": [
@@ -932,184 +979,6 @@
         "type"
       ],
       "title": "Output",
-      "type": "object"
-    },
-    "Source": {
-      "additionalProperties": false,
-      "description": "Source specification for inputs.",
-      "properties": {
-        "type": {
-          "description": "Type of source",
-          "enum": [
-            "url",
-            "s3",
-            "sklearn",
-            "asp",
-            "file"
-          ],
-          "title": "Type",
-          "type": "string"
-        },
-        "url": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "URL for url type sources",
-          "title": "Url"
-        },
-        "bucket": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "S3 bucket name",
-          "title": "Bucket"
-        },
-        "key": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "S3 object key",
-          "title": "Key"
-        },
-        "version_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "S3 version ID",
-          "title": "Version Id"
-        },
-        "region": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "AWS region",
-          "title": "Region"
-        },
-        "dataset": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "sklearn dataset name",
-          "title": "Dataset"
-        },
-        "analysis": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "ASP analysis reference",
-          "title": "Analysis"
-        },
-        "version": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Version of referenced analysis",
-          "title": "Version"
-        },
-        "output": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Output ID from referenced analysis",
-          "title": "Output"
-        },
-        "execution": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Specific execution ID",
-          "title": "Execution"
-        },
-        "path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Local file path",
-          "title": "Path"
-        },
-        "checksum": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Checksum"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Checksum for verification"
-        }
-      },
-      "required": [
-        "type"
-      ],
-      "title": "Source",
       "type": "object"
     },
     "TableSelector": {
@@ -1210,48 +1079,5 @@
       "title": "TextQuoteSelector",
       "type": "object"
     }
-  },
-  "$id": "https://asp-spec.org/v1/analysis.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "additionalProperties": false,
-  "description": "Complete ASP analysis specification.",
-  "properties": {
-    "$schema": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "JSON Schema reference",
-      "title": "$Schema"
-    },
-    "version": {
-      "description": "ASP specification version",
-      "pattern": "^\\d+\\.\\d+$",
-      "title": "Version",
-      "type": "string"
-    },
-    "analysis": {
-      "$ref": "#/$defs/AnalysisContent",
-      "description": "The analysis specification"
-    },
-    "insights": {
-      "additionalProperties": {
-        "$ref": "#/$defs/Insight"
-      },
-      "description": "Map of insight IDs to insight specifications",
-      "title": "Insights",
-      "type": "object"
-    }
-  },
-  "required": [
-    "version",
-    "analysis"
-  ],
-  "title": "ASP Analysis Specification",
-  "type": "object"
+  }
 }

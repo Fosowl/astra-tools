@@ -1,21 +1,19 @@
 # Option references non-existent insight
 version: "1.0"
-
-analysis:
-  name: "Test"
-  problem: "Test problem"
-  inputs:
-    - id: data
-      type: data
-  outputs:
-    - id: result
-      type: metric
-  decisions:
-    method:
-      label: "Method"
-      type: method
-      options:
-        a:
-          label: "A"
-          insights:
-            - nonexistent_insight
+name: "Test"
+problem: "Test problem"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions:
+  method:
+    label: "Method"
+    type: method
+    options:
+      a:
+        label: "A"
+        insights:
+          - nonexistent_insight

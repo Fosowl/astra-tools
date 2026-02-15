@@ -43,10 +43,20 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     """
     errors: list[SemanticError] = []
 
-    analysis_content = data.get("analysis", {})
-    inputs = analysis_content.get("inputs", [])
-    outputs = analysis_content.get("outputs", [])
-    insights = data.get("insights", {})
+    # Root analysis requires name, problem, inputs, outputs
+    for field in ("version", "name", "problem", "inputs", "outputs"):
+        if field not in data or data[field] is None:
+            errors.append(
+                SemanticError(
+                    "MISSING_ROOT_FIELD",
+                    f"Root analysis is missing required field '{field}'",
+                    field,
+                )
+            )
+
+    inputs = data.get("inputs") or []
+    outputs = data.get("outputs") or []
+    insights = data.get("insights") or {}
 
     # Check for duplicate input IDs
     input_ids: set[str] = set()
@@ -75,11 +85,11 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
             output_ids.add(out_id)
 
     # Validate root-level decisions
-    root_decisions = analysis_content.get("decisions") or {}
-    errors.extend(_validate_decisions(root_decisions, insights, "analysis"))
+    root_decisions = data.get("decisions") or {}
+    errors.extend(_validate_decisions(root_decisions, insights, ""))
 
     # Validate sub-analyses recursively
-    sub_analyses = analysis_content.get("analyses") or {}
+    sub_analyses = data.get("analyses") or {}
     for analysis_id, analysis_node in sub_analyses.items():
         errors.extend(
             _validate_analysis_node(
@@ -88,7 +98,7 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
                 insights,
                 parent_input_ids=input_ids,
                 sibling_analyses=sub_analyses,
-                path_prefix="analysis.analyses",
+                path_prefix="analyses",
             )
         )
 
@@ -164,8 +174,9 @@ def _validate_decisions(
     """Validate a set of decisions at a given node."""
     errors: list[SemanticError] = []
 
+    decisions_prefix = f"{path_prefix}.decisions" if path_prefix else "decisions"
     for decision_id, decision in decisions.items():
-        decision_path = f"{path_prefix}.decisions.{decision_id}"
+        decision_path = f"{decisions_prefix}.{decision_id}"
         options = decision.get("options", {})
 
         # Check default option exists
@@ -311,7 +322,7 @@ def validate_universe(
     """
     return _validate_universe_node(
         universe_data,
-        analysis_data.get("analysis", {}),
+        analysis_data,
         path_prefix="",
     )
 

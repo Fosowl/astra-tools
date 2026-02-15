@@ -58,19 +58,17 @@ def minimal_analysis_data() -> dict[str, Any]:
     """Return minimal analysis data as dict."""
     return {
         "version": "1.0",
-        "analysis": {
-            "name": "Test Analysis",
-            "problem": "Test problem statement",
-            "inputs": [{"id": "test_data", "type": "data"}],
-            "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
-            "decisions": {
-                "method": {
-                    "label": "Method",
-                    "type": "method",
-                    "default": "a",
-                    "options": {"a": {"label": "A"}, "b": {"label": "B"}},
-                }
-            },
+        "name": "Test Analysis",
+        "problem": "Test problem statement",
+        "inputs": [{"id": "test_data", "type": "data"}],
+        "outputs": [{"id": "result", "type": "metric"}],
+        "decisions": {
+            "method": {
+                "label": "Method",
+                "type": "method",
+                "default": "a",
+                "options": {"a": {"label": "A"}, "b": {"label": "B"}},
+            }
         },
     }
 

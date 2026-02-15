@@ -50,7 +50,7 @@ def get_input(data: dict[str, Any], input_id: str) -> dict[str, Any] | None:
     Returns:
         The input dict if found, None otherwise.
     """
-    inputs: list[dict[str, Any]] = data.get("analysis", {}).get("inputs", [])
+    inputs: list[dict[str, Any]] = data.get("inputs") or []
     for inp in inputs:
         if inp.get("id") == input_id:
             return inp
@@ -67,7 +67,7 @@ def get_output(data: dict[str, Any], output_id: str) -> dict[str, Any] | None:
     Returns:
         The output dict if found, None otherwise.
     """
-    outputs: list[dict[str, Any]] = data.get("analysis", {}).get("outputs", [])
+    outputs: list[dict[str, Any]] = data.get("outputs") or []
     for out in outputs:
         if out.get("id") == output_id:
             return out
@@ -90,20 +90,19 @@ def get_decision(
     Returns:
         The decision dict if found, None otherwise.
     """
-    analysis_content = data.get("analysis", {})
     if path is not None:
-        node = _resolve_node(analysis_content, path)
+        node = _resolve_node(data, path)
         if node is None:
             return None
         result: dict[str, Any] | None = node.get("decisions", {}).get(decision_id)
         return result
 
     # Search root decisions first, then sub-analyses recursively
-    root_decisions: dict[str, Any] = analysis_content.get("decisions", {})
+    root_decisions: dict[str, Any] = data.get("decisions") or {}
     if decision_id in root_decisions:
         found: dict[str, Any] = root_decisions[decision_id]
         return found
-    return _search_node_decision(analysis_content, decision_id)
+    return _search_node_decision(data, decision_id)
 
 
 def _resolve_node(analysis_content: dict[str, Any], path: str) -> dict[str, Any] | None:
@@ -154,7 +153,7 @@ def get_default_universe(data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dict with 'decisions' and optional 'analyses' keys mirroring the tree.
     """
-    return _get_node_defaults(data.get("analysis", {}))
+    return _get_node_defaults(data)
 
 
 def _get_node_defaults(node: dict[str, Any]) -> dict[str, Any]:
@@ -215,8 +214,7 @@ def get_input_ids(data: dict[str, Any]) -> set[str]:
     Returns:
         Set of input IDs.
     """
-    inputs = data.get("analysis", {}).get("inputs", [])
-    return {inp.get("id") for inp in inputs if inp.get("id")}
+    return {inp.get("id") for inp in (data.get("inputs") or []) if inp.get("id")}
 
 
 def get_output_ids(data: dict[str, Any]) -> set[str]:
@@ -228,8 +226,7 @@ def get_output_ids(data: dict[str, Any]) -> set[str]:
     Returns:
         Set of output IDs.
     """
-    outputs = data.get("analysis", {}).get("outputs", [])
-    return {out.get("id") for out in outputs if out.get("id")}
+    return {out.get("id") for out in (data.get("outputs") or []) if out.get("id")}
 
 
 def get_decision_ids(data: dict[str, Any]) -> set[str]:
@@ -242,9 +239,8 @@ def get_decision_ids(data: dict[str, Any]) -> set[str]:
         Set of decision IDs.
     """
     result: set[str] = set()
-    analysis_content = data.get("analysis", {})
-    result.update((analysis_content.get("decisions") or {}).keys())
-    _collect_node_decision_ids(analysis_content, result)
+    result.update((data.get("decisions") or {}).keys())
+    _collect_node_decision_ids(data, result)
     return result
 
 
@@ -276,7 +272,7 @@ def get_inputs(data: dict[str, Any]) -> list[dict[str, Any]]:
     Returns:
         List of input dicts.
     """
-    inputs: list[dict[str, Any]] = data.get("analysis", {}).get("inputs", [])
+    inputs: list[dict[str, Any]] = data.get("inputs") or []
     return inputs
 
 
@@ -289,7 +285,7 @@ def get_outputs(data: dict[str, Any]) -> list[dict[str, Any]]:
     Returns:
         List of output dicts.
     """
-    outputs: list[dict[str, Any]] = data.get("analysis", {}).get("outputs", [])
+    outputs: list[dict[str, Any]] = data.get("outputs") or []
     return outputs
 
 
@@ -306,14 +302,13 @@ def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         Dict mapping decision_id to decision dict.
     """
     result: dict[str, dict[str, Any]] = {}
-    analysis_content = data.get("analysis", {})
 
     # Root decisions
-    for decision_id, decision in (analysis_content.get("decisions") or {}).items():
+    for decision_id, decision in (data.get("decisions") or {}).items():
         result[decision_id] = decision
 
     # Collect from sub-analyses
-    _collect_decisions_from_node(analysis_content, result)
+    _collect_decisions_from_node(data, result)
 
     return result
 
@@ -349,8 +344,7 @@ def get_analysis_decisions(data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Recursive dict of decisions organized by analysis tree.
     """
-    analysis_content = data.get("analysis", {})
-    return _get_node_decision_tree(analysis_content)
+    return _get_node_decision_tree(data)
 
 
 def _get_node_decision_tree(node: dict[str, Any]) -> dict[str, Any]:
@@ -385,17 +379,14 @@ def get_option(decision: dict[str, Any], option_id: str) -> dict[str, Any] | Non
     return result
 
 
-def get_option_value(decision: dict[str, Any], option_id: str) -> Any:
-    """Get the value from an option, or option_id if no value field.
+def get_option_value(decision: dict[str, Any], option_id: str) -> str:
+    """Get the value for an option (returns the option_id).
 
     Args:
         decision: Decision dict.
-        option_id: The option ID to get the value from.
+        option_id: The option ID.
 
     Returns:
-        The option's value field if present, otherwise the option_id string.
+        The option_id string.
     """
-    option = get_option(decision, option_id)
-    if option is None:
-        return option_id
-    return option.get("value", option_id)
+    return option_id

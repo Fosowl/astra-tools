@@ -136,41 +136,37 @@ def _create_boilerplate_asp_yaml(directory: Path) -> None:
 # Documentation: https://github.com/LightconeResearch/ASP
 
 version: "1.0"
+name: "{name}"
+problem: |
+  TODO: What research question are you trying to answer?
 
-analysis:
-  name: "{name}"
-  problem: |
-    TODO: What research question are you trying to answer?
+inputs:
+  - id: primary_data
+    type: data
+    description: "TODO: Describe your primary data source"
 
-  inputs:
-    - id: primary_data
-      type: data
-      description: "TODO: Describe your primary data source"
+outputs:
+  - id: main_result
+    type: metric
+    description: "TODO: Describe your primary output metric"
 
-  outputs:
-    - id: main_result
-      type: metric
-      dtype: float
-      description: "TODO: Describe your primary output metric"
+  - id: conclusion
+    type: report
+    description: "Summary addressing the problem statement"
 
-    - id: conclusion
-      type: report
-      description: "Summary addressing the problem statement"
-
-  decisions:
-    example_method:
-      label: "Example Method Choice"
-      type: method
-      importance: 3
-      rationale: "TODO: Explain why this decision matters"
-      default: option_a
-      options:
-        option_a:
-          label: "Option A"
-          description: "TODO: Describe option A"
-        option_b:
-          label: "Option B"
-          description: "TODO: Describe option B"
+decisions:
+  example_method:
+    label: "Example Method Choice"
+    type: method
+    rationale: "TODO: Explain why this decision matters"
+    default: option_a
+    options:
+      option_a:
+        label: "Option A"
+        description: "TODO: Describe option A"
+      option_b:
+        label: "Option B"
+        description: "TODO: Describe option B"
 """
     (directory / "asp.yaml").write_text(asp_yaml)
 
@@ -390,17 +386,15 @@ def info(
     file = _require_analysis(file)
     data = load_yaml(file)
 
-    analysis_section = data.get("analysis", {})
-
     # Header
-    console.print(f"\n[bold]{analysis_section.get('name', 'Unknown')}[/bold]")
+    console.print(f"\n[bold]{data.get('name', 'Unknown')}[/bold]")
     console.print(f"Version: {data.get('version', 'Unknown')}")
-    if analysis_section.get("description"):
-        console.print(f"\n{analysis_section['description']}")
+    if data.get("description"):
+        console.print(f"\n{data['description']}")
 
     # Problem statement
     console.print("\n[bold]Problem:[/bold]")
-    console.print(analysis_section.get("problem", "").strip())
+    console.print(data.get("problem", "").strip())
 
     # Summary stats
     input_list = get_inputs(data)
@@ -452,7 +446,6 @@ def _display_decisions(decisions: dict[str, Any], indent: str = "") -> None:
     for decision_id, decision in decisions.items():
         tree = Tree(f"{indent}[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
         tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
-        tree.add(f"[dim]Importance:[/dim] {decision.get('importance', 3)}/5")
         if decision.get("rationale"):
             tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
 
@@ -511,7 +504,7 @@ def generate_universe(
 
     # Check all decisions have defaults (across entire tree)
     missing_defaults: list[str] = []
-    _check_missing_defaults(data.get("analysis", {}), missing_defaults, "")
+    _check_missing_defaults(data, missing_defaults, "")
     if missing_defaults:
         console.print("[red]Error:[/red] Some decisions don't have defaults:")
         for d_id in missing_defaults:
@@ -598,12 +591,8 @@ def viz(file: Path | None, fmt: str) -> None:
 
 def _viz_ascii(data: dict[str, Any]) -> None:
     """Visualize decisions as ASCII tree."""
-    analysis_name = data.get("analysis", {}).get("name", "Unknown")
-    tree = Tree(f"[bold]{analysis_name}[/bold]")
-
-    analysis_content = data.get("analysis", {})
-    _viz_ascii_node(tree, analysis_content)
-
+    tree = Tree(f"[bold]{data.get('name', 'Unknown')}[/bold]")
+    _viz_ascii_node(tree, data)
     console.print(tree)
 
 
@@ -611,10 +600,8 @@ def _viz_ascii_node(parent_tree: Tree, node: dict[str, Any]) -> None:
     """Recursively add decisions to an ASCII tree."""
     decisions = node.get("decisions") or {}
     for decision_id, decision in decisions.items():
-        importance = decision.get("importance", 3)
-        importance_stars = "\u2605" * importance + "\u2606" * (5 - importance)
         branch = parent_tree.add(
-            f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')}) [{importance_stars}]"
+            f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')})"
         )
 
         options = decision.get("options", {})
@@ -641,8 +628,7 @@ def _viz_mermaid(data: dict[str, Any]) -> None:
     """Generate Mermaid diagram for decisions."""
     lines = ["graph TD"]
 
-    analysis_content = data.get("analysis", {})
-    _viz_mermaid_node(lines, analysis_content, "root")
+    _viz_mermaid_node(lines, data, "root")
 
     lines.append("")
     lines.append("    classDef default fill:#90EE90")

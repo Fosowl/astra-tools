@@ -36,14 +36,12 @@ class TestSchemaValidation:
         assert is_valid_universe(baseline_universe_path)
 
     def test_missing_version(self, invalid_dir: Path):
-        errors = validate_analysis_schema(invalid_dir / "missing_version.yaml")
-        assert len(errors) > 0
-        assert any("version" in e.lower() for e in errors)
+        errors = validate_analysis_file(invalid_dir / "missing_version.yaml")
+        assert any(e.code == "MISSING_ROOT_FIELD" and "version" in e.message for e in errors)
 
     def test_missing_problem(self, invalid_dir: Path):
-        errors = validate_analysis_schema(invalid_dir / "missing_problem.yaml")
-        assert len(errors) > 0
-        assert any("problem" in e.lower() for e in errors)
+        errors = validate_analysis_file(invalid_dir / "missing_problem.yaml")
+        assert any(e.code == "MISSING_ROOT_FIELD" and "problem" in e.message for e in errors)
 
     def test_invalid_input_type(self, invalid_dir: Path):
         errors = validate_analysis_schema(invalid_dir / "invalid_input_type.yaml")

@@ -46,7 +46,7 @@ class TestValidateCommand:
     def test_validate_invalid_analysis(self, runner: CliRunner, invalid_dir: Path):
         result = runner.invoke(main, ["validate", str(invalid_dir / "missing_version.yaml")])
         assert result.exit_code == 1
-        assert "Schema validation errors" in result.output
+        assert "validation errors" in result.output
 
     def test_validate_universe_without_analysis(
         self, runner: CliRunner, baseline_universe_path: Path, tmp_path: Path
@@ -278,7 +278,7 @@ class TestInitCommand:
         content = (project_dir / "asp.yaml").read_text()
         assert "content-test" in content  # Directory name used as analysis name
         assert "version:" in content
-        assert "analysis:" in content
+        assert "problem:" in content
         assert "decisions:" in content
 
     def test_init_gitignore_content(self, runner: CliRunner, tmp_path: Path):
