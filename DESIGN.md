@@ -9,23 +9,23 @@
 - What we want to produce (outputs)
 - What choices need to be made (decisions)
 
-Crucially, an analysis does **not** specify how to execute the computation. That is the job of an LLM/coding agent, which generates workflows from the specification.
+Crucially, an analysis does **not** specify how to execute the computation. That is the job of an agent (e.g., Prism), which generates implementations from the specification.
 
 ```
 ┌─────────────────┐      ┌─────────────┐      ┌──────────────┐      ┌─────────┐
-│ ASP Analysis    │ ───▶ │ LLM Agent   │ ───▶ │ CWL Workflow │ ───▶ │ Results │
-│ (what we want)  │      │ (generates) │      │ + Parameters │      │         │
+│ ASP Analysis    │ ───▶ │ Agent       │ ───▶ │ Implementation│ ───▶ │ Results │
+│ (what we want)  │      │ (executes)  │      │ (generated)  │      │         │
 │                 │      │             │      │              │      │         │
-│ - inputs        │      │             │      │ steps/       │      │ metrics │
-│ - problem       │      │             │      │ workflows/   │      │ figures │
-│ - outputs       │      │             │      │ scripts/     │      │ tables  │
+│ - inputs        │      │             │      │ scripts/     │      │ metrics │
+│ - problem       │      │             │      │ pipelines/   │      │ figures │
+│ - outputs       │      │             │      │              │      │ tables  │
 │ - decisions     │      │             │      │              │      │ models  │
 └─────────────────┘      └─────────────┘      └──────────────┘      └─────────┘
         ▲                                                                  │
         │                                                                  │
         └──────────────── previous analyses (as inputs) ───────────────────┘
 
-Universe (decision selections) ───▶ Workflow Parameters
+Universe (decision selections) ───▶ Execution Parameters
 ```
 
 ## The Multiverse Concept
@@ -723,391 +723,10 @@ If the user wants to check robustness or explore alternatives:
 3. **Compare** results across universes
 4. **Generate** multiverse summary (specification curve, sensitivity analysis)
 
-## Workflow Integration
+## Execution
 
-While the analysis spec is declarative, execution requires concrete workflows. This section describes how ASP analyses connect to CWL workflows.
+ASP makes no prescription about execution frameworks. The specification defines *what* to compute; execution is handled by the agentic layer (e.g., Prism).
 
-### Design Principles
-
-1. **One workflow per branch**: Each Git branch has its own CWL workflow file
-2. **Shared steps**: Reusable CWL steps live on `main` and are shared across branches
-3. **Universe = parameters**: Different universes are realized by changing workflow parameters, not workflow structure
-4. **Precise provenance**: Inputs must be specified with enough detail for reproducibility
-5. **Output verification**: Execution must produce at least the outputs declared in the analysis
-
-### Directory Structure
-
-```
-my-analysis/
-├── asp.yaml                     # Analysis spec (declarative)
-├── universes/
-│   ├── baseline.yaml            # Universe definitions
-│   └── robust.yaml
-│
-├── steps/                       # Reusable CWL steps (shared across branches)
-│   ├── io/
-│   │   ├── load_sklearn.cwl     # Load from sklearn datasets
-│   │   └── load_file.cwl        # Load from file/URL
-│   ├── preprocessing/
-│   │   ├── scale.cwl            # Parameterized scaling
-│   │   └── feature_select.cwl   # Parameterized feature selection
-│   ├── models/
-│   │   ├── train_sklearn.cwl    # Train any sklearn model (parameterized)
-│   │   └── train_pytorch.cwl    # Train PyTorch model (added by DL branch)
-│   └── evaluation/
-│       ├── metrics.cwl          # Calculate metrics
-│       └── visualize.cwl        # Generate figures
-│
-├── workflows/
-│   ├── main.cwl                 # Workflow for main branch
-│   └── params/
-│       ├── baseline.yaml        # Parameters for baseline universe
-│       └── robust.yaml          # Parameters for robust universe
-│
-├── scripts/                     # Python implementations
-│   ├── scale.py
-│   ├── train_sklearn.py
-│   └── ...
-│
-├── .asp/
-│   └── branches.yaml            # Branch metadata
-│
-└── results/                     # Execution outputs (gitignored)
-```
-
-On a different branch (e.g., `deep-learning`):
-```
-# Additional files on deep-learning branch:
-├── steps/
-│   └── models/
-│       └── train_pytorch.cwl    # New step (merge back to main when stable)
-│
-├── workflows/
-│   ├── deep-learning.cwl        # Branch-specific workflow
-│   └── params/
-│       └── baseline.yaml        # DL-specific parameters
-│
-└── asp.yaml                     # Extended with DL-specific decisions
-```
-
-### How Decisions Map to Workflows
-
-Decisions have different impacts on workflow configuration:
-
-| Decision Type | Workflow Impact | How to Handle |
-|---------------|-----------------|---------------|
-| Pure parameter | Change input value | Same step, different param |
-| Method selection | Same step, different behavior | Parameterized step |
-| Algorithm choice | Different step entirely | Conditional step in workflow |
-| Fundamental approach | Different workflow structure | Different branch |
-
-**Example: Mapping decisions to CWL parameters**
-
-Analysis decision:
-```yaml
-chunks:
-  main:
-    decisions:
-      scaling:
-        options:
-          standard:
-            label: "StandardScaler"
-            value:
-              method: "standard"
-          minmax:
-            label: "MinMaxScaler"
-            value:
-              method: "minmax"
-```
-
-CWL step (parameterized):
-```yaml
-# steps/preprocessing/scale.cwl
-class: CommandLineTool
-baseCommand: [python, scripts/scale.py]
-
-inputs:
-  data:
-    type: File
-    inputBinding: { prefix: --input }
-  method:
-    type: string?
-    inputBinding: { prefix: --method }
-    default: null
-
-outputs:
-  scaled_data:
-    type: File
-    outputBinding: { glob: scaled_data.csv }
-```
-
-Universe parameters:
-```yaml
-# workflows/params/baseline.yaml
-scaling_method: "standard"
-model_type: "random_forest"
-test_size: 0.2
-random_state: 42
-```
-
-### Universe to Parameters Mapping
-
-A universe file specifies decision selections by chunk:
-
-```yaml
-# universes/baseline.yaml
-chunks:
-  main:
-    scaling: standard
-    model: random_forest
-    test_size: split_20
-    random_seed: seed_42
-```
-
-The system extracts `value` fields from selected options to generate workflow parameters:
-
-```yaml
-# Generated: workflows/params/baseline.yaml
-# From universe: baseline
-# Generated at: 2025-01-15T10:00:00Z
-
-scaling_method: "standard"      # from chunks.main.scaling -> options.standard.value.method
-model_type: "random_forest"     # from chunks.main.model (option id)
-test_size: 0.2                  # from chunks.main.test_size -> options.split_20.value
-random_state: 42                # from chunks.main.random_seed -> options.seed_42.value
-```
-
-This mapping can be:
-- **Automatic**: ASP generates params from universe + analysis spec
-- **Manual**: User maintains params files directly (for complex cases)
-- **Hybrid**: Auto-generate with manual overrides
-
-### Input Provenance
-
-For reproducibility, inputs must be precisely specified:
-
-```yaml
-inputs:
-  # External URL with checksum
-  - id: iris_data
-    type: data
-    source:
-      type: url
-      url: "https://archive.ics.uci.edu/ml/datasets/iris/iris.csv"
-      checksum:
-        algorithm: sha256
-        value: "abc123..."
-
-  # S3 with version
-  - id: genomic_data
-    type: data
-    source:
-      type: s3
-      bucket: "my-research-bucket"
-      key: "data/samples.parquet"
-      version_id: "abc123"
-      region: "us-east-1"
-
-  # sklearn dataset (deterministic)
-  - id: iris_sklearn
-    type: data
-    source:
-      type: sklearn
-      dataset: "iris"
-      # No checksum needed - sklearn datasets are versioned
-
-  # Output from another ASP analysis
-  - id: preprocessed_features
-    type: analysis
-    source:
-      type: asp
-      analysis: "preprocessing_study"
-      version: "v1.0"           # Git tag
-      output: "cleaned_data"    # Output id from that analysis
-      execution: "baseline_001" # Specific execution (optional)
-```
-
-The CWL workflow receives resolved paths:
-
-```yaml
-# Workflow inputs (resolved at runtime)
-inputs:
-  iris_data:
-    class: File
-    location: "https://archive.ics.uci.edu/ml/datasets/iris/iris.csv"
-    checksum: "sha256$abc123..."
-```
-
-### Branch-Specific Workflows
-
-When decisions require fundamentally different workflow structures, use branches:
-
-**Main branch workflow** (`workflows/main.cwl`):
-```yaml
-class: Workflow
-inputs:
-  - id: data
-  - id: scaling_method
-  - id: model_type
-  - id: test_size
-  - id: random_state
-
-steps:
-  load:
-    run: ../steps/io/load_sklearn.cwl
-    in: { dataset: data }
-    out: [data]
-
-  preprocess:
-    run: ../steps/preprocessing/scale.cwl
-    in:
-      data: load/data
-      method: scaling_method
-    out: [scaled_data]
-
-  train:
-    run: ../steps/models/train_sklearn.cwl
-    in:
-      data: preprocess/scaled_data
-      model_type: model_type
-      random_state: random_state
-    out: [model, predictions]
-
-  evaluate:
-    run: ../steps/evaluation/metrics.cwl
-    in:
-      predictions: train/predictions
-    out: [accuracy, f1_score, confusion_matrix]
-```
-
-**Deep-learning branch workflow** (`workflows/deep-learning.cwl`):
-```yaml
-class: Workflow
-inputs:
-  - id: data
-  - id: scaling_method
-  - id: architecture      # NEW decision
-  - id: optimizer         # NEW decision
-  - id: learning_rate     # NEW decision
-  - id: epochs            # NEW decision
-  - id: random_state
-
-steps:
-  load:
-    run: ../steps/io/load_sklearn.cwl  # Same step
-    in: { dataset: data }
-    out: [data]
-
-  preprocess:
-    run: ../steps/preprocessing/scale.cwl  # Same step
-    in:
-      data: load/data
-      method: scaling_method
-    out: [scaled_data]
-
-  train:
-    run: ../steps/models/train_pytorch.cwl  # DIFFERENT step
-    in:
-      data: preprocess/scaled_data
-      architecture: architecture
-      optimizer: optimizer
-      learning_rate: learning_rate
-      epochs: epochs
-      random_state: random_state
-    out: [model, predictions]
-
-  evaluate:
-    run: ../steps/evaluation/metrics.cwl  # Same step
-    in:
-      predictions: train/predictions
-    out: [accuracy, f1_score, confusion_matrix]
-```
-
-Note how `load`, `preprocess`, and `evaluate` steps are shared—only `train` differs.
-
-### Step Reuse Strategy
-
-Steps should be designed for reuse:
-
-1. **Parameterize generously**: A single `train_sklearn.cwl` handles all sklearn models via `model_type` parameter
-2. **Keep steps focused**: One step = one responsibility
-3. **Merge new steps to main**: When a branch creates a useful step, merge it back so other branches can use it
-4. **Version steps carefully**: Breaking changes to steps affect all workflows using them
-
-```
-Step lifecycle:
-1. Branch creates new step (e.g., train_pytorch.cwl)
-2. Step is tested and refined on branch
-3. Step is merged to main (available to all branches)
-4. Other branches can now use the step
-```
-
-### Output Verification
-
-After execution, verify that declared outputs were produced:
-
-```yaml
-# Analysis declares:
-outputs:
-  - id: accuracy
-    type: metric
-    dtype: float
-    range: [0, 1]
-  - id: confusion_matrix
-    type: figure
-    formats: [png, svg]
-```
-
-Execution produces:
-```yaml
-# executions/baseline_001.yaml
-metrics:
-  accuracy: 0.967       # ✓ matches declared metric
-  f1_score: 0.965       # ✓ bonus metric (allowed)
-
-artifacts:
-  confusion_matrix: "results/baseline_001/confusion_matrix.png"  # ✓ matches declared artifact
-```
-
-Verification checks:
-- [ ] All declared metrics are present
-- [ ] Metric values are within declared ranges
-- [ ] All declared artifacts exist at their paths
-- [ ] Artifact formats match declared formats
-
-### Environment Specification
-
-Each workflow should declare its environment:
-
-```yaml
-# workflows/main.cwl
-requirements:
-  DockerRequirement:
-    dockerPull: "ghcr.io/my-org/my-analysis:v1.0"
-  # OR
-  SoftwareRequirement:
-    packages:
-      - package: python
-        version: ["3.10", "3.11"]
-      - package: scikit-learn
-        version: ["1.3.0"]
-```
-
-Alternatively, use a separate environment file:
-
-```yaml
-# environment.yaml
-python: "3.11"
-packages:
-  - scikit-learn==1.3.0
-  - pandas>=2.0
-  - matplotlib>=3.7
-
-docker:
-  base: "python:3.11-slim"
-  # OR
-  image: "ghcr.io/my-org/my-analysis:v1.0"
-```
 
 ## Versioning and Lifecycle
 
@@ -1270,38 +889,39 @@ This provides semantic context for why branches exist.
 
 ## CLI Commands
 
-The ASP CLI provides tools for working with analyses:
+The ASP CLI provides tools for working with specifications:
 
 ```bash
-# Validate an analysis specification
-asp validate asp.yaml
-asp validate universes/baseline.yaml
+# Project setup
+asp init my-analysis               # Create minimal scaffold
+asp init my-analysis --no-git      # Skip git initialization
 
-# Show analysis information
-asp info
-asp info --decisions
-asp info --universes
+# Validation
+asp validate asp.yaml              # Validate analysis specification
+asp validate universes/baseline.yaml  # Validate universe against spec
+asp validate asp.yaml --verify-evidence  # Verify evidence quotes
 
-# List valid universes
-asp universes --count
-asp universes --list
+# Exploration
+asp info                           # Show analysis summary
+asp info --decisions               # Show decision details
+asp viz                            # Visualize decision space (ASCII)
+asp viz --format mermaid           # Mermaid diagram
 
-# Generate baseline universe from defaults
-asp universe generate --name baseline
+# Universe management
+asp universe generate --name baseline  # Generate universe from defaults
+asp universe check universes/foo.yaml  # Check universe constraints
 
-# Generate workflow parameters from universe
-asp params universes/baseline.yaml -o workflows/params/baseline.yaml
+# Schema utilities
+asp schema export                  # Export JSON schemas
+asp schema show analysis           # Print schema to stdout
 
-# Visualize decision space
-asp viz --format mermaid
-asp viz --format ascii
-
-# Run an analysis (invokes agent)
-asp run universes/baseline.yaml
-
-# Compare executions
-asp compare executions/baseline_001.yaml executions/robust_001.yaml
+# Paper management
+asp paper add <doi>                # Cache a paper
+asp paper list                     # List cached papers
+asp paper verify-quotes <doi>      # Verify evidence quotes
 ```
+
+For full agentic scaffolding (Claude Code config, HPC targets, visual editors), use Prism: `prism init`.
 
 ## Schema Reference
 

@@ -4,26 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ASP (Agentic Science Protocol) is a declarative specification format for scientific analyses that can be executed by AI agents. It separates **what** you want to learn from **how** to compute it through a structured YAML-based specification.
+ASP (Agentic Science Protocol) is the **core specification** for scientific analyses. It provides schema, validation, insights, evidence verification, and a minimal CLI.
 
 **Key principle**: The specification says WHAT, not HOW. AI agents read the spec and generate the implementation.
+
+**Architecture**:
+- **ASP** (this repo) = pure specification: schema, validation, insights, verification, helpers, minimal CLI
+- **Prism** (separate repo) = agentic layer: Claude Code skills, project scaffolding, remote/HPC config
+- **Spectrum** (future) = UI layer
 
 ## Repository Structure
 
 ```
-agentic-science-protocol/
+ASP/
 ├── spec/                          # THE SPECIFICATION (versioned)
 │   └── draft/                     # Working version (becomes 1.0/ at release)
 │       ├── analysis.schema.json
 │       ├── universe.schema.json
 │       └── insights.schema.json
-│   # 1.0/, 1.1/, 2.0/, etc. created at release (immutable once released)
-│
-├── claude/                        # Claude Code skills
-│   └── asp/                       # ASP skills
-│       └── skills/
-│           └── asp/
-│               └── SKILL.md       # Skill instructions
 │
 ├── models/                        # Pydantic models (dev only, NOT installed)
 │   ├── __init__.py
@@ -38,24 +36,20 @@ agentic-science-protocol/
 │
 ├── src/asp/                       # Python SDK/CLI (installed package)
 │   ├── __init__.py                # Public API exports
-│   ├── cli.py                     # Click-based CLI
+│   ├── cli.py                     # Click-based CLI (spec operations only)
 │   ├── helpers.py                 # Dict-based utilities
 │   ├── validation/                # Loads from spec/draft/ (dev) or bundled (prod)
 │   │   ├── schema.py              # JSON schema validation
 │   │   └── semantic.py            # Semantic validation
-│   ├── models/                    # Pydantic models (for workflow module)
 │   ├── papers/                    # Paper downloading and caching
-│   ├── verification/              # PDF processing and insight verification
-│   └── workflow/                  # CWL integration
+│   └── verification/              # PDF processing and insight verification
 │   # Note: asp/spec/ created at build time with bundled schemas
 │
 ├── tools/                         # Build scripts (dev only)
 │   └── generate_schemas.py        # models/ → spec/draft/
 │
-├── tests/
-│   └── fixtures/                  # Test fixtures (also in examples/)
-│
-└── docs/
+└── tests/
+    └── fixtures/                  # Test fixtures (also in examples/)
 ```
 
 ## Architecture
@@ -66,7 +60,7 @@ agentic-science-protocol/
 2. **Pydantic models are the source** - `models/` generates schemas, NOT installed
 3. **Schemas not in source tree** - `spec/draft/` bundled at build time, loaded directly in dev
 4. **Validation is dict-based** - No Pydantic models in validation path
-5. **Workflow can use Pydantic** - CWL integration uses models internally
+5. **No execution framework** - ASP defines what, not how. Execution is handled by Prism.
 
 ### Core Components
 
@@ -87,13 +81,17 @@ agentic-science-protocol/
 
 4. **CLI** (`src/asp/cli.py`)
    - Built with Click and Rich for terminal UI
-   - Commands: init, validate, info, universe, viz, schema, paper, canvas
+   - Commands: init, validate, info, universe, viz, schema, paper
    - Uses `find_analysis_file()` to locate `asp.yaml`
-   - `canvas` command launches the visual editor (asp-canvas package, lazy import)
+   - `init` creates a minimal scaffold (asp.yaml, universes/, .gitignore)
 
 5. **Helpers** (`src/asp/helpers.py`)
    - Dict-based utilities: `load_yaml`, `get_decision`, `get_default_universe`
    - No Pydantic model dependencies
+
+6. **Papers & Verification** (`src/asp/papers/`, `src/asp/verification/`)
+   - Paper downloading and caching by DOI
+   - PDF text extraction and evidence quote verification
 
 ### Key Concepts
 
@@ -152,24 +150,12 @@ When users create a new analysis with `asp init my-analysis`:
 ```
 my-analysis/
 ├── asp.yaml              # Analysis specification (edit this)
-├── CLAUDE.md             # Build conventions + project context for Claude Code
 ├── .gitignore
-├── universes/
-│   └── baseline.yaml     # Default universe (decision selections)
-├── workflows/            # CWL workflow definitions
-├── steps/                # Workflow step implementations
-├── results/              # Execution outputs (gitignored)
-├── .claude/              # Claude Code configuration
-│   └── settings.json     # Configures permissions and hooks for ASP workflows
+└── universes/
+    └── baseline.yaml     # Default universe (decision selections)
 ```
 
-The `settings.json` configures Claude Code permissions and hooks directly (e.g., venv activation, skill loading) for working with ASP projects.
-
-### Workflow: Specification → Build
-
-1. `asp init` creates the project scaffold including `CLAUDE.md` with conventions
-2. `/asp-new` scopes the analysis and populates `CLAUDE.md` with project-specific details (chunks, decisions, implementation notes)
-3. The user starts building — Claude Code reads `CLAUDE.md` + `asp.yaml` and implements naturally
+For full agentic scaffolding (Claude Code config, skills, scripts, venv, HPC targets), use `prism init` instead.
 
 ## Important Design Patterns
 
@@ -253,8 +239,8 @@ chunks:
 ### Releasing a New Schema Version
 
 ASP uses **Major.Minor** versioning for the specification:
-- **Major bump (1.x → 2.0)**: Breaking changes - old files won't validate
-- **Minor bump (1.0 → 1.1)**: New optional fields only - old files still valid
+- **Major bump (1.x -> 2.0)**: Breaking changes - old files won't validate
+- **Minor bump (1.0 -> 1.1)**: New optional fields only - old files still valid
 - **Immutable**: Released versions are never modified
 
 Release process:
@@ -279,7 +265,7 @@ version: "1.0"  # Must match a spec/X.Y/ directory
 - Schema bundling: `spec/draft/` bundled into `asp/spec/` at build time
 
 ### Dependencies
-- Core: click, pyyaml, jsonschema, pydantic, rich
+- Core: click, pyyaml, jsonschema, pydantic, rich, pypdf, httpx, rapidfuzz
 - Dev: pytest, pytest-cov, ruff, mypy, types-*
 
 ## Key Conventions
@@ -294,4 +280,3 @@ version: "1.0"  # Must match a spec/X.Y/ directory
 
 - **DESIGN.md**: Complete specification of the ASP format
 - **README.md**: User-facing documentation and quick start
-- **claude/asp/skills/asp/SKILL.md**: Skill instructions for working with ASP

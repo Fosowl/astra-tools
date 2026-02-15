@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 import click
-import yaml
 from rich.console import Console
 from rich.table import Table
 from rich.tree import Tree
@@ -32,12 +30,6 @@ from asp.validation.schema import (
     validate_universe_schema,
 )
 from asp.validation.semantic import validate_analysis_file, validate_universe_file
-from asp.workflow.generator import generate_params_file, generate_params_string
-from asp.workflow.parser import parse_cwl_inputs
-from asp.workflow.validator import (
-    get_decision_param_mapping,
-    validate_decision_coverage,
-)
 
 console = Console()
 
@@ -79,27 +71,20 @@ def main() -> None:
 @main.command()
 @click.argument("directory", type=click.Path(path_type=Path), default=".")
 @click.option("--no-git", is_flag=True, help="Don't initialize git repository")
-@click.option("--no-venv", is_flag=True, help="Don't create Python virtual environment")
-@click.option("--target", "-t", help="HPC/remote target (e.g., nersc)")
-def init(directory: Path, no_git: bool, no_venv: bool, target: str | None) -> None:
-    """Create a new ASP analysis project.
+def init(directory: Path, no_git: bool) -> None:
+    """Create a minimal ASP analysis scaffold.
 
-    Creates the project scaffolding for an ASP analysis with Claude Code
-    plugin configuration and a Python virtual environment.
+    Creates asp.yaml, universes/baseline.yaml, and .gitignore.
 
     DIRECTORY is the project folder to create (default: current directory).
 
+    For full agentic scaffolding (Claude Code config, venv, HPC),
+    use 'prism init' instead.
+
     Examples:
         asp init my-analysis
-        asp init my-analysis --no-git    # Without git initialization
-        asp init my-analysis --no-venv   # Without virtual environment
-        asp init my-analysis --target nersc  # With NERSC HPC config
+        asp init my-analysis --no-git
     """
-    # Resolve target configuration if specified
-    target_config: dict[str, Any] | None = None
-    if target is not None:
-        target_config = _resolve_target_config(target)
-
     # Check if this is already an ASP project
     if (directory / "asp.yaml").exists():
         console.print(
@@ -119,14 +104,7 @@ def init(directory: Path, no_git: bool, no_venv: bool, target: str | None) -> No
         directory.mkdir(parents=True, exist_ok=True)
 
     # Create directory structure
-    subdirs = [
-        "universes",
-        "workflows",
-        "steps",
-        "results",
-    ]
-    for subdir in subdirs:
-        (directory / subdir).mkdir(parents=True, exist_ok=True)
+    (directory / "universes").mkdir(parents=True, exist_ok=True)
 
     # Create .gitignore
     gitignore = """# ASP Analysis
@@ -137,68 +115,17 @@ __pycache__/
 .ipynb_checkpoints/
 .DS_Store
 """
-    if target_config is not None:
-        gitignore += """\n# HPC (user-specific)
-.claude/hpc.yaml
-.claude/.hpc-session-usage
-"""
     (directory / ".gitignore").write_text(gitignore)
 
     # Create boilerplate asp.yaml
     _create_boilerplate_asp_yaml(directory)
 
-    # Create CLAUDE.md with ASP conventions
-    _create_claude_md(directory, target_config=target_config, target_name=target)
-
-    # Create Claude Code settings with local skills
-    _create_claude_settings(directory, target_config=target_config)
-
-    # Create project-level HPC config if target specified
-    if target_config is not None:
-        _create_project_hpc_config(directory, target_config)
-
-    # Create virtual environment
-    _create_venv(directory, no_venv)
-
     # Initialize git repository
     _init_git_repo(directory, no_git)
 
     # Print success message
-    console.print(f"[green]✓[/green] Created ASP analysis project: [cyan]{directory}[/cyan]")
-    if target_config is not None:
-        display = target_config.get("target", {}).get("display_name", target)
-        console.print(f"[green]✓[/green] Configured HPC target: [cyan]{display}[/cyan]")
-
-    console.print(f"\n[bold]cd {directory}[/bold], then either:")
-    console.print("  • [cyan]asp canvas[/cyan] to open the visual canvas")
-    console.print("  • [cyan]claude[/cyan] to work from the command line")
-    console.print("\nThen run [cyan]/asp:new[/cyan] to scope your research question.")
-
-
-def _update_gitignore_for_asp(directory: Path) -> None:
-    """Update or create .gitignore with ASP entries."""
-    gitignore_path = directory / ".gitignore"
-    asp_entries = """
-# ASP
-results/
-.asp-cache/
-"""
-    if gitignore_path.exists():
-        existing = gitignore_path.read_text()
-        if "# ASP" not in existing:
-            with open(gitignore_path, "a") as f:
-                f.write(asp_entries)
-    else:
-        gitignore = """# ASP Analysis
-results/
-.asp-cache/
-__pycache__/
-*.py[cod]
-.venv/
-.ipynb_checkpoints/
-.DS_Store
-"""
-        gitignore_path.write_text(gitignore)
+    console.print(f"[green]✓[/green] Created ASP analysis scaffold: [cyan]{directory}[/cyan]")
+    console.print("\nFor full agentic scaffolding, use [cyan]prism init[/cyan] instead.")
 
 
 def _create_boilerplate_asp_yaml(directory: Path) -> None:
@@ -206,7 +133,7 @@ def _create_boilerplate_asp_yaml(directory: Path) -> None:
     name = directory.name if directory != Path(".") else "My Analysis"
 
     asp_yaml = f"""# ASP Analysis Specification
-# Documentation: https://github.com/EiffL/ASP
+# Documentation: https://github.com/LightconeResearch/ASP
 
 version: "1.0"
 
@@ -262,285 +189,6 @@ chunks:
 """
     (directory / "universes" / "baseline.yaml").write_text(baseline_universe)
 
-    # Create README
-    _create_readme(directory, name)
-
-
-def _create_readme(directory: Path, name: str) -> None:
-    """Create a README.md for the project."""
-    readme = f"""# {name}
-
-An ASP (Agentic Science Protocol) analysis project.
-
-## Quick Start
-
-```bash
-# Open in Claude Code
-claude
-
-# Scope the analysis
-/asp-new
-
-# Then start building (Claude reads CLAUDE.md for conventions)
-```
-
-## Structure
-
-- `asp.yaml` — Analysis specification (source of truth)
-- `CLAUDE.md` — Build conventions and project context for Claude Code
-- `universes/` — Decision selections (one YAML per universe)
-- `workflows/` — CWL workflow definitions
-- `steps/` — Workflow step implementations
-- `results/` — Execution outputs (gitignored)
-
-## Documentation
-
-See [ASP documentation](https://github.com/LightconeResearch/ASP) for more information.
-"""
-    (directory / "README.md").write_text(readme)
-
-
-def _create_claude_md(
-    directory: Path,
-    target_config: dict[str, Any] | None = None,
-    target_name: str | None = None,
-) -> None:
-    """Create CLAUDE.md from the template in the plugin source.
-
-    Copies the template and substitutes {{name}} with the project name.
-    The /asp-new skill fills in project-specific sections later.
-
-    If target_config is provided, appends HPC guidelines before the
-    Analysis Details section.
-    """
-    name = directory.name if directory != Path(".") else "My Analysis"
-
-    # Find the template
-    plugin_source = _get_plugin_source_dir()
-    template_path = plugin_source / "templates" / "CLAUDE.md" if plugin_source else None
-
-    if template_path and template_path.exists():
-        content = template_path.read_text()
-        content = content.replace("{{name}}", name)
-    else:
-        # Fallback: minimal CLAUDE.md if template not found
-        content = (
-            f"# CLAUDE.md\n\n## Project: {name}\n\n"
-            "This is an ASP analysis project. Read `asp.yaml` for the specification.\n\n"
-            "Read `.claude/skills/asp/SKILL.md` for how ASP works.\n\n"
-            "---\n\n"
-            "<!-- AUTOGENERATED: /asp-new populates below during specification -->\n"
-            "## Analysis Details\n\n"
-            "_Run `/asp-new` to scope the research question and populate this section._\n"
-        )
-
-    # Insert compute notes before Analysis Details section
-    if target_config is not None:
-        notes = target_config.get("notes")
-        if notes:
-            notes_section = f"### Compute Notes\n\n{notes.strip()}\n\n"
-            marker = "<!-- AUTOGENERATED: /asp-new populates below during specification -->"
-            if marker in content:
-                content = content.replace(marker, notes_section + marker)
-            else:
-                content += "\n" + notes_section
-
-    (directory / "CLAUDE.md").write_text(content)
-
-
-def _get_plugin_source_dir() -> Path | None:
-    """Find the ASP plugin source directory.
-
-    Looks for the plugin files in:
-    1. Bundled location (installed package): asp/claude/asp/
-    2. Development location (repo): claude/asp/ relative to repo root
-    """
-    # Try bundled location first (installed package)
-    import asp
-
-    package_dir = Path(asp.__file__).parent
-    bundled_plugin = package_dir / "claude" / "asp"
-    if bundled_plugin.exists():
-        return bundled_plugin
-
-    # Try development location (running from repo)
-    # Go up from src/asp/ to repo root, then into claude/asp/
-    repo_root = package_dir.parent.parent
-    dev_plugin = repo_root / "claude" / "asp"
-    if dev_plugin.exists():
-        return dev_plugin
-
-    return None
-
-
-def _create_claude_settings(
-    directory: Path, target_config: dict[str, Any] | None = None
-) -> None:
-    """Create Claude Code settings with ASP skills and agents."""
-    claude_dir = directory / ".claude"
-    claude_dir.mkdir(parents=True, exist_ok=True)
-
-    # Find the plugin source directory
-    plugin_source = _get_plugin_source_dir()
-    if plugin_source is None:
-        console.print(
-            "[yellow]Warning:[/yellow] Could not find ASP plugin source files. "
-            "Claude Code skills will not be available."
-        )
-        return
-
-    # Copy scripts
-    scripts_src = plugin_source / "scripts"
-    scripts_dst = claude_dir / "scripts"
-    if scripts_src.exists():
-        if scripts_dst.exists():
-            shutil.rmtree(scripts_dst)
-        shutil.copytree(scripts_src, scripts_dst)
-        # Make scripts executable
-        for script in scripts_dst.glob("*.sh"):
-            script.chmod(script.stat().st_mode | 0o111)
-
-    # Copy skills
-    skills_src = plugin_source / "skills"
-    skills_dst = claude_dir / "skills"
-    if skills_src.exists():
-        if skills_dst.exists():
-            shutil.rmtree(skills_dst)
-        shutil.copytree(skills_src, skills_dst)
-
-    # Copy agents (for sub-agent spawning)
-    agents_src = plugin_source / "agents"
-    agents_dst = claude_dir / "agents"
-    if agents_src.exists():
-        if agents_dst.exists():
-            shutil.rmtree(agents_dst)
-        shutil.copytree(agents_src, agents_dst)
-
-    # Create settings.json with hooks configured directly (no marketplace)
-    settings: dict[str, Any] = {
-        "permissions": {
-            "allow": [
-                "Bash(asp:*)",
-                "Bash(python:*)",
-                "Bash(cwltool:*)",
-                "Edit",
-                "WebSearch",
-                "WebFetch",
-            ],
-        },
-        "hooks": {
-            "SessionStart": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": ".claude/scripts/activate-venv.sh",
-                            "timeout": 5,
-                        },
-                        {
-                            "type": "command",
-                            "command": ".claude/scripts/session-start.sh",
-                            "timeout": 10,
-                        },
-                    ],
-                },
-            ],
-            "PostToolUse": [
-                {
-                    "matcher": "Write|Edit",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": ".claude/scripts/validate-on-save.sh",
-                            "timeout": 15,
-                        },
-                    ],
-                },
-            ],
-        },
-    }
-
-    # Add HPC-specific permissions and hooks if target configured
-    if target_config is not None:
-        from asp.remote import merge_permissions_into_settings
-
-        merge_permissions_into_settings(settings, target_config)
-
-        # Add HPC guard hook (PreToolUse on Bash)
-        if "PreToolUse" not in settings["hooks"]:
-            settings["hooks"]["PreToolUse"] = []
-        settings["hooks"]["PreToolUse"].append(
-            {
-                "matcher": "Bash",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": ".claude/scripts/hpc-guard.sh",
-                        "timeout": 5,
-                    },
-                ],
-            },
-        )
-
-        # Add HPC session start hook
-        settings["hooks"]["SessionStart"][0]["hooks"].append(
-            {
-                "type": "command",
-                "command": ".claude/scripts/hpc-session-start.sh",
-                "timeout": 5,
-            },
-        )
-
-    settings_file = claude_dir / "settings.json"
-    settings_file.write_text(json.dumps(settings, indent=2) + "\n")
-
-
-def _resolve_target_config(target: str) -> dict[str, Any]:
-    """Resolve a target name to a full configuration.
-
-    Loads saved config or errors with instructions to run setup first.
-    Auto-detects username from $USER if not in saved config.
-    Raises SystemExit if the target cannot be resolved.
-    """
-    import os
-
-    from asp.remote import load_target_config
-
-    saved = load_target_config(target)
-    if saved is None:
-        console.print(
-            f"[red]Error:[/red] No saved target '{target}'. "
-            f"Run [cyan]asp remote setup {target}[/cyan] first."
-        )
-        raise SystemExit(1)
-
-    console.print(f"[green]✓[/green] Using saved target: [cyan]{target}[/cyan]")
-
-    # Auto-detect username if missing
-    auth = saved.get("auth", {})
-    if not auth.get("username"):
-        username = os.environ.get("USER", "")
-        if username:
-            auth["username"] = username
-            saved["auth"] = auth
-
-    return saved
-
-
-def _create_project_hpc_config(directory: Path, target_config: dict[str, Any]) -> None:
-    """Create .claude/hpc.yaml with project-level HPC configuration."""
-    from asp.remote import create_project_hpc_config
-
-    claude_dir = directory / ".claude"
-    claude_dir.mkdir(parents=True, exist_ok=True)
-
-    project_config = create_project_hpc_config(target_config)
-    hpc_path = claude_dir / "hpc.yaml"
-    with open(hpc_path, "w") as f:
-        yaml.dump(project_config, f, default_flow_style=False, sort_keys=False)
-
-    console.print(f"[green]✓[/green] Created HPC config: [cyan]{hpc_path}[/cyan]")
-
 
 def _init_git_repo(directory: Path, no_git: bool) -> None:
     """Initialize git repository if requested."""
@@ -568,52 +216,6 @@ def _init_git_repo(directory: Path, no_git: bool) -> None:
             pass  # Commit failed, but repo is initialized
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass  # Git not available
-
-
-def _create_venv(directory: Path, no_venv: bool) -> bool:
-    """Create a virtual environment with asp installed.
-
-    Returns True if venv was created successfully.
-    """
-    if no_venv:
-        return False
-
-    venv_path = directory / ".venv"
-
-    # Create the virtual environment
-    try:
-        subprocess.run(
-            [sys.executable, "-m", "venv", str(venv_path)],
-            capture_output=True,
-            check=True,
-        )
-    except subprocess.CalledProcessError as e:
-        console.print(f"[yellow]Warning:[/yellow] Failed to create virtual environment: {e}")
-        return False
-
-    console.print("[green]✓[/green] Created virtual environment (.venv)")
-
-    # Determine pip path
-    if sys.platform == "win32":
-        pip_path = venv_path / "Scripts" / "pip"
-    else:
-        pip_path = venv_path / "bin" / "pip"
-
-    # Try to install asp from GitHub via SSH
-    try:
-        subprocess.run(
-            [str(pip_path), "install", "git+ssh://git@github.com/LightconeResearch/ASP.git"],
-            capture_output=True,
-            check=True,
-        )
-        console.print("[green]✓[/green] Installed asp in virtual environment")
-    except subprocess.CalledProcessError:
-        console.print(
-            "[yellow]Warning:[/yellow] Could not install asp (SSH auth may have failed). "
-            "You can install manually with: .venv/bin/pip install asp"
-        )
-
-    return True
 
 
 @main.command()
@@ -714,14 +316,7 @@ def validate(file: Path, analysis: Path | None, verify_evidence: bool, skip_evid
 
 
 def _verify_insights_evidence(insights: dict[str, Any]) -> None:
-    """Verify evidence for all insights.
-
-    Args:
-        insights: Dict of insight_id -> insight data.
-
-    Raises:
-        SystemExit: If any evidence verification fails.
-    """
+    """Verify evidence for all insights."""
     from asp.papers.cache import PaperCache
     from asp.verification.cache import VerificationCache
     from asp.verification.core import VerificationStatus, verify_all_insights
@@ -1072,8 +667,6 @@ def schema() -> None:
 )
 def schema_export(output: Path) -> None:
     """Export JSON schemas to files."""
-    import json
-
     output.mkdir(parents=True, exist_ok=True)
 
     schemas = {
@@ -1097,8 +690,6 @@ def schema_export(output: Path) -> None:
 @click.argument("schema_type", type=click.Choice(["analysis", "universe", "insights"]))
 def schema_show(schema_type: str) -> None:
     """Print a JSON schema to stdout."""
-    import json
-
     schema_getters = {
         "analysis": get_analysis_schema,
         "universe": get_universe_schema,
@@ -1106,300 +697,6 @@ def schema_show(schema_type: str) -> None:
     }
     schema_data = schema_getters[schema_type]()
     console.print(json.dumps(schema_data, indent=2))
-
-
-# =============================================================================
-# Workflow commands
-# =============================================================================
-
-
-@main.command("params")
-@click.argument("universe_file", type=click.Path(exists=True, path_type=Path))
-@click.option("-o", "--output", type=click.Path(path_type=Path), help="Write to file")
-@click.option("-a", "--analysis", type=click.Path(exists=True, path_type=Path))
-@click.option("--inputs/--no-inputs", default=True, help="Include ASP inputs as CWL File params")
-def params(universe_file: Path, output: Path | None, analysis: Path | None, inputs: bool) -> None:
-    """Generate CWL parameters from a universe.
-
-    Outputs YAML to stdout by default. Use -o to write to a file.
-    Includes ASP input files by default (use --no-inputs to exclude).
-    """
-    analysis_path = _require_analysis(analysis, universe_file.parent)
-    spec = load_yaml(analysis_path)
-    uni = load_yaml(universe_file)
-    base_path = analysis_path.parent if inputs else None
-    yaml_output = generate_params_string(spec, uni, include_inputs=inputs, base_path=base_path)
-
-    if output is None:
-        # Output to stdout (raw YAML, no Rich formatting)
-        print(yaml_output, end="")
-    else:
-        generate_params_file(spec, uni, output, include_inputs=inputs, base_path=base_path)
-        console.print(f"[green]✓[/green] Generated parameters at [cyan]{output}[/cyan]")
-
-
-@main.group()
-def workflow() -> None:
-    """Workflow integration commands."""
-    pass
-
-
-@workflow.command("generate")
-@click.option("-a", "--analysis", type=click.Path(exists=True, path_type=Path))
-@click.option(
-    "-o",
-    "--output",
-    type=click.Path(path_type=Path),
-    help="Output path (default: workflows/main.cwl)",
-)
-def workflow_generate(analysis: Path | None, output: Path | None) -> None:
-    """Generate CWL workflow skeleton from ASP specification.
-
-    Creates a CWL Workflow with:
-    - Inputs for data-type ASP inputs (as File type) and decisions
-    - Outputs referencing step outputs via outputSource
-    - A single step referencing steps/main.cwl
-
-    The generated workflow is a starting point. Implement steps/main.cwl
-    as a CommandLineTool with the actual analysis logic.
-    """
-    from asp.workflow.generator import generate_cwl_file
-
-    analysis_path = _require_analysis(analysis)
-    spec = load_yaml(analysis_path)
-
-    # Default output path
-    if output is None:
-        output = analysis_path.parent / "workflows" / "main.cwl"
-
-    # Check if file exists
-    if output.exists():
-        if not click.confirm(f"[yellow]{output}[/yellow] exists. Overwrite?"):
-            console.print("Aborted.")
-            return
-
-    generate_cwl_file(spec, output)
-    console.print(f"[green]✓[/green] Generated CWL workflow at [cyan]{output}[/cyan]")
-    console.print("\nNext steps:")
-    console.print("  1. Create [cyan]steps/main.cwl[/cyan] as a CommandLineTool")
-    console.print("  2. Implement the analysis logic in your step")
-    console.print(f"  3. Run: [cyan]asp workflow run universes/baseline.yaml --cwl {output}[/cyan]")
-
-
-@workflow.command("validate")
-@click.option("--cwl", type=click.Path(exists=True, path_type=Path), required=True)
-@click.option("-a", "--analysis", type=click.Path(exists=True, path_type=Path))
-@click.option("--syntax-only", is_flag=True, help="Only validate CWL syntax, skip ASP mapping")
-def workflow_validate(cwl: Path, analysis: Path | None, syntax_only: bool) -> None:
-    """Validate CWL workflow against ASP decisions and CWL specification.
-
-    Validates both CWL syntax (using cwltool) and ASP decision mapping.
-    """
-    from asp.workflow.validator import validate_cwl_syntax
-
-    console.print(f"Validating [cyan]{cwl}[/cyan]...")
-
-    # CWL syntax validation
-    syntax_errors = validate_cwl_syntax(cwl)
-    if syntax_errors:
-        console.print("\n[red]CWL syntax errors:[/red]")
-        for error in syntax_errors:
-            console.print(f"  [red]ERROR[/red] {error}")
-        raise SystemExit(1)
-    console.print("[green]✓[/green] CWL syntax valid")
-
-    if syntax_only:
-        return
-
-    # ASP mapping validation
-    analysis_path = _require_analysis(analysis)
-    spec = load_yaml(analysis_path)
-    console.print(f"Checking mapping against [cyan]{analysis_path}[/cyan]...")
-
-    errors = validate_decision_coverage(spec, cwl)
-    if errors:
-        console.print("\n[red]Mapping errors:[/red]")
-        for error in errors:
-            is_warning = error.code == "UNMAPPED_DECISION"
-            level = "[yellow]WARN[/yellow]" if is_warning else "[red]ERROR[/red]"
-            console.print(f"  {level} {error}")
-        raise SystemExit(1)
-
-    console.print("[green]✓[/green] All decisions map to CWL parameters")
-    console.print("[green]✓[/green] All required CWL parameters are covered")
-
-
-@workflow.command("show")
-@click.option("--cwl", type=click.Path(exists=True, path_type=Path), required=True)
-@click.option("-a", "--analysis", type=click.Path(exists=True, path_type=Path))
-def workflow_show(cwl: Path, analysis: Path | None) -> None:
-    """Show CWL workflow inputs and their ASP mappings."""
-    analysis_path = _require_analysis(analysis)
-    spec = load_yaml(analysis_path)
-
-    try:
-        cwl_params = parse_cwl_inputs(cwl)
-    except FileNotFoundError:
-        console.print(f"[red]Error:[/red] CWL file not found: {cwl}")
-        raise SystemExit(1)
-    except ValueError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise SystemExit(1)
-
-    decision_mapping = get_decision_param_mapping(spec, cwl)
-    param_to_decision = {
-        param: decision_id for decision_id, params in decision_mapping.items() for param in params
-    }
-
-    console.print(f"\n[bold]CWL Inputs: {cwl.name}[/bold]\n")
-
-    table = Table(show_header=True)
-    table.add_column("CWL Parameter")
-    table.add_column("Type")
-    table.add_column("Required")
-    table.add_column("ASP Decision")
-    table.add_column("Status")
-
-    for p in cwl_params:
-        decision = param_to_decision.get(p.name, "")
-        if decision:
-            status = "[green]mapped[/green]"
-        elif not p.required:
-            status = "[dim]optional[/dim]"
-        else:
-            status = "[yellow]unmapped[/yellow]"
-        table.add_row(p.name, p.type, "Yes" if p.required else "No", decision, status)
-
-    console.print(table)
-
-    unmapped_required = [p for p in cwl_params if p.name not in param_to_decision and p.required]
-    console.print(f"\n[dim]Mapped: {len(param_to_decision)}/{len(cwl_params)} parameters[/dim]")
-    if unmapped_required:
-        console.print(
-            f"[yellow]Warning:[/yellow] {len(unmapped_required)} required parameters unmapped"
-        )
-
-
-@workflow.command("run")
-@click.argument("universe_file", type=click.Path(exists=True, path_type=Path))
-@click.option("--cwl", type=click.Path(exists=True, path_type=Path), required=True)
-@click.option("-a", "--analysis", type=click.Path(exists=True, path_type=Path))
-@click.option("-o", "--outdir", type=click.Path(path_type=Path), help="Output directory")
-@click.option("--quiet", "-q", is_flag=True, help="Suppress cwltool progress output")
-def workflow_run(
-    universe_file: Path,
-    cwl: Path,
-    analysis: Path | None,
-    outdir: Path | None,
-    quiet: bool,
-) -> None:
-    """Run a CWL workflow with parameters from a universe.
-
-    Generates CWL parameters (including input files) from the universe
-    and executes the workflow using cwltool. After successful execution,
-    writes run_metadata.yaml to the output directory.
-
-    If --outdir is not specified, defaults to results/<universe_id>/.
-
-    Example:
-        asp workflow run universes/baseline.yaml --cwl workflows/main.cwl
-    """
-    import tempfile
-    from datetime import UTC, datetime
-
-    from asp.workflow.mapping import extract_decision_values, resolve_inputs
-
-    analysis_path = _require_analysis(analysis, universe_file.parent)
-    spec = load_yaml(analysis_path)
-    uni = load_yaml(universe_file)
-    universe_id = uni.get("id", universe_file.stem)
-
-    # Default outdir to results/<universe_id>/
-    if outdir is None:
-        outdir = analysis_path.parent / "results" / universe_id
-
-    # Generate parameters including inputs
-    base_path = analysis_path.parent
-    params_yaml = generate_params_string(spec, uni, include_inputs=True, base_path=base_path)
-
-    # Count resolved inputs for display
-    resolved_inputs = resolve_inputs(spec, base_path)
-    data_inputs = [i for i in get_inputs(spec) if i.get("type") == "data"]
-
-    console.print(f"[dim]Universe:[/dim] {universe_file.name}")
-    console.print(f"[dim]Workflow:[/dim] {cwl.name}")
-    console.print(f"[dim]Output:[/dim] {outdir}")
-    if data_inputs:
-        console.print(f"[dim]Inputs:[/dim] {len(resolved_inputs)}/{len(data_inputs)} resolved")
-    console.print()
-
-    # Write params to temp file (cwltool needs a file path for complex inputs)
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        f.write(params_yaml)
-        params_file = Path(f.name)
-
-    try:
-        # Build cwltool command
-        outdir.mkdir(parents=True, exist_ok=True)
-        cmd = ["cwltool"]
-        if quiet:
-            cmd.append("--quiet")
-        cmd.extend(["--outdir", str(outdir)])
-        cmd.extend([str(cwl), str(params_file)])
-
-        console.print(f"[dim]Running:[/dim] cwltool {cwl.name} <params>")
-        console.print()
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        # Print stdout/stderr to console
-        if result.stderr:
-            console.print(result.stderr, end="")
-        if result.stdout:
-            console.print(result.stdout, end="")
-
-        if result.returncode != 0:
-            raise SystemExit(result.returncode)
-
-        # Write run metadata
-        decision_values = extract_decision_values(spec, uni)
-        git_commit = _get_git_commit(analysis_path.parent)
-        metadata = {
-            "universe_id": universe_id,
-            "universe_file": str(universe_file),
-            "workflow": str(cwl),
-            "run_at": datetime.now(UTC).isoformat(),
-            "git_commit": git_commit,
-            "decisions": decision_values,
-        }
-        metadata_path = outdir / "run_metadata.yaml"
-        with open(metadata_path, "w") as mf:
-            yaml.dump(metadata, mf, default_flow_style=False, sort_keys=False)
-
-        console.print()
-        console.print("[green]✓[/green] Workflow completed successfully")
-        console.print(f"[dim]Outputs in:[/dim] {outdir}")
-        console.print(f"[dim]Metadata:[/dim] {metadata_path.name}")
-
-    finally:
-        # Clean up temp file
-        params_file.unlink(missing_ok=True)
-
-
-def _get_git_commit(path: Path) -> str | None:
-    """Get the current git commit hash, or None if not in a git repo."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd=path,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except FileNotFoundError:
-        pass
-    return None
 
 
 # =============================================================================
@@ -1604,7 +901,6 @@ def paper_fetch_metadata(doi: str | None, version: int | None, fetch_all: bool) 
     """Fetch metadata (title, authors) for cached papers.
 
     Uses DOI content negotiation to retrieve metadata from DOI.org.
-    This works for any DOI (Crossref, DataCite, arXiv, etc.).
 
     Examples:
 
@@ -1627,7 +923,6 @@ def paper_fetch_metadata(doi: str | None, version: int | None, fetch_all: bool) 
         for paper in papers:
             meta = paper.metadata
             if meta.title and meta.authors:
-                # Already has metadata
                 continue
 
             console.print(f"Fetching metadata for {meta.doi}...", end=" ")
@@ -1679,8 +974,7 @@ def paper_verify_quotes(doi: str, version: int | None) -> None:
     """Verify multiple quotes from a cached paper in a single operation.
 
     Reads quote list from stdin as JSON. Extracts PDF text once and
-    verifies all quotes against it, making this much more efficient than
-    calling verify-quote multiple times.
+    verifies all quotes against it.
 
     Input format (stdin):
         {"quotes": [{"text": "...", "page": N, "prefix": "...", "suffix": "..."}, ...]}
@@ -1692,12 +986,6 @@ def paper_verify_quotes(doi: str, version: int | None) -> None:
       0 - All quotes verified
       1 - Some quotes not found
       2 - Error (paper not cached, invalid input, etc.)
-
-    Examples:
-        echo '{"quotes": [{"text": "Attention is all you need"}]}' | \\
-            asp paper verify-quotes 10.48550/arXiv.1706.03762 --version 7
-
-        cat quotes.json | asp paper verify-quotes 10.1038/s41586-023-06221-2
     """
     from asp.papers.cache import PaperCache
     from asp.verification.core import VerificationStatus, verify_quote_in_pdf
@@ -1754,7 +1042,7 @@ def paper_verify_quotes(doi: str, version: int | None) -> None:
         )
         raise SystemExit(2)
 
-    # Extract text from PDF (ONCE - this is the key optimization)
+    # Extract text from PDF (ONCE)
     try:
         pdf = extract_text_from_pdf(cached_paper.pdf_path)
     except Exception as e:
@@ -1771,7 +1059,7 @@ def paper_verify_quotes(doi: str, version: int | None) -> None:
         )
         raise SystemExit(2)
 
-    # Verify each quote against the already-extracted PDF text
+    # Verify each quote
     results = []
     verified_count = 0
     not_found_count = 0
@@ -1798,7 +1086,6 @@ def paper_verify_quotes(doi: str, version: int | None) -> None:
             quote_text, pdf, page_hint, prefix, suffix
         )
 
-        # Truncate quote for display
         display_text = quote_text[:50] + "..." if len(quote_text) > 50 else quote_text
 
         results.append(
@@ -1830,7 +1117,6 @@ def paper_verify_quotes(doi: str, version: int | None) -> None:
     }
     print(json.dumps(output))
 
-    # Exit code based on results
     if not_found_count > 0:
         raise SystemExit(1)
     raise SystemExit(0)
@@ -1854,13 +1140,6 @@ def paper_verify_quote(
       0 - Quote verified (found in paper)
       1 - Quote not found
       2 - Error (paper not cached, etc.)
-
-    Examples:
-        asp paper verify-quote 10.48550/arXiv.1706.03762 \\
-          --quote "Attention is all you need" --version 7
-
-        asp paper verify-quote 10.1038/s41586-023-06221-2 \\
-          --quote "exact text from paper" --page 5 --json
     """
     from asp.papers.cache import PaperCache
     from asp.verification.core import VerificationStatus, verify_quote_in_pdf
@@ -1870,7 +1149,6 @@ def paper_verify_quote(
     cached_paper = cache.get(doi, version)
 
     if not cached_paper:
-        # Error: paper not cached
         if output_json:
             print(
                 json.dumps(
@@ -1887,7 +1165,6 @@ def paper_verify_quote(
             console.print("Use [cyan]asp paper add[/cyan] first.")
         raise SystemExit(2)
 
-    # Extract text from PDF
     try:
         pdf = extract_text_from_pdf(cached_paper.pdf_path)
     except Exception as e:
@@ -1906,7 +1183,6 @@ def paper_verify_quote(
             console.print(f"[red]Error:[/red] Failed to extract text from PDF: {e}")
         raise SystemExit(2)
 
-    # Verify the quote
     status, found_pages, message = verify_quote_in_pdf(quote, pdf, page)
 
     if output_json:
@@ -1926,457 +1202,10 @@ def paper_verify_quote(
         else:
             console.print(f"[red]✗ Not found[/red] {message}")
 
-    # Exit code based on status
     if status == VerificationStatus.VERIFIED:
         raise SystemExit(0)
     else:
         raise SystemExit(1)
-
-
-# =============================================================================
-# Remote/HPC target commands
-# =============================================================================
-
-
-@main.group()
-def remote() -> None:
-    """HPC/remote target management commands."""
-    pass
-
-
-@remote.command("setup")
-@click.argument("name", required=False)
-@click.option("--list", "list_targets", is_flag=True, help="List saved targets")
-def remote_setup(name: str | None, list_targets: bool) -> None:
-    """Set up a remote target configuration.
-
-    Interactive CLI setup that configures scheduler, account, resource limits,
-    permissions, and optional notes for any HPC cluster.
-
-    Examples:
-        asp remote setup perlmutter    # Set up a target called 'perlmutter'
-        asp remote setup --list        # List saved targets
-    """
-    from asp.remote import list_saved_targets, save_target_config
-
-    if list_targets:
-        saved = list_saved_targets()
-        if not saved:
-            console.print("[dim]No saved targets.[/dim]")
-            console.print("Run [cyan]asp remote setup <name>[/cyan] to configure one.")
-        else:
-            console.print("[bold]Saved targets:[/bold]")
-            for t in saved:
-                console.print(f"  • {t}")
-        return
-
-    if name is None:
-        console.print("[red]Error:[/red] Provide a target name.")
-        console.print("  asp remote setup perlmutter")
-        console.print("  asp remote setup my-cluster")
-        raise SystemExit(1)
-
-    console.print(f"\n[bold]Setting up target: [cyan]{name}[/cyan][/bold]\n")
-
-    # 1. Scheduler
-    scheduler = click.prompt(
-        "  Scheduler", type=click.Choice(["slurm", "pbs", "sge"]), default="slurm"
-    )
-
-    # 2. Account/allocation
-    account = click.prompt("  Account/allocation")
-
-    # 3. Resource limits
-    console.print("\n  [bold]Resource limits[/bold] [dim](Enter to accept defaults)[/dim]")
-    defaults = _default_resource_limits()
-    limits = _prompt_resource_limits(defaults)
-
-    # 4. Permissions
-    permissions = _default_permissions_for_scheduler(scheduler)
-    console.print("\n  [bold]Default permissions:[/bold]")
-    _show_permissions(permissions)
-    if click.confirm("  Customize permissions?", default=False):
-        permissions = _customize_permissions(permissions)
-
-    # 5. Notes
-    notes = _prompt_notes()
-
-    # Build config
-    config: dict[str, Any] = {
-        "target": {
-            "name": name,
-            "scheduler": scheduler,
-        },
-        "auth": {
-            "account": account,
-        },
-        "resource_limits": limits,
-        "permissions": permissions,
-    }
-    if notes:
-        config["notes"] = notes
-
-    # Summary and confirm
-    _print_setup_summary(config, name)
-
-    if not click.confirm("\n  Save this configuration?", default=True):
-        console.print("Aborted.")
-        return
-
-    path = save_target_config(name, config)
-    console.print(f"\n[green]✓[/green] Saved to [cyan]{path}[/cyan]")
-    console.print(f"Use with: [cyan]asp init my-analysis --target {name}[/cyan]")
-
-
-@remote.command("show")
-@click.argument("name")
-def remote_show(name: str) -> None:
-    """Show a saved target configuration.
-
-    Example:
-        asp remote show perlmutter
-    """
-    from asp.remote import load_target_config
-
-    config = load_target_config(name)
-    if config is None:
-        console.print(f"[red]Error:[/red] No saved target '{name}'.")
-        console.print("Run [cyan]asp remote setup --list[/cyan] to see available targets.")
-        raise SystemExit(1)
-
-    console.print(f"[bold]Target: {name}[/bold]\n")
-    console.print(yaml.dump(config, default_flow_style=False, sort_keys=False))
-
-
-@remote.command("edit")
-@click.argument("name")
-def remote_edit(name: str) -> None:
-    """Show the path to a target config for manual editing.
-
-    Example:
-        asp remote edit perlmutter
-    """
-    from asp.remote import get_targets_dir, load_target_config
-
-    config = load_target_config(name)
-    if config is None:
-        console.print(f"[red]Error:[/red] No saved target '{name}'.")
-        raise SystemExit(1)
-
-    path = get_targets_dir() / f"{name}.yaml"
-    console.print(f"Edit: [cyan]{path}[/cyan]")
-
-
-def _default_resource_limits() -> dict[str, int]:
-    """Return sensible default resource limits."""
-    return {
-        "max_nodes": 4,
-        "max_walltime_minutes": 120,
-        "max_concurrent_jobs": 3,
-        "max_node_hours_per_session": 16,
-    }
-
-
-def _prompt_resource_limits(defaults: dict[str, int]) -> dict[str, int]:
-    """Prompt for resource limits with defaults."""
-    return {
-        "max_nodes": click.prompt(
-            "    Max nodes per job", type=int, default=defaults["max_nodes"]
-        ),
-        "max_walltime_minutes": click.prompt(
-            "    Max walltime (minutes)", type=int, default=defaults["max_walltime_minutes"]
-        ),
-        "max_concurrent_jobs": click.prompt(
-            "    Max concurrent jobs", type=int, default=defaults["max_concurrent_jobs"]
-        ),
-        "max_node_hours_per_session": click.prompt(
-            "    Max node-hours per session",
-            type=int,
-            default=defaults["max_node_hours_per_session"],
-        ),
-    }
-
-
-def _default_permissions_for_scheduler(scheduler: str) -> dict[str, list[str]]:
-    """Return default permission tiers for a given scheduler type."""
-    # Common across all schedulers
-    auto_approve = ["python", "python3", "asp", "ls", "cat", "head", "tail", "grep", "du", "df"]
-    deny = ["rm -rf /", "rm -rf ~", "rm -rf $HOME"]
-
-    if scheduler == "slurm":
-        auto_approve.extend(["squeue", "sacct", "scontrol show"])
-        deny.extend(["scancel --all", "scancel -u"])
-    elif scheduler == "pbs":
-        auto_approve.extend(["qstat", "showq"])
-        deny.extend(["qdel all"])
-    elif scheduler == "sge":
-        auto_approve.extend(["qstat", "qhost"])
-        deny.extend(["qdel '*'"])
-
-    return {
-        "auto_approve": auto_approve,
-        "deny": deny,
-    }
-
-
-def _show_permissions(permissions: dict[str, list[str]]) -> None:
-    """Display permission tiers."""
-    auto = permissions.get("auto_approve", [])
-    deny = permissions.get("deny", [])
-
-    console.print(f"    [green]Auto-approve:[/green] {', '.join(auto)}")
-    console.print(f"    [red]Deny:[/red] {', '.join(deny)}")
-
-
-def _customize_permissions(permissions: dict[str, list[str]]) -> dict[str, list[str]]:
-    """Let user add/remove from permission tiers."""
-    import copy
-
-    result = copy.deepcopy(permissions)
-
-    add_auto = click.prompt(
-        "    Add to auto-approve (comma-separated, or Enter to skip)",
-        default="",
-        show_default=False,
-    )
-    if add_auto.strip():
-        result["auto_approve"].extend(cmd.strip() for cmd in add_auto.split(",") if cmd.strip())
-
-    remove_auto = click.prompt(
-        "    Remove from auto-approve (comma-separated, or Enter to skip)",
-        default="",
-        show_default=False,
-    )
-    if remove_auto.strip():
-        to_remove = {cmd.strip() for cmd in remove_auto.split(",")}
-        result["auto_approve"] = [cmd for cmd in result["auto_approve"] if cmd not in to_remove]
-
-    add_deny = click.prompt(
-        "    Add to deny (comma-separated, or Enter to skip)", default="", show_default=False
-    )
-    if add_deny.strip():
-        result["deny"].extend(cmd.strip() for cmd in add_deny.split(",") if cmd.strip())
-
-    return result
-
-
-def _prompt_notes() -> str:
-    """Prompt for multi-line notes. Blank line to finish."""
-    console.print("\n  [bold]Notes/guidelines for Claude[/bold] [dim](blank line to finish)[/dim]")
-    lines: list[str] = []
-    while True:
-        line = click.prompt("  ", default="", show_default=False)
-        if not line:
-            break
-        lines.append(line)
-    return "\n".join(lines)
-
-
-def _print_setup_summary(config: dict[str, Any], name: str) -> None:
-    """Print a Rich summary of the target configuration."""
-    from rich.panel import Panel
-
-    target = config.get("target", {})
-    auth = config.get("auth", {})
-    limits = config.get("resource_limits", {})
-    notes = config.get("notes", "")
-
-    lines = [
-        f"[bold]Scheduler:[/bold] {target.get('scheduler', 'N/A')}",
-        f"[bold]Account:[/bold] {auth.get('account', 'N/A')}",
-        f"[bold]Max nodes:[/bold] {limits.get('max_nodes', 'N/A')}",
-        f"[bold]Max walltime:[/bold] {limits.get('max_walltime_minutes', 'N/A')} min",
-        f"[bold]Max concurrent:[/bold] {limits.get('max_concurrent_jobs', 'N/A')}",
-        f"[bold]Session budget:[/bold] {limits.get('max_node_hours_per_session', 'N/A')} node-hrs",
-    ]
-    if notes:
-        lines.append(f"[bold]Notes:[/bold] {notes[:60]}{'...' if len(notes) > 60 else ''}")
-
-    panel = Panel("\n".join(lines), title=f"Target: {name}", border_style="cyan")
-    console.print(panel)
-
-
-# =============================================================================
-# Navigator command
-# =============================================================================
-
-
-def _get_asp_config_path() -> Path:
-    """Get the path to the ASP global config file."""
-    return Path.home() / ".asp" / "config.yaml"
-
-
-def _load_asp_config() -> dict[str, Any]:
-    """Load ASP global config from ~/.asp/config.yaml."""
-    config_path = _get_asp_config_path()
-    if not config_path.exists():
-        return {}
-    return load_yaml(config_path)
-
-
-def _save_asp_config(config: dict[str, Any]) -> None:
-    """Save ASP global config to ~/.asp/config.yaml."""
-    config_path = _get_asp_config_path()
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    save_yaml(config, config_path)
-
-
-def _get_navigator_path() -> Path | None:
-    """Get Navigator path from config or environment variable."""
-    # Check environment variable first
-    env_path = Path(p) if (p := __import__("os").environ.get("ASP_NAVIGATOR_PATH")) else None
-    if env_path and env_path.exists():
-        return env_path
-
-    # Check config file
-    config = _load_asp_config()
-    config_path = config.get("navigator", {}).get("path")
-    if config_path:
-        path = Path(config_path)
-        if path.exists():
-            return path
-
-    return None
-
-
-@main.command()
-@click.argument("target", default=".")
-@click.option("--port", default=8080, type=int, help="Port to serve on")
-@click.option("--no-browser", is_flag=True, help="Don't auto-open browser")
-@click.option("--jupyter", is_flag=True, help="Print JupyterHub proxied URL")
-def canvas(target: str, port: int, no_browser: bool, jupyter: bool) -> None:
-    """Open the ASP Canvas visual editor.
-
-    Launches a Python-served web UI for visualizing and interacting with
-    ASP projects. No Node.js required.
-
-    Install with: pip install asp[canvas]
-
-    Examples:
-
-        asp canvas                     # Open current project
-
-        asp canvas /some/path          # Open specific project
-
-        asp canvas --port 9000         # Custom port
-
-        asp canvas --jupyter           # Print JupyterHub proxied URL
-    """
-    try:
-        from asp_canvas.cli import main as canvas_main  # type: ignore[import-not-found]
-    except ImportError:
-        console.print("[red]Error:[/red] Canvas not installed.")
-        console.print("  Install with: [cyan]pip install asp[canvas][/cyan]")
-        raise SystemExit(1)
-
-    # Build args list for the canvas CLI
-    args = [target]
-    if port != 8080:
-        args.extend(["--port", str(port)])
-    if no_browser:
-        args.append("--no-browser")
-    if jupyter:
-        args.append("--jupyter")
-
-    canvas_main(args, standalone_mode=False)
-
-
-@main.command()
-@click.option(
-    "--path",
-    "-p",
-    type=click.Path(exists=True, path_type=Path),
-    help="Project path (default: current directory)",
-)
-@click.option(
-    "--configure",
-    is_flag=True,
-    help="Reconfigure Navigator path",
-)
-def navigator(path: Path | None, configure: bool) -> None:
-    """Open the current project in Navigator.
-
-    Navigator is the visual canvas editor for ASP projects. This command
-    starts Navigator for the current project.
-
-    Press Ctrl+C to stop Navigator.
-
-    First-time setup will prompt for the Navigator installation path.
-
-    Examples:
-
-        asp navigator                  # Open current project
-
-        asp navigator -p /some/path    # Open specific project
-
-        asp navigator --configure      # Reconfigure Navigator path
-    """
-    # Get or configure Navigator path
-    navigator_path = _get_navigator_path()
-
-    if configure or navigator_path is None:
-        # Prompt for Navigator path
-        if navigator_path is None:
-            console.print("[yellow]Navigator path not configured.[/yellow]")
-        default_hint = navigator_path or ""
-        user_path = click.prompt(
-            "Where is Navigator installed?",
-            default=str(default_hint) if default_hint else None,
-            type=click.Path(exists=True, path_type=Path),
-        )
-        navigator_path = Path(user_path)
-
-        # Validate it looks like Navigator
-        if not (navigator_path / "package.json").exists():
-            console.print(f"[red]Error:[/red] {navigator_path} doesn't look like Navigator")
-            console.print("  (No package.json found)")
-            raise SystemExit(1)
-
-        # Save to config
-        config = _load_asp_config()
-        if "navigator" not in config:
-            config["navigator"] = {}
-        config["navigator"]["path"] = str(navigator_path)
-        _save_asp_config(config)
-        console.print("[green]✓[/green] Saved Navigator path to ~/.asp/config.yaml")
-
-        if configure:
-            return
-
-    # Find the ASP project to open
-    if path is None:
-        path = Path.cwd()
-
-    # Verify it's an ASP project
-    analysis_file = find_analysis_file(path)
-    if analysis_file is None:
-        console.print(f"[red]Error:[/red] No asp.yaml found in {path}")
-        raise SystemExit(1)
-
-    project_path = analysis_file.parent.resolve()
-    # URL-encode the path for the query parameter
-    from urllib.parse import quote
-    url = f"http://localhost:3000?project={quote(str(project_path), safe='')}"
-
-    # Run Navigator in foreground (Ctrl+C to stop)
-    console.print(f"[bold]Starting Navigator for:[/bold] {project_path}")
-    console.print()
-    console.print("[bold green]Open this URL in your browser:[/bold green]")
-    console.print(f"  {url}")
-    console.print()
-    console.print("[dim]Press Ctrl+C to stop (ignore the localhost:3000 URL below)[/dim]\n")
-
-    try:
-        subprocess.run(
-            ["npm", "run", "dev:all"],
-            cwd=navigator_path,
-            check=True,
-        )
-    except KeyboardInterrupt:
-        console.print("\n[dim]Navigator stopped[/dim]")
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]Error:[/red] Navigator exited with code {e.returncode}")
-        raise SystemExit(e.returncode)
 
 
 if __name__ == "__main__":

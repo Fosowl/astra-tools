@@ -243,28 +243,27 @@ class TestInitCommand:
     """Tests for the init command."""
 
     def test_init_creates_project_structure(self, runner: CliRunner, tmp_path: Path):
-        """Test that basic init creates the project structure."""
+        """Test that basic init creates the minimal ASP scaffold."""
         project_dir = tmp_path / "my-analysis"
         result = runner.invoke(
             main,
             ["init", str(project_dir), "--no-git"],
         )
         assert result.exit_code == 0
-        assert "Created ASP analysis project" in result.output
+        assert "Created ASP analysis scaffold" in result.output
 
-        # Check directory structure
+        # Check directory structure (minimal scaffold)
         assert (project_dir / "asp.yaml").exists()
         assert (project_dir / ".gitignore").exists()
         assert (project_dir / "universes").is_dir()
         assert (project_dir / "universes" / "baseline.yaml").exists()
-        assert (project_dir / "results").is_dir()
-        assert (project_dir / "workflows").is_dir()
-        assert (project_dir / "steps").is_dir()
 
-        # scripts/ no longer created
+        # Agentic scaffolding NOT created (handled by prism init)
+        assert not (project_dir / ".claude").exists()
+        assert not (project_dir / "CLAUDE.md").exists()
+        assert not (project_dir / "workflows").exists()
+        assert not (project_dir / "steps").exists()
         assert not (project_dir / "scripts").exists()
-        assert not (project_dir / ".asp").exists()
-        assert not (project_dir / "executions").exists()
 
     def test_init_asp_yaml_content(self, runner: CliRunner, tmp_path: Path):
         """Test that the generated asp.yaml has the expected content."""
@@ -296,35 +295,6 @@ class TestInitCommand:
         gitignore = (project_dir / ".gitignore").read_text()
         assert "results/" in gitignore
         assert "__pycache__/" in gitignore
-
-    def test_init_creates_claude_settings(self, runner: CliRunner, tmp_path: Path):
-        """Test that init creates .claude/settings.json with plugin configuration."""
-        import json
-
-        project_dir = tmp_path / "settings-test"
-        result = runner.invoke(
-            main,
-            ["init", str(project_dir), "--no-git"],
-        )
-        assert result.exit_code == 0
-        assert "Created ASP analysis project" in result.output
-        assert ".claude/" in result.output
-
-        # Check settings.json is created
-        settings_path = project_dir / ".claude" / "settings.json"
-        assert settings_path.exists()
-
-        # Check settings content
-        settings = json.loads(settings_path.read_text())
-
-        # Check permissions
-        assert "permissions" in settings
-        assert "allow" in settings["permissions"]
-        allowed = settings["permissions"]["allow"]
-        assert "Bash(asp:*)" in allowed
-        assert "Edit" in allowed
-        assert "WebSearch" in allowed
-        assert "WebFetch" in allowed
 
     def test_init_existing_nonempty_dir_decline(self, runner: CliRunner, tmp_path: Path):
         """Test declining to overwrite existing non-empty directory."""

@@ -27,14 +27,10 @@ dependencies = [
     "rich>=13.0",
     "pypdf>=4.0",
     "httpx>=0.27",
-    "cwltool>=3.0",
     "rapidfuzz>=3.0",
 ]
 
 [project.optional-dependencies]
-canvas = [
-    "asp-canvas>=0.1",
-]
 dev = [
     "pytest>=8.0",
     "pytest-cov",
@@ -58,13 +54,11 @@ source = "vcs"
 packages = ["src/asp"]
 
 # Automatically bundle spec/draft/ into the package as asp/spec/
-# Bundle claude/asp/ for --local flag support in asp init
 [tool.hatch.build.targets.wheel.force-include]
 "spec/draft" = "asp/spec"
-"claude/asp" = "asp/claude/asp"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/asp", "spec/draft", "claude/asp"]
+include = ["src/asp", "spec/draft"]
 
 [tool.ruff]
 target-version = "py311"
