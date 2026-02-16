@@ -1,6 +1,6 @@
 version: "1.0"
 name: "Minimal Analysis"
-problem: "A minimal test analysis"
+description: "A minimal test analysis"
 inputs:
   - id: test_data
     type: data

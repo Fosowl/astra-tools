@@ -1,6 +1,9 @@
 id: incomplete
 description: "Universe missing a sub-analysis decision"
 
+decisions:
+  cosmology_model: flat_lcdm
+
 analyses:
   build_mocks:
     decisions:

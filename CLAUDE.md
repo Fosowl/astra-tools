@@ -95,14 +95,13 @@ ASP/
 
 ### Key Concepts
 
-- **Analysis**: Defines problem statement, inputs, outputs, and chunks
-- **Chunk**: A scoped stage with its own problem, decisions, and optional artefacts. Single-stage analyses use a `main` chunk. All decisions live under chunks.
+- **Analysis**: Self-similar node with description, inputs, outputs, decisions, recipes, and optional sub-analyses
 - **Decision**: A choice point with multiple options (e.g., "which scaling method?")
-- **Artefact**: A typed output produced by a chunk (figure, table, data, report)
-- **Universe**: One complete set of decisions organized by chunk
+- **Recipe**: A build rule that produces declared outputs (command + dependencies + resources)
+- **Universe**: One complete set of decisions across the entire analysis tree
 - **Multiverse**: The space of all valid decision combinations
 - **Insight**: Scientific knowledge from papers or prior analyses, with precise evidence
-- **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within a chunk)
+- **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within an analysis node)
 
 ## Development Commands
 

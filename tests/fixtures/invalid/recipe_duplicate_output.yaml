@@ -1,6 +1,6 @@
 version: "1.0"
 name: "Recipe Duplicate Output"
-problem: "Test duplicate recipe output"
+description: "Test duplicate recipe output"
 inputs:
   - id: test_data
     type: data

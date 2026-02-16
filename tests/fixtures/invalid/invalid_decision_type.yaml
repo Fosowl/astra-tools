@@ -1,7 +1,7 @@
 # Invalid decision type
 version: "1.0"
 name: "Test"
-problem: "Test problem"
+description: "Test problem"
 inputs:
   - id: data
     type: data

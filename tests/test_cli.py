@@ -280,7 +280,7 @@ class TestInitCommand:
         content = (project_dir / "asp.yaml").read_text()
         assert "content-test" in content  # Directory name used as analysis name
         assert "version:" in content
-        assert "problem:" in content
+        assert "description:" in content
         assert "decisions:" in content
         assert "recipes:" in content
 

@@ -2,35 +2,56 @@
 
 ## Overview
 
-**ASP (Agentic Science Protocol)** is a declarative specification format for scientific analyses that can be executed by AI agents. It describes:
+**ASP (Agentic Science Protocol)** is a declarative specification format for scientific analyses. It describes:
 
-- What we want to learn (problem statement)
+- What we want to learn (description)
 - What we have to work with (inputs)
 - What we want to produce (outputs)
 - What choices need to be made (decisions)
+- How to produce the outputs (recipes)
 
-Crucially, an analysis does **not** specify how to execute the computation. That is the job of an agent (e.g., Prism), which generates implementations from the specification.
+An ASP analysis can be executed by AI agents or human researchers. The specification says WHAT; the agent or researcher writes the code and registers recipes that produce the declared outputs.
+
+### Architecture
+
+ASP is the core specification layer in a three-tier architecture:
+
+```
+asp-core (this repo)
+  Schema + validation (asp.yaml)
+  Recipe format (containerized build rules)
+  Insights + evidence verification
+  Minimal CLI
+
+asp-agent (Prism - separate repo)
+  AI agent skills for writing scripts + recipes
+  Claude Code / Navigator integration
+  Project scaffolding
+
+asp-ui (Spectrum - future)
+  Visual editors, dashboards
+```
 
 ```
 ┌─────────────────┐      ┌─────────────┐      ┌──────────────┐      ┌─────────┐
-│ ASP Analysis    │ ───▶ │ Agent       │ ───▶ │ Implementation│ ───▶ │ Results │
-│ (what we want)  │      │ (executes)  │      │ (generated)  │      │         │
-│                 │      │             │      │              │      │         │
-│ - inputs        │      │             │      │ scripts/     │      │ metrics │
-│ - problem       │      │             │      │ pipelines/   │      │ figures │
-│ - outputs       │      │             │      │              │      │ tables  │
-│ - decisions     │      │             │      │              │      │ models  │
+│ ASP Analysis    │ ───> │ Agent       │ ───> │ Scripts +    │ ───> │ Outputs │
+│ (what we want)  │      │ (writes     │      │ Recipes      │      │         │
+│                 │      │  code)      │      │ (how to      │      │ metrics │
+│ - description   │      │             │      │  produce it) │      │ figures │
+│ - inputs        │      │             │      │              │      │ tables  │
+│ - outputs       │      │             │      │              │      │ data    │
+│ - decisions     │      │             │      │              │      │ reports │
 └─────────────────┘      └─────────────┘      └──────────────┘      └─────────┘
-        ▲                                                                  │
+        ^                                                                  │
         │                                                                  │
         └──────────────── previous analyses (as inputs) ───────────────────┘
 
-Universe (decision selections) ───▶ Execution Parameters
+Universe (decision selections) ───> Execution Parameters
 ```
 
 ## The Multiverse Concept
 
-A **universe** is one complete set of decisions—a single path through the decision space that fully specifies an analysis. Running one universe produces results that answer the problem statement.
+A **universe** is one complete set of decisions -- a single path through the decision space that fully specifies an analysis. Running one universe produces outputs that address the analysis description.
 
 The **multiverse** is the space of all valid decision combinations. Its purpose is **transparency and traceability**, not exhaustive search:
 
@@ -39,20 +60,27 @@ The **multiverse** is the space of all valid decision combinations. Its purpose 
 3. **Enable exploration**: User can ask "what if we chose differently?"
 4. **Check robustness**: Optionally run alternative universes to see if conclusions hold
 
-This is fundamentally different from "grid search to find the best":
-
 | Approach | Purpose | Runs |
 |----------|---------|------|
-| **Single analysis** | Answer the problem statement | 1 universe |
+| **Single analysis** | Answer the research question | 1 universe |
 | **Multiverse documentation** | Show all possible paths | 0 (just documentation) |
 | **Robustness check** | Verify conclusions are stable | Selected universes |
 | **Full enumeration** | Exhaustive comparison (rare) | All universes |
 
-A well-specified analysis should answer its problem statement with a **single universe**. The multiverse exists to show the researcher's choices transparently.
+A well-specified analysis should address its research question with a **single universe**. The multiverse exists to show the researcher's choices transparently.
 
 ## Core Components
 
-### 1. Inputs
+### 1. Description
+
+A clear description of what the analysis aims to achieve. This is the research question being investigated.
+
+The description:
+- Should be specific enough to evaluate whether outputs address it
+- Does not need to be machine-parseable (it's guidance for the agent and humans)
+- Helps ensure the analysis stays focused
+
+### 2. Inputs
 
 What the analysis has to work with:
 
@@ -60,18 +88,14 @@ What the analysis has to work with:
 |------------|-------------|---------|
 | `data` | Raw data files | CSV, FITS, Parquet files |
 | `analysis` | Results from previous analyses | Reference to another ASP analysis |
-| `literature` | Published papers/evidence | DOI, URL, or local PDF |
 
-Inputs can provide **evidence** for decisions. For example, a previous analysis might show that a particular preprocessing method works best.
-
-### 2. Problem Statement
-
-A clear description of what the analysis aims to achieve. This is the research question being investigated.
-
-The problem statement:
-- Should be specific enough to evaluate whether outputs address it
-- Does not need to be machine-parseable (it's guidance for the agent and humans)
-- Helps ensure the analysis stays focused
+Inputs have optional fields for provenance:
+- `source`: URI or path to the data source (for `data` inputs)
+- `checksum`: Hash for data integrity verification (algorithm + value)
+- `ref`: Reference to another ASP analysis (for `analysis` inputs)
+- `ref_version`: Version of the referenced analysis
+- `use_outputs`: Specific outputs to use from the referenced analysis
+- `from`: Reference to a parent input or sibling output in sub-analyses
 
 ### 3. Outputs
 
@@ -82,122 +106,200 @@ What the analysis should produce. All outputs are declared upfront so we know wh
 | `metric` | A numeric or categorical value | Accuracy, p-value, AUC |
 | `figure` | A visualization | Confusion matrix, ROC curve |
 | `table` | Structured tabular data | Feature importances, comparison table |
-| `data` | Processed data files | Predictions, transformed features |
-| `model` | Trained model artifacts | Serialized classifier |
+| `data` | Processed data files | Predictions, transformed features, trained models |
 | `report` | Text/document output | Summary, conclusion |
 
+A `report` type output is special: it should address the analysis description and synthesize findings.
 
-
-A `report` type output is special: it should address the problem statement and synthesize findings.
+Outputs can declare their provenance via `from` to trace which sub-analysis produces them (e.g., `from: inference.posterior`).
 
 ### 4. Decisions
 
-All decisions live under chunks (see [Chunks](#chunks)). Each decision has:
+Each decision has:
 
-- **id**: Unique identifier for the decision (unique within its chunk)
+- **id**: Unique identifier (unique within its analysis node)
 - **label**: Human-readable name
 - **type**: Category (`data`, `method`, `parameter`)
-- **importance**: 1 (critical) to 5 (implementation detail)
 - **rationale**: Why this decision exists
 - **options**: The possible choices
 - **default**: (optional) The default option for baseline universes
 
+Decision types:
+- `data`: Choices about data (which dataset, how to split, what to include/exclude)
+- `method`: Choices about methodology (which algorithm, which technique)
+- `parameter`: Choices about parameters (hyperparameters, thresholds, settings)
+
 Options can have:
-- **constraints**: `incompatible_with`, `requires` (scoped to the same chunk)
-- **evidence**: References to inputs that support this choice
-- **value**: Configuration parameters
+- **constraints**: `incompatible_with`, `requires` (scoped to the same analysis node)
+- **insights**: References to insight IDs that support this choice
 
 ### 5. Constraints
 
-Options can declare constraints on other options within the same chunk:
+Options can declare constraints on other options within the same analysis node:
 
 ```yaml
-chunks:
-  main:
-    decisions:
-      scaling:
-        options:
-          minmax:
-            label: "MinMaxScaler"
-            incompatible_with: ["model.svm"]  # Can't use with SVM
+decisions:
+  scaling:
+    options:
+      minmax:
+        label: "MinMaxScaler"
+        incompatible_with: ["model.svm"]  # Can't use with SVM
 
-      feature_selection:
-        options:
-          pca:
-            label: "PCA"
-            requires: ["scaling.standard"]  # PCA needs standardized data
+  feature_selection:
+    options:
+      pca:
+        label: "PCA"
+        requires: ["scaling.standard"]  # PCA needs standardized data
 ```
 
 **Constraint types:**
 - `incompatible_with`: List of `decision.option` pairs that cannot be selected together
 - `requires`: List of `decision.option` pairs that must also be selected
 
-Constraints are scoped within a chunk and validated when creating universes. Invalid combinations are rejected.
+Constraints are scoped within an analysis node and validated when creating universes. Invalid combinations are rejected.
+
+### 6. Recipes
+
+Recipes are build rules that produce outputs. Each recipe declares:
+- **command**: What to run (e.g., `python src/train.py`)
+- **outputs**: Which output IDs this recipe produces
+- **depends_on**: Recipe IDs that must complete first (forms a DAG)
+- **container**: Container image override (defaults to node-level container)
+- **resources**: Compute requirements (CPUs, memory, GPUs, time limit)
+
+```yaml
+container: ghcr.io/project/env@sha256:abc123   # default for all recipes
+
+recipes:
+  preprocess:
+    command: python src/preprocess.py
+    outputs: [cleaned_data]
+
+  train:
+    command: python src/train.py
+    outputs: [trained_model]
+    depends_on: [preprocess]
+    container: nvidia/cuda:12.0-python3.11      # override for GPU work
+    resources:
+      gpus: 1
+      memory: "32GB"
+
+  evaluate:
+    command: python src/evaluate.py
+    outputs: [accuracy, confusion_matrix, conclusion]
+    depends_on: [train]
+```
+
+**Validation rules:**
+- Every declared output must be claimed by exactly one recipe
+- `depends_on` references must point to valid recipe IDs within the same node
+- No dependency cycles
+- Recipes are optional -- an analysis without recipes is a pure specification
+
+**Progressive complexity:**
+
+| Stage | What you add | What you get |
+|-------|-------------|--------------|
+| Declaring | `asp.yaml` with outputs | "Here's what I need to produce" |
+| Scripting | `src/` + `recipes:` | "Here's how to produce it" |
+| Containerizing | `container:` + image | Reproducible anywhere |
+| Scaling | `resources:` | Runs on HPC/cloud |
 
 ### Universe
 
-A **universe** is a complete set of decisions organized by chunk: one option selected for each decision point. The set of all valid universes (respecting constraints) is the **multiverse**.
+A **universe** is a complete set of decisions across the entire analysis tree: one option selected for each decision point. The universe mirrors the analysis tree structure.
 
 ```yaml
 # universes/baseline.yaml
 id: baseline
 description: "Default configuration using standard practices"
 
-chunks:
-  main:
-    scaling: standard
-    model: random_forest
-    test_size: split_20
-    random_seed: seed_42
+decisions:
+  scaling: standard
+  model: random_forest
+  test_size: split_20
+  random_seed: seed_42
 ```
 
-## Chunks
+For analyses with sub-analyses, the universe includes nested selections:
 
-All decisions live under chunks. Single-stage analyses use a `main` chunk. Multi-stage analyses decompose work into multiple chunks, each with its own problem statement, decisions, and optional artefacts.
+```yaml
+id: baseline
+description: "Standard pipeline configuration"
+
+decisions:
+  cosmology_model: flat_lcdm
+
+analyses:
+  build_mocks:
+    decisions:
+      noise_model: heteroscedastic
+  train_network:
+    decisions:
+      architecture: maf
+```
+
+## Self-Similar Sub-Analyses
+
+Analyses can decompose into sub-analyses, each with the same structure as the root. This is the key structural property: **every analysis node has the same shape**.
+
+A node has: description, inputs, outputs, decisions, recipes, and optionally sub-analyses.
 
 ### Design Principles
 
-1. **All decisions under chunks.** There is no top-level `decisions:` key. Even simple analyses place decisions under `chunks.main.decisions`. This provides a uniform structure.
+1. **Self-similar**: Every level has the same structure. A sub-analysis is a valid analysis on its own.
+2. **Required contract**: Sub-analyses must declare `inputs` and `outputs` — they define the node's interface.
+3. **Inline or split**: Small sub-analyses live inline in the parent's `asp.yaml`. Complex sub-analyses get their own directory with their own `asp.yaml`.
+4. **Scoped decisions**: Each node has its own decisions. Constraints are scoped within a node unless `parent_decisions` is used.
+5. **Cross-level dependencies via `parent_decisions`**: Sub-analyses can declare which parent decisions they depend on, making those available for constraints and enabling standalone packaging.
+6. **Wiring via `from`**: Sub-analysis inputs reference parent inputs or sibling outputs using the `from` field.
+7. **Universe is global**: One universe covers all decisions across the entire tree.
+8. **No depth limit**: Analyses can nest arbitrarily.
 
-2. **Inline definition.** Chunks are defined directly within the parent `asp.yaml` — no separate files or directories. Each chunk has its own problem statement, success criteria, decisions, and optional artefacts.
-
-3. **Scoped decisions.** Each chunk has its own decisions that are independent from other chunks. Decision IDs only need to be unique within their chunk — two chunks can both have a `method` decision. Constraints are also scoped within a chunk.
-
-4. **Universe selections by chunk.** The universe file maps each chunk's decisions to selected options under a `chunks:` key.
-
-5. **Artefacts.** Chunks can declare typed artefacts they produce (figure, table, data, report). Artefact IDs must be unique within a chunk.
-
-6. **Agent-determined ordering.** No explicit ordering or wiring. The agent determines execution order and data flow between chunks based on the problem statements.
-
-### Analysis Structure with Chunks
+### Multi-Stage Analysis
 
 ```yaml
 version: "1.0"
+name: "SBI Cosmological Parameter Estimation"
+description: |
+  Use simulation-based inference to constrain cosmological
+  parameters from Type Ia supernova survey data.
 
-analysis:
-  name: "SBI Cosmological Parameter Estimation"
-  problem: |
-    Use simulation-based inference to constrain cosmological
-    parameters from Type Ia supernova survey data.
+inputs:
+  - id: survey_catalog
+    type: data
+    source: "sn_survey_union2.1"
 
-  inputs:
-    - id: survey_catalog
-      type: data
-      source: "sn_survey_union2.1"
+outputs:
+  - id: posterior_contours
+    type: figure
+  - id: parameter_constraints
+    type: table
 
-  outputs:
-    - id: posterior_contours
-      type: figure
-      formats: [png]
-    - id: parameter_constraints
-      type: table
-      formats: [csv]
+decisions:
+  cosmology_model:
+    label: "Cosmological Model"
+    type: method
+    default: flat_lcdm
+    options:
+      flat_lcdm:
+        label: "Flat LCDM"
+      wcdm:
+        label: "wCDM"
 
-chunks:
+analyses:
   build_mocks:
-    problem: "Generate realistic mock catalogs matching survey properties."
+    description: "Generate realistic mock catalogs matching survey properties."
+    parent_decisions: [cosmology_model]   # depends on parent decision
     success_criteria:
       - "Mock catalog matches observed magnitude distribution"
+    inputs:
+      - id: survey_data
+        type: data
+        from: survey_catalog          # references parent input
+    outputs:
+      - id: mock_catalog
+        type: data
     decisions:
       noise_model:
         label: "Noise Model"
@@ -208,13 +310,20 @@ chunks:
             label: "Homoscedastic"
           heteroscedastic:
             label: "Heteroscedastic"
-    artefacts:
-      - id: mock_catalog
-        type: data
-        description: "Simulated catalog matching survey properties"
+    recipes:
+      generate:
+        command: python src/generate_mocks.py
+        outputs: [mock_catalog]
 
   train_network:
-    problem: "Train SBI neural network on mock catalog."
+    description: "Train SBI neural network on mock catalog."
+    inputs:
+      - id: training_data
+        type: data
+        from: build_mocks.mock_catalog  # references sibling output
+    outputs:
+      - id: trained_model
+        type: data
     decisions:
       architecture:
         label: "Network Architecture"
@@ -225,192 +334,112 @@ chunks:
             label: "Masked Autoregressive Flow"
           npe:
             label: "Neural Posterior Estimation"
-
-  validate:
-    problem: "Validate trained model against observed data."
-    artefacts:
-      - id: posterior_plot
-        type: figure
-        description: "Posterior contour plots"
-      - id: constraints_table
-        type: table
-        description: "Parameter constraint summary"
+    recipes:
+      train:
+        command: python src/train.py
+        outputs: [trained_model]
+        resources:
+          gpus: 1
+          memory: "32GB"
 ```
 
-### Universe with Chunk Decisions
+## Directory Structure
 
-The universe file selects options for each chunk's decisions under a `chunks:` key:
+The directory structure mirrors the self-similar nature of analyses. Every analysis directory has the same shape:
 
-```yaml
-# universes/baseline.yaml
-id: baseline
-description: "Standard pipeline configuration"
-
-chunks:
-  build_mocks:
-    noise_model: heteroscedastic
-  train_network:
-    architecture: maf
+```
+<analysis>/
+  asp.yaml              # this node's specification
+  insights.yaml         # this node's insights (optional)
+  Containerfile         # environment definition (optional)
+  src/                  # source code (any language)
+  universes/            # universe definitions (root only)
+    baseline.yaml
+  outputs/              # materialized outputs, namespaced by universe
+    <universe_id>/
+      <output_id>.<ext>
+  analyses/             # sub-analyses (same shape, recursive)
+    <sub>/
+      asp.yaml
+      insights.yaml
+      src/
+      outputs/
+        <universe_id>/
+      analyses/         # can nest further
 ```
 
-Chunk decisions are validated against the analysis — the universe must select a valid option for every decision in every chunk.
+### Simple Analysis
 
-## What This Model Does NOT Include
+```
+iris-classification/
+  asp.yaml
+  insights.yaml
+  src/
+    train.py
+    evaluate.py
+  universes/
+    baseline.yaml
+    svm_focused.yaml
+  outputs/
+    baseline/
+      accuracy.json
+      confusion_matrix.png
+      model_comparison.csv
+    svm_focused/
+      accuracy.json
+      confusion_matrix.png
+      model_comparison.csv
+```
 
-### No Execution Order / Edges
+### Multi-Stage Analysis
 
-Previous versions had edges between decision nodes representing execution order. This is removed because:
+```
+sbi-pipeline/
+  asp.yaml
+  insights.yaml
+  Containerfile
+  universes/
+    baseline.yaml
+  outputs/
+    baseline/
+      posterior_contours.png
+      parameter_constraints.csv
+  analyses/
+    build_mocks/
+      asp.yaml                      # or inline in parent
+      src/
+        generate_mocks.py
+      outputs/
+        baseline/
+          mock_catalog.parquet
+    train_network/
+      asp.yaml
+      src/
+        train.py
+      outputs/
+        baseline/
+          trained_model.pkl
+```
 
-1. Decisions don't have causal relationships—the constraints (`requires`, `incompatible_with`) handle validity
-2. Execution order is an implementation detail that the agent determines
-3. Edges conflated "decision dependency" with "computational dependency"
+### Key Conventions
 
-### No Workflow Specification
-
-The analysis spec is declarative. It says WHAT we want, not HOW to compute it. The agent:
-1. Reads the spec
-2. Understands the problem and decisions
-3. Generates appropriate code/workflow
-4. Executes and collects outputs
-
-The generated workflow should be versioned (in git) but is not part of the ASP spec.
+- **Output files are named by their output ID** from the spec, with an appropriate extension
+- **Outputs are namespaced by universe ID** (`outputs/<universe_id>/`)
+- **`outputs/` is gitignored** by default (generated artifacts)
+- **Sub-analyses are directories** under `analyses/`, the directory name matches the analysis ID
+- **Insights are scoped per node** -- each node has its own `insights.yaml`
+- **`src/` is convention, not enforced** -- the recipe `command` is the authority
 
 ## Insights
 
 Insights represent scientific knowledge extracted from literature with full traceability to source material. They use W3C Web Annotation-compliant selectors for precise evidence references.
 
-### Evidence Lifecycle
-
-The following diagram shows the complete workflow for extracting insights from literature and linking them to analysis decisions:
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                        PHASE 1: LITERATURE RESEARCH                      │
-│                           (Agent + Web Search)                           │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  1. Identify decisions needing justification                             │
-│  2. Web search for relevant papers (arXiv, Semantic Scholar, etc.)       │
-│  3. Collect DOIs (arXiv DOIs: 10.48550/arXiv.{id})                       │
-│  4. Note relevance to specific decisions                                 │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                        PHASE 2: PAPER ACQUISITION                        │
-│                              (CLI)                                       │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  asp paper add 10.48550/arXiv.1706.03762 --version 7                     │
-│  asp paper add 10.1038/s41586-023-06221-2                                │
-│         │                                                                │
-│         ▼                                                                │
-│  • Resolve DOI to PDF URL (doi.org → publisher)                          │
-│  • Download PDF to cache (if open access)                                │
-│  • Compute SHA-256                                                       │
-│  • Store metadata (title, authors, retrieved_at)                         │
-│         │                                                                │
-│         ▼                                                                │
-│  Cache: ~/.cache/asp/papers/                                             │
-│         └── 10.48550_arXiv.1706.03762_v7/                                │
-│             ├── paper.pdf                                                │
-│             └── meta.json  (sha256, title, doi, version, retrieved_at)   │
-│                                                                          │
-│  NO TEXT EXTRACTION - Agent reads PDF directly                           │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                       PHASE 3: INSIGHT EXTRACTION                        │
-│                        (Agent + PDF Reading)                             │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  1. Agent reads PDF file directly (Claude can read PDFs)                 │
-│                                                                          │
-│  2. Agent identifies relevant quotes, figures, tables                    │
-│                                                                          │
-│  3. Agent writes insight to asp.yaml:                                    │
-│                                                                          │
-│     insights:                                                            │
-│       layer_norm_insight:                                                │
-│         id: layer_norm_insight                                           │
-│         claim: "Layer normalization improves training stability"         │
-│         created_at: "2024-01-15T10:30:00Z"                               │
-│         evidence:                                                        │
-│           - id: ev1                                                      │
-│             doi: "10.48550/arXiv.1706.03762"                             │
-│             version: 7  # For arXiv, version matters                     │
-│             quote:                                                       │
-│               type: TextQuoteSelector                                    │
-│               exact: "We found that layer normalization..."              │
-│               prefix: "In our experiments, "  # optional                 │
-│             location:                                                    │
-│               type: FragmentSelector                                     │
-│               page: 5                                                    │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                       PHASE 4: DECISION LINKING                          │
-│                        (Agent)                                           │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  chunks:                                                                 │
-│    main:                                                                 │
-│      decisions:                                                          │
-│        normalization:                                                    │
-│          options:                                                        │
-│            layer_norm:                                                   │
-│              insights:                                                   │
-│                - layer_norm_insight  # Reference to insight              │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                       PHASE 5: VALIDATION (Unified)                      │
-│                         (CLI - Gatekeeper)                               │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  asp validate asp.yaml --verify-evidence                                 │
-│         │                                                                │
-│         ▼                                                                │
-│  Stage 1: Schema Validation                                              │
-│    • YAML structure matches JSON schema                                  │
-│    • Required fields present, types correct                              │
-│         │                                                                │
-│         ▼                                                                │
-│  Stage 2: Semantic Validation                                            │
-│    • All references resolve (Option.insights → Insight.id)               │
-│    • Constraints valid (incompatible_with, requires)                     │
-│         │                                                                │
-│         ▼                                                                │
-│  Stage 3: Evidence Verification (with caching)                           │
-│    • For each evidence item:                                             │
-│      - Check cache: (doi, version, quote_hash) → verified_at             │
-│      - If cached and PDF unchanged → skip                                │
-│      - Else: load PDF, search for quote, update cache                    │
-│         │                                                                │
-│    ┌────┴────┐                                                           │
-│    ▼         ▼                                                           │
-│  PASS      FAIL                                                          │
-│    │         │                                                           │
-│    │         └──► Error: "Quote not found: '...' in paper X"             │
-│    │               Agent must fix and re-run                             │
-│    ▼                                                                     │
-│  All checks passed → Ready for commit/PR                                 │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
-```
-
-**Key insight**: The agent can write whatever evidence it wants, but `asp validate --verify-evidence` will **fail** if quotes don't exist in the PDF. No fabricated evidence can make it through the workflow.
+Insights are stored in `insights.yaml` at each analysis node, scoped to that node.
 
 ### Insight Structure
 
 ```yaml
+# insights.yaml
 insights:
   layer_norm_stability:
     id: layer_norm_stability
@@ -419,17 +448,17 @@ insights:
     evidence:
       - id: ev1
         doi: "10.48550/arXiv.1706.03762"
-        version: 7                          # For arXiv papers (version matters)
+        version: 7
         quote:
           type: TextQuoteSelector
           exact: "We found that layer normalization leads to faster convergence."
-          prefix: "In our ablation studies, "   # Optional: ~20-100 chars for disambiguation
-          suffix: " This effect was..."         # Optional: ~20-100 chars
+          prefix: "In our ablation studies, "
+          suffix: " This effect was..."
         location:
           type: FragmentSelector
-          page: 5                            # 1-indexed page number
-    scope: "Transformer architectures"       # Optional: when this applies
-    confidence: 0.9                          # Optional: 0-1 confidence score
+          page: 5
+    scope: "Transformer architectures"
+    confidence: 0.9
 ```
 
 ### Evidence Types
@@ -508,11 +537,65 @@ This:
 
 **Key principle**: The agent writes evidence, but validation is the gatekeeper. Fabricated quotes will fail verification.
 
+### Evidence Lifecycle
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        PHASE 1: LITERATURE RESEARCH                      │
+│                           (Agent + Web Search)                           │
+├──────────────────────────────────────────────────────────────────────────┤
+│  1. Identify decisions needing justification                             │
+│  2. Web search for relevant papers                                       │
+│  3. Collect DOIs                                                         │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    |
+                                    v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        PHASE 2: PAPER ACQUISITION                        │
+│                              (CLI)                                       │
+├──────────────────────────────────────────────────────────────────────────┤
+│  asp paper add 10.48550/arXiv.1706.03762 --version 7                     │
+│  Cache: ~/.cache/asp/papers/                                             │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    |
+                                    v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       PHASE 3: INSIGHT EXTRACTION                        │
+│                        (Agent reads PDF directly)                        │
+├──────────────────────────────────────────────────────────────────────────┤
+│  Agent writes insights to insights.yaml with exact quotes                │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    |
+                                    v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       PHASE 4: DECISION LINKING                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│  decisions:                                                              │
+│    normalization:                                                        │
+│      options:                                                            │
+│        layer_norm:                                                       │
+│          insights:                                                       │
+│            - layer_norm_insight                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    |
+                                    v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       PHASE 5: VALIDATION                                │
+│                         (CLI - Gatekeeper)                               │
+├──────────────────────────────────────────────────────────────────────────┤
+│  asp validate asp.yaml --verify-evidence                                 │
+│  Stage 1: Schema validation                                              │
+│  Stage 2: Semantic validation (references, constraints, recipes)         │
+│  Stage 3: Evidence verification (quotes exist in PDFs)                   │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Evidence-Based Decisions
 
 Decisions reference insights (not papers directly) to create a traceable chain:
 
 ```yaml
+# insights.yaml
 insights:
   minmax_study:
     id: minmax_study
@@ -527,19 +610,20 @@ insights:
         location:
           type: FragmentSelector
           page: 12
-
-chunks:
-  main:
-    decisions:
-      scaling:
-        options:
-          minmax:
-            label: "Min-Max Scaling"
-            insights:
-              - minmax_study            # Reference to insight ID
 ```
 
-This creates a traceable chain: **decision option → insight → evidence → paper (DOI)**.
+```yaml
+# asp.yaml
+decisions:
+  scaling:
+    options:
+      minmax:
+        label: "Min-Max Scaling"
+        insights:
+          - minmax_study            # Reference to insight ID
+```
+
+This creates a traceable chain: **decision option -> insight -> evidence -> paper (DOI)**.
 
 ## Composability
 
@@ -554,179 +638,9 @@ inputs:
   - id: preprocessing_study
     type: analysis
     ref: "analyses/preprocessing_comparison"
-    version: "v1.2"
+    ref_version: "v1.2"
     use_outputs: [best_method, performance_table]
 ```
-
-## Example Analysis Specification
-
-```yaml
-$schema: "https://asp-spec.org/v1/schema.json"
-version: "1.0"
-
-analysis:
-  name: "Iris Classification Study"
-
-  problem: |
-    Build a robust classifier for the Iris dataset that accurately
-    predicts species from flower measurements, suitable for use in
-    a botanical identification application.
-
-  inputs:
-    - id: iris_data
-      type: data
-      source: "sklearn.datasets.load_iris"
-      description: "Fisher's classic 150-sample, 3-class dataset"
-
-    - id: preprocessing_study
-      type: analysis
-      ref: "analyses/scaling_comparison_2024"
-      description: "Our previous study on scaling methods"
-
-  outputs:
-    - id: accuracy
-      type: metric
-      dtype: float
-      range: [0, 1]
-      description: "Classification accuracy on held-out test set"
-
-    - id: f1_score
-      type: metric
-      dtype: float
-      range: [0, 1]
-      description: "Macro-averaged F1 score"
-
-    - id: confusion_matrix
-      type: figure
-      formats: [png, svg]
-      description: "Confusion matrix heatmap"
-
-    - id: model_comparison
-      type: table
-      formats: [csv]
-      description: "Accuracy by model and preprocessing combination"
-
-    - id: trained_model
-      type: model
-      formats: [joblib]
-      description: "Best performing classifier"
-
-    - id: conclusion
-      type: report
-      description: "Summary of classifier performance and suitability for the application"
-
-insights:
-  minmax_tree_improvement:
-    id: minmax_tree_improvement
-    claim: "MinMax scaling improves tree model accuracy by 3% on tabular data."
-    created_at: "2024-01-15T10:00:00Z"
-    evidence:
-      - id: ev1
-        doi: "10.1234/scaling-comparison-2024"
-        quote:
-          type: TextQuoteSelector
-          exact: "MinMax normalization yielded a 3% improvement in accuracy for Random Forest classifiers on tabular datasets."
-        location:
-          type: FragmentSelector
-          page: 8
-    scope: "Tree-based models on tabular data"
-
-chunks:
-  main:
-    decisions:
-      scaling:
-        label: "Feature Scaling"
-        type: method
-        importance: 2
-        rationale: "Scaling affects distance-based algorithms like SVM"
-        default: standard
-        options:
-          none:
-            label: "No Scaling"
-            description: "Use raw feature values"
-          standard:
-            label: "StandardScaler"
-            description: "Z-score normalization (mean=0, std=1)"
-          minmax:
-            label: "MinMaxScaler"
-            description: "Scale to [0, 1] range"
-            insights:
-              - minmax_tree_improvement
-            incompatible_with: ["model.svm"]
-
-      model:
-        label: "Classification Model"
-        type: method
-        importance: 1
-        rationale: "Core algorithmic choice affecting accuracy and interpretability"
-        default: random_forest
-        options:
-          svm:
-            label: "Support Vector Machine"
-            description: "Maximum margin classifier"
-          random_forest:
-            label: "Random Forest"
-            description: "Ensemble of decision trees"
-          logistic:
-            label: "Logistic Regression"
-            description: "Linear classifier with probabilistic output"
-
-      test_size:
-        label: "Test Set Proportion"
-        type: parameter
-        importance: 3
-        rationale: "Trade-off between training data and evaluation reliability"
-        default: small
-        options:
-          small:
-            label: "20%"
-            value: 0.2
-          medium:
-            label: "30%"
-            value: 0.3
-
-      random_seed:
-        label: "Random Seed"
-        type: parameter
-        importance: 4
-        rationale: "For reproducibility and stability testing"
-        default: seed_42
-        options:
-          seed_42:
-            label: "42"
-            value: 42
-          seed_123:
-            label: "123"
-            value: 123
-```
-
-## Execution Model
-
-### Single Universe Execution (typical)
-
-Given an analysis spec and a universe (set of decisions):
-
-1. **Parse** the spec and validate the universe against constraints
-2. **Agent generates** implementation code based on the decisions
-3. **Execute** the code
-4. **Collect** declared outputs (metrics, artifacts, conclusion)
-5. **Store** the execution record linking universe → results
-
-The result is a complete analysis that answers the problem statement.
-
-### Multiverse Exploration (optional)
-
-If the user wants to check robustness or explore alternatives:
-
-1. **Select** alternative universes to run (user choice or sampling)
-2. **Execute** each selected universe
-3. **Compare** results across universes
-4. **Generate** multiverse summary (specification curve, sensitivity analysis)
-
-## Execution
-
-ASP makes no prescription about execution frameworks. The specification defines *what* to compute; execution is handled by the agentic layer (e.g., Prism).
-
 
 ## Versioning and Lifecycle
 
@@ -736,164 +650,178 @@ An analysis evolves over time. Git provides the foundation for tracking this evo
 
 ```
 ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
-│  Draft  │ ──▶ │ Evolve  │ ──▶ │ Execute │ ──▶ │ Iterate │ ──▶ │Finalize │
+│  Draft  │ --> │ Evolve  │ --> │ Execute │ --> │ Iterate │ --> │Finalize │
 └─────────┘     └─────────┘     └─────────┘     └─────────┘     └─────────┘
-     │               │               │               │               │
-     ▼               ▼               ▼               ▼               ▼
-   commit         commits        execution       commits          tag
-   (initial)    (add decisions)   record       (refine)        (v1.0)
+     |               |               |               |               |
+     v               v               v               v               v
+   commit         commits          run            commits          tag
+   (initial)    (add decisions)  universes       (refine)        (v1.0)
 ```
 
-**Key principle**: The analysis definition evolves through Git commits. Discovering a new decision point during execution is normal—just add it and commit.
+**Key principle**: The analysis definition evolves through Git commits. Discovering a new decision point during execution is normal -- just add it and commit.
 
 ### What Git Mechanisms Map To
 
 | Concept | Git Mechanism | When to Use |
 |---------|---------------|-------------|
 | **Analysis evolution** | Commits on branch | Adding/modifying decisions as you work |
-| **Universe** | File (`universes/baseline.yaml`) | Different selections within same analysis |
+| **Universe** | File (`universes/baseline.yaml`) | Different decision selections within same analysis |
 | **Alternative approach** | Branch | Fundamentally different methodology |
 | **Completed analysis** | Tag | Marking a milestone (submission, publication) |
-| **Parallel exploration** | Worktree | Running multiple branches simultaneously |
 
-### Branches: When Analysis Paths Diverge
+### Universes vs Branches
 
-A Git branch is appropriate when you're exploring a **fundamentally different approach** that might introduce its own decision points:
+**Universes** handle different decision selections within the same analysis. Each universe produces outputs in `outputs/<universe_id>/`, making comparison trivial:
+
+```bash
+# Different decisions, same analysis
+diff outputs/baseline/ outputs/svm_focused/
+```
+
+**Branches** are for fundamentally different approaches that change the decision space itself:
 
 ```
 main (classical ML)
-  │
-  ├── scaling, model (svm/rf), cv_strategy...
-  │
-  │   ──── git branch deep-learning ────▶
-  │                                        │
-  │                                        ├── adds: architecture, optimizer,
-  │                                        │         learning_rate, epochs...
-  │                                        │
-  │                                        └── different decision space
-  │
+  |
+  |-- scaling, model (svm/rf), cv_strategy...
+  |
+  |   ── git branch deep-learning ──>
+  |                                    |
+  |                                    |-- adds: architecture, optimizer,
+  |                                    |         learning_rate, epochs...
+  |                                    |
+  |                                    └── different decision space
+  |
   └── continues with classical approach
 ```
 
-Branches are NOT for choosing different options within the same analysis—that's what universes are for.
-
-### Worktrees: Parallel Execution
-
-Git worktrees allow multiple branches to be checked out simultaneously, each in its own directory:
-
-```bash
-# Main analysis
-my-analysis/                    # main branch
-├── asp.yaml
-├── universes/
-│   └── baseline.yaml
-└── results/
-
-# Create worktree for alternative approach
-git worktree add ../my-analysis-deep-learning deep-learning
-
-# Now both exist on filesystem
-my-analysis/                    # main branch
-my-analysis-deep-learning/      # deep-learning branch
-
-# Run them in parallel, compare results
-```
-
-This enables:
-- Running different analytical approaches simultaneously
-- Keeping results isolated per approach
-- Easy comparison across approaches
+Branches are NOT for choosing different options within the same analysis -- that's what universes are for.
 
 ### Tags: Marking Complete Analyses
 
-Tags mark significant milestones:
-
 ```bash
-# Analysis submitted to journal
 git tag -a v1.0-submitted -m "Analysis as submitted to Nature Methods"
-
-# After reviewer response
-git tag -a v1.1-revision -m "Addressed reviewer comments on scaling method"
-
-# Published version
+git tag -a v1.1-revision -m "Addressed reviewer comments"
 git tag -a v1.1-published -m "Final published version"
 ```
 
-A tagged analysis should be reproducible: the tag points to a specific commit of the analysis definition, and execution records reference that commit.
-
-### Execution Records and Versioning
-
-When a universe is executed, the record captures:
+## Example Analysis Specification
 
 ```yaml
-# executions/baseline_001.yaml
-id: baseline_001
-universe: baseline
-commit: "abc123def"  # Git commit of analysis definition
-branch: "main"
+$schema: "https://asp-spec.org/v1/schema.json"
+version: "1.0"
+name: "Iris Classification Study"
 
-status: completed
-started_at: "2025-01-15T10:00:00Z"
+description: |
+  Build a robust classifier for the Iris dataset that accurately
+  predicts species from flower measurements, suitable for use in
+  a botanical identification application.
 
-metrics:
-  accuracy: 0.967
-artifacts:
-  confusion_matrix: "results/baseline_001/confusion_matrix.png"
+inputs:
+  - id: iris_data
+    type: data
+    source: "sklearn.datasets.load_iris"
+    description: "Fisher's classic 150-sample, 3-class dataset"
+
+  - id: preprocessing_study
+    type: analysis
+    ref: "analyses/scaling_comparison_2024"
+    description: "Our previous study on scaling methods"
+
+outputs:
+  - id: accuracy
+    type: metric
+    description: "Classification accuracy on held-out test set"
+
+  - id: f1_score
+    type: metric
+    description: "Macro-averaged F1 score"
+
+  - id: confusion_matrix
+    type: figure
+    description: "Confusion matrix heatmap"
+
+  - id: model_comparison
+    type: table
+    description: "Accuracy by model and preprocessing combination"
+
+  - id: trained_output
+    type: data
+    description: "Best performing classifier"
+
+  - id: conclusion
+    type: report
+    description: "Summary of classifier performance"
+
+decisions:
+  scaling:
+    label: "Feature Scaling"
+    type: method
+    rationale: "Scaling affects distance-based algorithms like SVM"
+    default: standard
+    options:
+      none:
+        label: "No Scaling"
+        description: "Use raw feature values"
+      standard:
+        label: "StandardScaler"
+        description: "Z-score normalization (mean=0, std=1)"
+      minmax:
+        label: "MinMaxScaler"
+        description: "Scale to [0, 1] range"
+        incompatible_with: ["model.svm"]
+
+  model:
+    label: "Classification Model"
+    type: method
+    rationale: "Core algorithmic choice"
+    default: random_forest
+    options:
+      svm:
+        label: "Support Vector Machine"
+        requires: ["scaling.standard"]
+      random_forest:
+        label: "Random Forest"
+      logistic:
+        label: "Logistic Regression"
+
+  test_size:
+    label: "Test Set Proportion"
+    type: parameter
+    rationale: "Trade-off between training data and evaluation reliability"
+    default: small
+    options:
+      small:
+        label: "20%"
+      medium:
+        label: "30%"
+
+  random_seed:
+    label: "Random Seed"
+    type: parameter
+    rationale: "For reproducibility"
+    default: seed_42
+    options:
+      seed_42:
+        label: "42"
+      seed_123:
+        label: "123"
+
+recipes:
+  train:
+    command: python src/train.py
+    outputs: [trained_output]
+  evaluate:
+    command: python src/evaluate.py
+    outputs: [accuracy, f1_score, confusion_matrix, model_comparison, conclusion]
+    depends_on: [train]
 ```
-
-This creates a complete audit trail: you can always see which version of the analysis produced which results.
-
-### Discovering New Decisions During Execution
-
-A common scenario: while running an analysis, you realize there's a decision you didn't anticipate.
-
-**Workflow:**
-1. You're running the baseline universe
-2. You notice: "Wait, should we handle class imbalance? That's a decision!"
-3. Add the new decision to `asp.yaml`
-4. Commit: "Add class_imbalance decision point"
-5. Update universe files to include the new decision
-6. Continue execution
-
-The analysis definition evolves as you learn. This is expected and tracked naturally by Git.
-
-### Branch Metadata
-
-To track the relationship between branches and decisions, maintain `.asp/branches.yaml`:
-
-```yaml
-# .asp/branches.yaml
-branches:
-  deep-learning:
-    description: "Exploring neural network approaches"
-    diverged_from: main
-    diverged_at: "abc123"  # commit hash
-    new_decisions:
-      - architecture
-      - optimizer
-      - learning_rate
-    created_by:
-      agent: claude-opus-4
-      timestamp: "2025-01-15T10:00:00Z"
-
-  bayesian:
-    description: "Bayesian inference approach"
-    diverged_from: main
-    diverged_at: "def456"
-    new_decisions:
-      - prior_distribution
-      - mcmc_sampler
-```
-
-This provides semantic context for why branches exist.
 
 ## CLI Commands
 
-The ASP CLI provides tools for working with specifications:
-
 ```bash
 # Project setup
-asp init my-analysis               # Create minimal scaffold
+asp init my-analysis               # Create analysis scaffold
 asp init my-analysis --no-git      # Skip git initialization
 
 # Validation
@@ -921,7 +849,7 @@ asp paper list                     # List cached papers
 asp paper verify-quotes <doi>      # Verify evidence quotes
 ```
 
-For full agentic scaffolding (Claude Code config, HPC targets, visual editors), use Prism: `prism init`.
+For full agentic scaffolding (Claude Code config, skills, HPC targets), use Prism: `prism init`.
 
 ## Schema Reference
 
@@ -929,87 +857,88 @@ For full agentic scaffolding (Claude Code config, HPC targets, visual editors), 
 
 ```yaml
 $schema: "https://asp-spec.org/v1/schema.json"
-version: "1.0"
+version: "1.0"                      # Required: ASP spec version
 
-analysis:
-  name: string                    # Required: Human-readable name
-  description: string             # Optional: Detailed description
-  authors: [string]               # Optional: List of authors
-  tags: [string]                  # Optional: Tags for categorization
+name: string                        # Required: Human-readable name
+description: string                 # Optional: What this analysis aims to achieve
+authors: [string]                   # Optional: List of authors
+tags: [string]                      # Optional: Tags for categorization
 
-  problem: string                 # Required: Problem statement
+inputs:                             # Required: List of inputs
+  - id: string                      # Unique identifier (^[a-z][a-z0-9_]*$)
+    type: data|analysis             # Input type
+    description: string             # Optional
+    source: string                  # For data: URI or path
+    checksum:                       # Optional: data integrity
+      algorithm: sha256|sha512|md5
+      value: string
+    ref: string                     # For analysis: reference path
+    ref_version: string             # For analysis: version
+    use_outputs: [string]           # For analysis: specific outputs
+    from: string                    # For sub-analyses: parent input or sibling output
 
-  inputs:                         # Required: List of inputs
-    - id: string                  # Unique identifier
-      type: data|analysis|literature
-      source: object              # Source specification
-      description: string
+outputs:                            # Required: List of outputs
+  - id: string                      # Unique identifier (^[a-z][a-z0-9_]*$)
+    type: metric|figure|table|data|report
+    description: string             # Optional
+    from: string                    # Optional: provenance from sub-analysis
 
-  outputs:                        # Required: List of outputs
-    - id: string                  # Unique identifier
-      type: metric|figure|table|data|model|report
-      dtype: float|int|bool|string  # For metrics
-      range: [min, max]           # For numeric metrics
-      formats: [string]           # For artifacts
+decisions:                          # Map of decision IDs
+  decision_id:
+    label: string                   # Human-readable name
+    type: data|method|parameter     # Decision category
+    rationale: string               # Optional: why this decision exists
+    default: option_id              # Optional: default for baseline
+    options:
+      option_id:
+        label: string               # Human-readable name
+        description: string         # Optional
+        insights: [string]          # Optional: insight IDs
+        incompatible_with: [string] # Optional: "decision.option" pairs
+        requires: [string]          # Optional: "decision.option" pairs
 
-      description: string
-
-insights:                         # Optional: Map of insights
+insights:                           # Optional: Map of insight IDs
   insight_id:
-    id: string                    # Unique identifier
-    claim: string                 # What we learned (1-2 sentences)
-    created_at: datetime          # ISO 8601 timestamp
-    evidence:                     # Required: list of evidence items
-      - id: string                # Evidence ID (unique within insight)
-        doi: string               # Paper DOI (e.g., "10.48550/arXiv.1706.03762")
-        version: int              # Optional: paper version (for arXiv)
-        quote:                    # At least one of: quote, figure, table
-          type: TextQuoteSelector
-          exact: string           # Exact quoted text
-          prefix: string          # Optional: context before
-          suffix: string          # Optional: context after
-        figure:
-          type: FigureSelector
-          label: string           # Figure label (e.g., "Figure 3a")
-          caption: string         # Optional: caption text
-        table:
-          type: TableSelector
-          label: string           # Table label (e.g., "Table 1")
-          caption: string         # Optional: header text
-          region: string          # Optional: specific region
-        location:                 # Optional: PDF location hint
-          type: FragmentSelector
-          page: int               # 1-indexed page number
-    confidence: float             # Optional: 0-1 confidence score
-    derived: bool                 # Optional: true if synthesized/inferred
-    scope: string                 # Optional: applicability conditions
-    tags: [string]                # Optional: categorization tags
-    notes: string                 # Optional: reasoning notes
-
-chunks:                           # Required: Map of chunks
-  chunk_id:
-    problem: string               # Problem statement (optional for 'main')
-    success_criteria: [string]    # Optional: criteria for chunk success
-    decisions:                    # Map of decisions for this chunk
-      decision_id:
-        label: string             # Human-readable name
-        type: data|method|parameter
-        importance: 1-5           # 1=critical, 5=implementation detail
-        rationale: string         # Why this decision exists
-        reviewed: bool            # Optional: has a human reviewed this?
-        default: option_id        # Default option for baseline
-        options:
-          option_id:
-            label: string         # Human-readable name
-            description: string
-            value: any            # Configuration value
-            insights: [string]    # List of insight IDs supporting this option
-            incompatible_with: [string]  # "decision.option" pairs (same chunk)
-            requires: [string]    # "decision.option" pairs (same chunk)
-    artefacts:                    # Optional: typed outputs from this chunk
+    id: string
+    claim: string
+    created_at: datetime
+    evidence:
       - id: string
-        type: figure|table|data|report
-        description: string
+        doi: string
+        version: int                # Optional: for arXiv
+        quote: TextQuoteSelector    # At least one of: quote, figure, table
+        figure: FigureSelector
+        table: TableSelector
+        location: FragmentSelector  # Optional: PDF location hint
+    confidence: float               # Optional: 0-1
+    derived: bool                   # Optional: true if synthesized
+    scope: string                   # Optional: applicability
+    tags: [string]                  # Optional
+    notes: string                   # Optional
+
+container: string                   # Optional: default container image
+
+recipes:                            # Optional: Map of recipe IDs
+  recipe_id:
+    command: string                 # Required: command to execute
+    outputs: [string]               # Required: output IDs this produces
+    container: string               # Optional: container override
+    depends_on: [string]            # Optional: recipe IDs (forms DAG)
+    resources:                      # Optional: compute requirements
+      cpus: int
+      memory: string               # e.g., "8GB"
+      gpus: int
+      time_limit: string           # e.g., "2h"
+
+analyses:                           # Optional: Map of sub-analysis IDs
+  analysis_id:                      # Same structure as root (recursive)
+    description: string
+    parent_decisions: [string]      # Optional: parent decision IDs this node depends on
+    inputs: [...]                   # Required for sub-analyses
+    outputs: [...]                  # Required for sub-analyses
+    decisions: {...}
+    recipes: {...}
+    analyses: {...}                 # Can nest further
 ```
 
 ### Universe Schema (universes/*.yaml)
@@ -1017,73 +946,44 @@ chunks:                           # Required: Map of chunks
 ```yaml
 $schema: "https://asp-spec.org/v1/universe.schema.json"
 
-id: string                        # Unique identifier
-description: string               # What this universe represents
+id: string                          # Unique identifier (^[a-z][a-z0-9_-]*$)
+description: string                 # What this universe represents
 
-chunks:                           # Map of chunk_id -> decision selections
-  main:
-    scaling: standard
-    model: random_forest
-    test_size: split_20
+decisions:                          # Root-level decision selections
+  scaling: standard
+  model: random_forest
+
+analyses:                           # Sub-analysis selections (mirrors tree)
+  build_mocks:
+    decisions:
+      noise_model: heteroscedastic
+  train_network:
+    decisions:
+      architecture: maf
 ```
 
-### Execution Schema (executions/*.yaml)
+## What This Model Does NOT Include
 
-```yaml
-$schema: "https://asp-spec.org/v1/execution.schema.json"
+### No Execution Framework
 
-id: string                        # Unique execution identifier
-universe: string                  # Universe that was executed
-commit: string                    # Git commit of analysis definition
-branch: string                    # Git branch
+ASP defines the specification and recipes. Execution orchestration (scheduling, monitoring, event tracking, UI) is handled by external tools:
+- **asp-core**: Minimal runner (podman, dependency order)
+- **Prism**: AI agent that writes code and registers recipes
+- **External runners**: Dagster, Snakemake, or any tool that can read recipes
 
-status: pending|running|completed|failed
-started_at: datetime
-ended_at: datetime
+### No Execution Order Between Decisions
 
-runner:
-  type: local|cwl|wdl|snakemake|argo-workflows
-  run_id: string                  # ID from workflow engine
-  host: string                    # Execution host
-
-inputs: [string]                  # Input file paths used
-
-metrics:                          # Metric values (metric_id -> value)
-  accuracy: 0.967
-  f1_score: 0.965
-
-artifacts:                        # Artifact paths (artifact_id -> path)
-  confusion_matrix: "results/baseline_001/confusion_matrix.png"
-  trained_model: "results/baseline_001/model.joblib"
-
-agent:
-  type: string                    # Agent type (e.g., claude-opus-4)
-  session: string                 # Session identifier
-
-error:                            # Present if status=failed
-  message: string
-  step: string                    # Step where error occurred
-```
-
-## Open Questions
-
-1. **Agent instructions**: Should the spec include hints for the agent about implementation preferences? Or is the problem statement sufficient?
-
-2. **Semantic validation**: How do we validate that outputs actually address the problem statement? (Syntactic validation—checking outputs exist—is straightforward.)
-
-3. **Caching**: If a decision doesn't affect certain outputs, can we cache and reuse? This requires understanding which decisions affect which workflow steps.
-
-4. **Step versioning**: How do we handle breaking changes to shared steps? Semantic versioning? Step-level tags?
-
-5. **Cross-branch comparison**: How do we compare results between branches that have different decision spaces?
+Decisions don't have causal relationships. Constraints (`requires`, `incompatible_with`) handle validity. Execution order is determined by recipe dependencies.
 
 ## Benefits of This Model
 
-1. **Declarative**: Spec says WHAT, not HOW
-2. **Transparent**: All decisions and alternatives are documented
-3. **Composable**: Analyses can build on each other
-4. **Evidence-linked**: Decisions can cite supporting evidence
-5. **Agent-friendly**: Clear structure for LLM to understand and implement
-6. **Goal-oriented**: Problem statement keeps analysis focused
-7. **Single-analysis first**: One universe answers the question; multiverse is for exploration
-8. **Reproducible**: Precise input provenance and execution records ensure reproducibility
+1. **Declarative**: Spec says WHAT, recipes say HOW
+2. **Self-similar**: Every level has the same structure
+3. **Transparent**: All decisions and alternatives are documented
+4. **Composable**: Analyses can build on each other
+5. **Evidence-linked**: Decisions cite verified evidence from literature
+6. **Reproducible**: Recipes + containers = reproducible outputs
+7. **Progressive**: Start with just a spec, add recipes and containers incrementally
+8. **Agent-friendly**: Clear structure for AI agents to understand and implement
+9. **Goal-oriented**: Problem statement keeps analysis focused
+10. **Single-analysis first**: One universe answers the question; multiverse is for exploration

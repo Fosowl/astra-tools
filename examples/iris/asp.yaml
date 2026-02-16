@@ -11,7 +11,7 @@ tags:
   - sklearn
   - example
 
-problem: |
+description: |
   Build a robust classifier for the Iris dataset that accurately
   predicts species from flower measurements, suitable for use in
   a botanical identification application.

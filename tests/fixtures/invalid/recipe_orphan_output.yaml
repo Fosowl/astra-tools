@@ -1,6 +1,6 @@
 version: "1.0"
 name: "Recipe Orphan Output"
-problem: "Test orphan recipe output"
+description: "Test orphan recipe output"
 inputs:
   - id: test_data
     type: data

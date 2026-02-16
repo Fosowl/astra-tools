@@ -2,7 +2,7 @@
   "$id": "https://asp-spec.org/v1/analysis.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "A self-similar analysis specification.\n\nEvery level has the same structure: metadata, problem, inputs, outputs,\ndecisions, insights, and optional sub-analyses. A sub-analysis extracted\nto its own file is a valid Analysis on its own.\n\nAt the root level, ``version``, ``name``, ``problem``, ``inputs``, and\n``outputs`` are required. In sub-analyses they are optional.",
+  "description": "A self-similar analysis specification.\n\nEvery level has the same structure: description, inputs, outputs,\ndecisions, insights, and optional sub-analyses. A sub-analysis extracted\nto its own file is a valid Analysis on its own.\n\nAt the root level, ``version``, ``name``, ``inputs``, and\n``outputs`` are required. In sub-analyses they are optional.",
   "properties": {
     "$schema": {
       "anyOf": [
@@ -76,19 +76,6 @@
       "description": "Tags for categorization",
       "title": "Tags"
     },
-    "problem": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Problem statement describing what the analysis aims to achieve",
-      "title": "Problem"
-    },
     "description": {
       "anyOf": [
         {
@@ -99,7 +86,7 @@
         }
       ],
       "default": null,
-      "description": "Detailed description of this analysis",
+      "description": "Description of what this analysis aims to achieve",
       "title": "Description"
     },
     "success_criteria": {
@@ -166,6 +153,22 @@
       "title": "Insights",
       "type": "object"
     },
+    "parent_decisions": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Decision IDs from parent scope that this sub-analysis depends on. Makes parent decisions available for constraints and enables standalone packaging.",
+      "title": "Parent Decisions"
+    },
     "container": {
       "anyOf": [
         {
@@ -219,7 +222,7 @@
       "$id": "https://asp-spec.org/v1/analysis.schema.json",
       "$schema": "http://json-schema.org/draft-07/schema#",
       "additionalProperties": false,
-      "description": "A self-similar analysis specification.\n\nEvery level has the same structure: metadata, problem, inputs, outputs,\ndecisions, insights, and optional sub-analyses. A sub-analysis extracted\nto its own file is a valid Analysis on its own.\n\nAt the root level, ``version``, ``name``, ``problem``, ``inputs``, and\n``outputs`` are required. In sub-analyses they are optional.",
+      "description": "A self-similar analysis specification.\n\nEvery level has the same structure: description, inputs, outputs,\ndecisions, insights, and optional sub-analyses. A sub-analysis extracted\nto its own file is a valid Analysis on its own.\n\nAt the root level, ``version``, ``name``, ``inputs``, and\n``outputs`` are required. In sub-analyses they are optional.",
       "properties": {
         "$schema": {
           "anyOf": [
@@ -293,19 +296,6 @@
           "description": "Tags for categorization",
           "title": "Tags"
         },
-        "problem": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Problem statement describing what the analysis aims to achieve",
-          "title": "Problem"
-        },
         "description": {
           "anyOf": [
             {
@@ -316,7 +306,7 @@
             }
           ],
           "default": null,
-          "description": "Detailed description of this analysis",
+          "description": "Description of what this analysis aims to achieve",
           "title": "Description"
         },
         "success_criteria": {
@@ -382,6 +372,22 @@
           "description": "Map of insight IDs to insight specifications",
           "title": "Insights",
           "type": "object"
+        },
+        "parent_decisions": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Decision IDs from parent scope that this sub-analysis depends on. Makes parent decisions available for constraints and enables standalone packaging.",
+          "title": "Parent Decisions"
         },
         "container": {
           "anyOf": [

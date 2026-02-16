@@ -39,10 +39,6 @@ class TestSchemaValidation:
         errors = validate_analysis_file(invalid_dir / "missing_version.yaml")
         assert any(e.code == "MISSING_ROOT_FIELD" and "version" in e.message for e in errors)
 
-    def test_missing_problem(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "missing_problem.yaml")
-        assert any(e.code == "MISSING_ROOT_FIELD" and "problem" in e.message for e in errors)
-
     def test_invalid_input_type(self, invalid_dir: Path):
         errors = validate_analysis_schema(invalid_dir / "invalid_input_type.yaml")
         assert len(errors) > 0
@@ -144,6 +140,30 @@ class TestNestedAnalysisValidation:
         universe_data = load_yaml(invalid_dir / "universe_missing_analysis_decision.yaml")
         errors = validate_universe(universe_data, analysis_data)
         assert any(e.code == "MISSING_DECISION" for e in errors)
+
+
+class TestSubAnalysisRequirements:
+    """Tests for sub-analysis required fields and parent_decisions."""
+
+    def test_sub_missing_outputs(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "sub_missing_outputs.yaml")
+        assert any(e.code == "MISSING_SUB_FIELD" and "outputs" in e.message for e in errors)
+
+    def test_invalid_parent_decision(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "invalid_parent_decision.yaml")
+        assert any(e.code == "INVALID_PARENT_DECISION" for e in errors)
+
+    def test_cross_level_constraint_in_analysis(self, valid_dir: Path):
+        """parent_decisions allows constraints referencing parent decisions."""
+        errors = validate_analysis_file(valid_dir / "nested.yaml")
+        assert errors == []
+
+    def test_cross_level_incompatible_universe(self, valid_dir: Path, invalid_dir: Path):
+        """Universe violates cross-level incompatible_with constraint."""
+        analysis_data = load_yaml(valid_dir / "nested.yaml")
+        universe_data = load_yaml(invalid_dir / "universe_cross_level_incompatible.yaml")
+        errors = validate_universe(universe_data, analysis_data)
+        assert any(e.code == "INCOMPATIBLE_OPTIONS" for e in errors)
 
 
 class TestRecipeValidation:

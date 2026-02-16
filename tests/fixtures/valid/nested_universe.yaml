@@ -1,6 +1,9 @@
 id: baseline
 description: "Standard pipeline configuration"
 
+decisions:
+  cosmology_model: flat_lcdm
+
 analyses:
   build_mocks:
     decisions:
