@@ -1,9 +1,8 @@
 id: baseline
 description: "Baseline configuration"
 
-chunks:
-  main:
-    preprocessing: standard
-    model: rf
-    test_split: split_20
-    seed: seed_42
+decisions:
+  preprocessing: standard
+  model: rf
+  test_split: split_20
+  seed: seed_42

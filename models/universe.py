@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -12,8 +12,27 @@ if TYPE_CHECKING:
     from models.analysis import Analysis
 
 
+class UniverseNode(BaseModel):
+    """A universe node mirroring the analysis tree structure."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of decision ID to selected option ID",
+    )
+    analyses: dict[str, UniverseNode] | None = Field(
+        default=None,
+        description="Map of sub-analysis IDs to their universe selections",
+    )
+
+
+# Required for Pydantic self-referencing models
+UniverseNode.model_rebuild()
+
+
 class Universe(BaseModel):
-    """A universe specification - a complete set of decisions organized by chunk."""
+    """A universe specification - a complete set of decisions across the analysis tree."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -30,9 +49,13 @@ class Universe(BaseModel):
         description="Unique identifier for the universe",
     )
     description: str | None = Field(default=None, description="What this universe represents")
-    chunks: dict[str, dict[str, str]] = Field(
-        description="Map of chunk ID to decision selections (decision_id -> option_id) "
-        "for that chunk",
+    decisions: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of decision ID to selected option ID (root-level decisions)",
+    )
+    analyses: dict[str, UniverseNode] | None = Field(
+        default=None,
+        description="Map of sub-analysis IDs to their universe selections",
     )
 
     @classmethod
@@ -61,10 +84,26 @@ class Universe(BaseModel):
         if not isinstance(analysis, Analysis):
             raise TypeError("analysis must be an Analysis instance")
 
-        chunks = analysis.get_default_universe()
+        defaults = analysis.get_default_universe()
 
         return cls(
             id=universe_id,
             description=description or "Default configuration using standard practices",
-            chunks=chunks,
+            decisions=defaults.get("decisions", {}),
+            analyses=cls._build_node_from_defaults(defaults.get("analyses")),
         )
+
+    @classmethod
+    def _build_node_from_defaults(
+        cls, analyses_defaults: dict[str, Any] | None
+    ) -> dict[str, UniverseNode] | None:
+        """Recursively build UniverseNode tree from defaults dict."""
+        if not analyses_defaults:
+            return None
+        result: dict[str, UniverseNode] = {}
+        for node_id, node_defaults in analyses_defaults.items():
+            result[node_id] = UniverseNode(
+                decisions=node_defaults.get("decisions", {}),
+                analyses=cls._build_node_from_defaults(node_defaults.get("analyses")),
+            )
+        return result

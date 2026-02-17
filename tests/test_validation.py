@@ -36,14 +36,8 @@ class TestSchemaValidation:
         assert is_valid_universe(baseline_universe_path)
 
     def test_missing_version(self, invalid_dir: Path):
-        errors = validate_analysis_schema(invalid_dir / "missing_version.yaml")
-        assert len(errors) > 0
-        assert any("version" in e.lower() for e in errors)
-
-    def test_missing_problem(self, invalid_dir: Path):
-        errors = validate_analysis_schema(invalid_dir / "missing_problem.yaml")
-        assert len(errors) > 0
-        assert any("problem" in e.lower() for e in errors)
+        errors = validate_analysis_file(invalid_dir / "missing_version.yaml")
+        assert any(e.code == "MISSING_ROOT_FIELD" and "version" in e.message for e in errors)
 
     def test_invalid_input_type(self, invalid_dir: Path):
         errors = validate_analysis_schema(invalid_dir / "invalid_input_type.yaml")
@@ -104,7 +98,7 @@ class TestUniverseValidation:
             invalid_dir / "universe_missing_decision.yaml",
             full_analysis_path,
         )
-        assert any(e.code == "MISSING_CHUNK_DECISION" for e in errors)
+        assert any(e.code == "MISSING_DECISION" for e in errors)
 
     def test_invalid_option(self, full_analysis_path: Path, invalid_dir: Path):
         errors = validate_universe_file(
@@ -128,24 +122,76 @@ class TestUniverseValidation:
         assert any(e.code == "MISSING_REQUIRED_OPTION" for e in errors)
 
 
-class TestChunkValidation:
-    """Tests for chunk semantic validation."""
+class TestNestedAnalysisValidation:
+    """Tests for nested analysis semantic validation."""
 
-    def test_valid_chunks_parent(self, valid_dir: Path):
-        errors = validate_analysis_file(valid_dir / "chunks_parent.yaml")
+    def test_valid_nested_analysis(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "nested.yaml")
         assert errors == []
 
-    def test_valid_chunks_universe(self, valid_dir: Path):
-        analysis_data = load_yaml(valid_dir / "chunks_parent.yaml")
-        universe_data = load_yaml(valid_dir / "chunks_universe.yaml")
+    def test_valid_nested_universe(self, valid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "nested.yaml")
+        universe_data = load_yaml(valid_dir / "nested_universe.yaml")
         errors = validate_universe(universe_data, analysis_data)
         assert errors == []
 
-    def test_missing_chunk_decision_in_universe(self, valid_dir: Path, invalid_dir: Path):
-        analysis_data = load_yaml(valid_dir / "chunks_parent.yaml")
-        universe_data = load_yaml(invalid_dir / "universe_missing_chunk_decision.yaml")
+    def test_missing_analysis_decision_in_universe(self, valid_dir: Path, invalid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "nested.yaml")
+        universe_data = load_yaml(invalid_dir / "universe_missing_analysis_decision.yaml")
         errors = validate_universe(universe_data, analysis_data)
-        assert any(e.code == "MISSING_CHUNK_DECISION" for e in errors)
+        assert any(e.code == "MISSING_DECISION" for e in errors)
+
+
+class TestSubAnalysisRequirements:
+    """Tests for sub-analysis required fields and parent_decisions."""
+
+    def test_sub_missing_outputs(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "sub_missing_outputs.yaml")
+        assert any(e.code == "MISSING_SUB_FIELD" and "outputs" in e.message for e in errors)
+
+    def test_invalid_parent_decision(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "invalid_parent_decision.yaml")
+        assert any(e.code == "INVALID_PARENT_DECISION" for e in errors)
+
+    def test_cross_level_constraint_in_analysis(self, valid_dir: Path):
+        """parent_decisions allows constraints referencing parent decisions."""
+        errors = validate_analysis_file(valid_dir / "nested.yaml")
+        assert errors == []
+
+    def test_cross_level_incompatible_universe(self, valid_dir: Path, invalid_dir: Path):
+        """Universe violates cross-level incompatible_with constraint."""
+        analysis_data = load_yaml(valid_dir / "nested.yaml")
+        universe_data = load_yaml(invalid_dir / "universe_cross_level_incompatible.yaml")
+        errors = validate_universe(universe_data, analysis_data)
+        assert any(e.code == "INCOMPATIBLE_OPTIONS" for e in errors)
+
+
+class TestRecipeValidation:
+    """Tests for recipe semantic validation."""
+
+    def test_valid_recipes(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "full.yaml")
+        assert errors == []
+
+    def test_orphan_recipe_output(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "recipe_orphan_output.yaml")
+        assert any(e.code == "ORPHAN_RECIPE_OUTPUT" for e in errors)
+
+    def test_duplicate_recipe_output(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "recipe_duplicate_output.yaml")
+        assert any(e.code == "DUPLICATE_RECIPE_OUTPUT" for e in errors)
+
+    def test_invalid_recipe_dependency(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "recipe_invalid_dep.yaml")
+        assert any(e.code == "INVALID_RECIPE_DEP" for e in errors)
+
+    def test_recipe_cycle(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "recipe_cycle.yaml")
+        assert any(e.code == "RECIPE_CYCLE" for e in errors)
+
+    def test_nested_recipes(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "nested.yaml")
+        assert errors == []
 
 
 class TestSemanticError:

@@ -1,22 +1,16 @@
 # Invalid decision type
 version: "1.0"
-
-analysis:
-  name: "Test"
-  problem: "Test problem"
-  inputs:
-    - id: data
-      type: data
-  outputs:
-    - id: result
-      type: metric
-
-chunks:
-  main:
-    decisions:
-      method:
-        label: "Method"
-        type: invalid_type  # Should be data, method, or parameter
-        options:
-          a:
-            label: "A"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions:
+  method:
+    label: "Method"
+    type: invalid_type
+    options:
+      a:
+        label: "A"

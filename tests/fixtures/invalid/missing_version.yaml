@@ -1,13 +1,8 @@
 # Missing required 'version' field
-analysis:
-  name: "Test"
-  problem: "Test problem"
-  inputs:
-    - id: data
-      type: data
-  outputs:
-    - id: result
-      type: metric
-
-chunks:
-  main: {}
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric

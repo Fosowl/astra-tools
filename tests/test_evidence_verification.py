@@ -277,11 +277,24 @@ class TestFullValidationWorkflow:
         # Create a test analysis file
         analysis = {
             "version": "1.0",
-            "analysis": {
-                "name": "Test Analysis",
-                "problem": "Test the evidence verification system",
-                "inputs": [{"id": "data", "type": "data"}],
-                "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
+            "name": "Test Analysis",
+            "inputs": [{"id": "data", "type": "data"}],
+            "outputs": [{"id": "result", "type": "metric"}],
+            "decisions": {
+                "method": {
+                    "label": "Method",
+                    "type": "method",
+                    "default": "flexion",
+                    "options": {
+                        "flexion": {
+                            "label": "Use flexion",
+                            "insights": ["flexion_insight"],
+                        },
+                        "shear_only": {
+                            "label": "Shear only",
+                        },
+                    },
+                }
             },
             "insights": {
                 "flexion_insight": {
@@ -299,26 +312,6 @@ class TestFullValidationWorkflow:
                             },
                         }
                     ],
-                }
-            },
-            "chunks": {
-                "main": {
-                    "decisions": {
-                        "method": {
-                            "label": "Method",
-                            "type": "method",
-                            "default": "flexion",
-                            "options": {
-                                "flexion": {
-                                    "label": "Use flexion",
-                                    "insights": ["flexion_insight"],
-                                },
-                                "shear_only": {
-                                    "label": "Shear only",
-                                },
-                            },
-                        }
-                    }
                 }
             },
         }

@@ -4,7 +4,7 @@ These models are used for schema generation and are NOT installed as part
 of the asp package. They are only used by tools/generate_schemas.py.
 """
 
-from models.analysis import Analysis, Artefact, Chunk, Decision, Input, Option, Output
+from models.analysis import Analysis, Checksum, Decision, Input, Option, Output
 from models.insight import (
     Evidence,
     FigureSelector,
@@ -14,19 +14,19 @@ from models.insight import (
     TableSelector,
     TextQuoteSelector,
 )
-from models.universe import Universe
+from models.universe import Universe, UniverseNode
 
 __all__ = [
     # Analysis
     "Analysis",
-    "Artefact",
-    "Chunk",
+    "Checksum",
     "Decision",
     "Input",
     "Option",
     "Output",
     # Universe
     "Universe",
+    "UniverseNode",
     # Insight - W3C Selectors
     "TextQuoteSelector",
     "FragmentSelector",

@@ -1,9 +1,8 @@
 id: svm-config
 description: "SVM configuration with required preprocessing"
 
-chunks:
-  main:
-    preprocessing: standard
-    model: svm
-    test_split: split_20
-    seed: seed_42
+decisions:
+  preprocessing: standard
+  model: svm
+  test_split: split_20
+  seed: seed_42

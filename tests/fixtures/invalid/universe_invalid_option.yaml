@@ -2,9 +2,8 @@
 id: invalid-option
 description: "Invalid option selection"
 
-chunks:
-  main:
-    preprocessing: standard
-    model: nonexistent_model  # This option doesn't exist
-    test_split: split_20
-    seed: seed_42
+decisions:
+  preprocessing: standard
+  model: nonexistent_model
+  test_split: split_20
+  seed: seed_42

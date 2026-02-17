@@ -1,137 +1,116 @@
 $schema: "https://asp-spec.org/v1/schema.json"
 version: "1.0"
+name: "Iris Classification Study"
+description: |
+  A demonstration analysis that builds a classifier for the classic
+  Iris dataset, exploring different preprocessing and model choices.
+authors:
+  - "ASP Examples"
+tags:
+  - classification
+  - sklearn
+  - example
 
-analysis:
-  name: "Iris Classification Study"
-  description: |
-    A demonstration analysis that builds a classifier for the classic
-    Iris dataset, exploring different preprocessing and model choices.
-  authors:
-    - "ASP Examples"
-  tags:
-    - classification
-    - sklearn
-    - example
+inputs:
+  - id: iris_data
+    type: data
+    source: "sklearn.datasets.load_iris"
+    description: "Fisher's classic 150-sample, 3-class dataset"
 
-  problem: |
-    Build a robust classifier for the Iris dataset that accurately
-    predicts species from flower measurements, suitable for use in
-    a botanical identification application.
+  - id: preprocessing_study
+    type: analysis
+    ref: "analyses/scaling_comparison_2024"
+    description: "Our previous study on scaling methods"
 
-  inputs:
-    - id: iris_data
-      type: data
-      source: "sklearn.datasets.load_iris"
-      description: "Fisher's classic 150-sample, 3-class dataset"
+outputs:
+  - id: accuracy
+    type: metric
+    description: "Classification accuracy on held-out test set"
 
-    - id: preprocessing_study
-      type: analysis
-      ref: "analyses/scaling_comparison_2024"
-      description: "Our previous study on scaling methods"
+  - id: f1_score
+    type: metric
+    description: "Macro-averaged F1 score"
 
-  outputs:
-    - id: accuracy
-      type: metric
-      dtype: float
-      range: [0, 1]
-      path: accuracy.json
-      description: "Classification accuracy on held-out test set"
+  - id: confusion_matrix
+    type: figure
+    description: "Confusion matrix heatmap"
 
-    - id: f1_score
-      type: metric
-      dtype: float
-      range: [0, 1]
-      path: f1_score.json
-      description: "Macro-averaged F1 score"
+  - id: model_comparison
+    type: table
+    description: "Accuracy by model and preprocessing combination"
 
-    - id: confusion_matrix
-      type: figure
-      formats: [png, svg]
-      path: confusion_matrix.png
-      description: "Confusion matrix heatmap"
+  - id: trained_output
+    type: data
+    description: "Best performing classifier"
 
-    - id: model_comparison
-      type: table
-      formats: [csv]
-      path: model_comparison.csv
-      description: "Accuracy by model and preprocessing combination"
+  - id: conclusion
+    type: report
+    description: "Summary of classifier performance and suitability for the application"
 
-    - id: trained_model
-      type: model
-      formats: [joblib]
-      path: trained_model.joblib
-      description: "Best performing classifier"
+decisions:
+  scaling:
+    label: "Feature Scaling"
+    type: method
+    rationale: "Scaling affects distance-based algorithms like SVM"
+    default: standard
+    options:
+      none:
+        label: "No Scaling"
+        description: "Use raw feature values"
+      standard:
+        label: "StandardScaler"
+        description: "Z-score normalization (mean=0, std=1)"
+      minmax:
+        label: "MinMaxScaler"
+        description: "Scale to [0, 1] range"
+        incompatible_with:
+          - model.svm
 
-    - id: conclusion
-      type: report
-      path: conclusion.md
-      description: "Summary of classifier performance and suitability for the application"
+  model:
+    label: "Classification Model"
+    type: method
+    rationale: "Core algorithmic choice affecting accuracy and interpretability"
+    default: random_forest
+    options:
+      svm:
+        label: "Support Vector Machine"
+        description: "Maximum margin classifier"
+        requires:
+          - scaling.standard
+      random_forest:
+        label: "Random Forest"
+        description: "Ensemble of decision trees"
+      logistic:
+        label: "Logistic Regression"
+        description: "Linear classifier with probabilistic output"
 
-chunks:
-  main:
-    decisions:
-      scaling:
-        label: "Feature Scaling"
-        type: method
-        importance: 2
-        rationale: "Scaling affects distance-based algorithms like SVM"
-        default: standard
-        options:
-          none:
-            label: "No Scaling"
-            description: "Use raw feature values"
-          standard:
-            label: "StandardScaler"
-            description: "Z-score normalization (mean=0, std=1)"
-          minmax:
-            label: "MinMaxScaler"
-            description: "Scale to [0, 1] range"
-            incompatible_with:
-              - model.svm
+  test_size:
+    label: "Test Set Proportion"
+    type: parameter
+    rationale: "Trade-off between training data and evaluation reliability"
+    default: small
+    options:
+      small:
+        label: "20%"
+      medium:
+        label: "30%"
 
-      model:
-        label: "Classification Model"
-        type: method
-        importance: 1
-        rationale: "Core algorithmic choice affecting accuracy and interpretability"
-        default: random_forest
-        options:
-          svm:
-            label: "Support Vector Machine"
-            description: "Maximum margin classifier"
-            requires:
-              - scaling.standard
-          random_forest:
-            label: "Random Forest"
-            description: "Ensemble of decision trees"
-          logistic:
-            label: "Logistic Regression"
-            description: "Linear classifier with probabilistic output"
+  random_seed:
+    label: "Random Seed"
+    type: parameter
+    rationale: "For reproducibility and stability testing"
+    default: seed_42
+    options:
+      seed_42:
+        label: "42"
+      seed_123:
+        label: "123"
 
-      test_size:
-        label: "Test Set Proportion"
-        type: parameter
-        importance: 3
-        rationale: "Trade-off between training data and evaluation reliability"
-        default: small
-        options:
-          small:
-            label: "20%"
-            value: 0.2
-          medium:
-            label: "30%"
-            value: 0.3
-
-      random_seed:
-        label: "Random Seed"
-        type: parameter
-        importance: 4
-        rationale: "For reproducibility and stability testing"
-        default: seed_42
-        options:
-          seed_42:
-            label: "42"
-            value: 42
-          seed_123:
-            label: "123"
-            value: 123
+recipes:
+  train:
+    command: python src/train.py
+    outputs: [trained_output]
+  evaluate:
+    command: python src/evaluate.py
+    outputs: [accuracy, f1_score, confusion_matrix, model_comparison, conclusion]
+    depends_on: [train]

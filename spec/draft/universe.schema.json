@@ -1,8 +1,42 @@
 {
+  "$defs": {
+    "UniverseNode": {
+      "additionalProperties": false,
+      "description": "A universe node mirroring the analysis tree structure.",
+      "properties": {
+        "decisions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Map of decision ID to selected option ID",
+          "title": "Decisions",
+          "type": "object"
+        },
+        "analyses": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/UniverseNode"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Map of sub-analysis IDs to their universe selections",
+          "title": "Analyses"
+        }
+      },
+      "title": "UniverseNode",
+      "type": "object"
+    }
+  },
   "$id": "https://asp-spec.org/v1/universe.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "A universe specification - a complete set of decisions organized by chunk.",
+  "description": "A universe specification - a complete set of decisions across the analysis tree.",
   "properties": {
     "$schema": {
       "anyOf": [
@@ -36,21 +70,33 @@
       "description": "What this universe represents",
       "title": "Description"
     },
-    "chunks": {
+    "decisions": {
       "additionalProperties": {
-        "additionalProperties": {
-          "type": "string"
-        },
-        "type": "object"
+        "type": "string"
       },
-      "description": "Map of chunk ID to decision selections (decision_id -> option_id) for that chunk",
-      "title": "Chunks",
+      "description": "Map of decision ID to selected option ID (root-level decisions)",
+      "title": "Decisions",
       "type": "object"
+    },
+    "analyses": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/UniverseNode"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Map of sub-analysis IDs to their universe selections",
+      "title": "Analyses"
     }
   },
   "required": [
-    "id",
-    "chunks"
+    "id"
   ],
   "title": "ASP Universe Specification",
   "type": "object"

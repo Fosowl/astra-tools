@@ -2,7 +2,6 @@
 id: incomplete
 description: "Missing decisions"
 
-chunks:
-  main:
-    preprocessing: standard
-    # Missing: model, test_split, seed
+decisions:
+  preprocessing: standard
+  # Missing: model, test_split, seed

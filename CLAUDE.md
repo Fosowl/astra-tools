@@ -4,26 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ASP (Agentic Science Protocol) is a declarative specification format for scientific analyses that can be executed by AI agents. It separates **what** you want to learn from **how** to compute it through a structured YAML-based specification.
+ASP (Agentic Science Protocol) is the **core specification** for scientific analyses. It provides schema, validation, insights, evidence verification, and a minimal CLI.
 
 **Key principle**: The specification says WHAT, not HOW. AI agents read the spec and generate the implementation.
+
+**Architecture**:
+- **ASP** (this repo) = pure specification: schema, validation, insights, verification, helpers, minimal CLI
+- **Prism** (separate repo) = agentic layer: Claude Code skills, project scaffolding, remote/HPC config
+- **Spectrum** (future) = UI layer
 
 ## Repository Structure
 
 ```
-agentic-science-protocol/
+ASP/
 ├── spec/                          # THE SPECIFICATION (versioned)
 │   └── draft/                     # Working version (becomes 1.0/ at release)
 │       ├── analysis.schema.json
 │       ├── universe.schema.json
 │       └── insights.schema.json
-│   # 1.0/, 1.1/, 2.0/, etc. created at release (immutable once released)
-│
-├── claude/                        # Claude Code skills
-│   └── asp/                       # ASP skills
-│       └── skills/
-│           └── asp/
-│               └── SKILL.md       # Skill instructions
 │
 ├── models/                        # Pydantic models (dev only, NOT installed)
 │   ├── __init__.py
@@ -38,24 +36,20 @@ agentic-science-protocol/
 │
 ├── src/asp/                       # Python SDK/CLI (installed package)
 │   ├── __init__.py                # Public API exports
-│   ├── cli.py                     # Click-based CLI
+│   ├── cli.py                     # Click-based CLI (spec operations only)
 │   ├── helpers.py                 # Dict-based utilities
 │   ├── validation/                # Loads from spec/draft/ (dev) or bundled (prod)
 │   │   ├── schema.py              # JSON schema validation
 │   │   └── semantic.py            # Semantic validation
-│   ├── models/                    # Pydantic models (for workflow module)
 │   ├── papers/                    # Paper downloading and caching
-│   ├── verification/              # PDF processing and insight verification
-│   └── workflow/                  # CWL integration
+│   └── verification/              # PDF processing and insight verification
 │   # Note: asp/spec/ created at build time with bundled schemas
 │
 ├── tools/                         # Build scripts (dev only)
 │   └── generate_schemas.py        # models/ → spec/draft/
 │
-├── tests/
-│   └── fixtures/                  # Test fixtures (also in examples/)
-│
-└── docs/
+└── tests/
+    └── fixtures/                  # Test fixtures (also in examples/)
 ```
 
 ## Architecture
@@ -66,7 +60,7 @@ agentic-science-protocol/
 2. **Pydantic models are the source** - `models/` generates schemas, NOT installed
 3. **Schemas not in source tree** - `spec/draft/` bundled at build time, loaded directly in dev
 4. **Validation is dict-based** - No Pydantic models in validation path
-5. **Workflow can use Pydantic** - CWL integration uses models internally
+5. **No execution framework** - ASP defines what, not how. Execution is handled by Prism.
 
 ### Core Components
 
@@ -87,24 +81,28 @@ agentic-science-protocol/
 
 4. **CLI** (`src/asp/cli.py`)
    - Built with Click and Rich for terminal UI
-   - Commands: init, validate, info, universe, viz, schema, paper, canvas
+   - Commands: init, validate, info, universe, viz, schema, paper
    - Uses `find_analysis_file()` to locate `asp.yaml`
-   - `canvas` command launches the visual editor (asp-canvas package, lazy import)
+   - `init` creates a minimal scaffold (asp.yaml, universes/, src/, .gitignore)
 
 5. **Helpers** (`src/asp/helpers.py`)
    - Dict-based utilities: `load_yaml`, `get_decision`, `get_default_universe`
    - No Pydantic model dependencies
 
+6. **Papers & Verification** (`src/asp/papers/`, `src/asp/verification/`)
+   - Paper downloading and caching by DOI
+   - PDF text extraction and evidence quote verification
+
 ### Key Concepts
 
-- **Analysis**: Defines problem statement, inputs, outputs, and chunks
-- **Chunk**: A scoped stage with its own problem, decisions, and optional artefacts. Single-stage analyses use a `main` chunk. All decisions live under chunks.
-- **Decision**: A choice point with multiple options (e.g., "which scaling method?")
-- **Artefact**: A typed output produced by a chunk (figure, table, data, report)
-- **Universe**: One complete set of decisions organized by chunk
+- **Analysis**: A self-similar node with inputs, outputs, decisions, insights, recipes, and optional sub-analyses. Every level has the same structure.
+- **Decision**: A choice point with multiple options (e.g., "which scaling method?"). Decisions live directly on the analysis node.
+- **Universe**: One complete set of decisions — one option per decision point. The universe mirrors the analysis tree structure.
 - **Multiverse**: The space of all valid decision combinations
-- **Insight**: Scientific knowledge from papers or prior analyses, with precise evidence
-- **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within a chunk)
+- **Insight**: Scientific knowledge from papers, with precise evidence (W3C selectors)
+- **Recipe**: A build rule that produces one or more outputs (command, container, resources)
+- **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within an analysis node)
+- **Sub-analysis**: A nested analysis under `analyses:` with its own inputs, outputs, and decisions. Inputs can reference parent inputs (`from: input_id`) or sibling outputs (`from: sibling.output_id`).
 
 ## Development Commands
 
@@ -152,24 +150,14 @@ When users create a new analysis with `asp init my-analysis`:
 ```
 my-analysis/
 ├── asp.yaml              # Analysis specification (edit this)
-├── CLAUDE.md             # Build conventions + project context for Claude Code
 ├── .gitignore
-├── universes/
-│   └── baseline.yaml     # Default universe (decision selections)
-├── workflows/            # CWL workflow definitions
-├── steps/                # Workflow step implementations
-├── results/              # Execution outputs (gitignored)
-├── .claude/              # Claude Code configuration
-│   └── settings.json     # Configures permissions and hooks for ASP workflows
+├── src/                  # Analysis code
+├── outputs/              # Analysis outputs
+└── universes/
+    └── baseline.yaml     # Default universe (decision selections)
 ```
 
-The `settings.json` configures Claude Code permissions and hooks directly (e.g., venv activation, skill loading) for working with ASP projects.
-
-### Workflow: Specification → Build
-
-1. `asp init` creates the project scaffold including `CLAUDE.md` with conventions
-2. `/asp-new` scopes the analysis and populates `CLAUDE.md` with project-specific details (chunks, decisions, implementation notes)
-3. The user starts building — Claude Code reads `CLAUDE.md` + `asp.yaml` and implements naturally
+For full agentic scaffolding (Claude Code config, skills, scripts, venv, HPC targets), use `prism init` instead.
 
 ## Important Design Patterns
 
@@ -206,22 +194,39 @@ defaults = get_default_universe(data)
 ```
 
 ### 4. Constraint Validation
-Constraints are validated in `semantic.py`, scoped within each chunk:
+Constraints are validated in `semantic.py`, scoped within each analysis node:
 - `incompatible_with`: Lists of "decision.option" pairs that cannot coexist
 - `requires`: Lists of "decision.option" pairs that must be selected together
-- Universe validation checks these constraints per chunk
+- Universe validation checks these constraints per node
 
 ### 5. Insight-Based Decisions
 Decisions can reference insights:
 ```yaml
-chunks:
-  main:
-    decisions:
-      scaling:
-        options:
-          standard:
-            insights: [compute_scaling]  # References insights.compute_scaling
+decisions:
+  scaling:
+    options:
+      standard:
+        insights: [compute_scaling]  # References insights.compute_scaling
 ```
+
+### 6. Self-Similar Nesting
+Simple analyses put decisions at the top level. Complex analyses nest sub-analyses:
+```yaml
+# Root level
+decisions:
+  method: ...
+
+# Nested sub-analyses
+analyses:
+  preprocessing:
+    decisions:
+      scaling: ...
+  training:
+    decisions:
+      optimizer: ...
+```
+
+Universe files mirror this structure with `decisions` and `analyses` keys.
 
 ## Testing Philosophy
 
@@ -230,11 +235,11 @@ chunks:
 - `invalid/`: Files with specific validation errors (each tests one rule)
 
 ### Test Organization
-- `test_models.py`: Pydantic model validation
 - `test_schemas.py`: JSON schema validation
 - `test_validation.py`: Schema and semantic validation
-- `test_insight.py`: Insight model and evidence validation
 - `test_cli.py`: CLI commands
+- `test_evidence_verification.py`: Evidence verification
+- `test_unicode_matching.py`: Unicode text matching
 
 ## Common Development Tasks
 
@@ -253,8 +258,8 @@ chunks:
 ### Releasing a New Schema Version
 
 ASP uses **Major.Minor** versioning for the specification:
-- **Major bump (1.x → 2.0)**: Breaking changes - old files won't validate
-- **Minor bump (1.0 → 1.1)**: New optional fields only - old files still valid
+- **Major bump (1.x -> 2.0)**: Breaking changes - old files won't validate
+- **Minor bump (1.0 -> 1.1)**: New optional fields only - old files still valid
 - **Immutable**: Released versions are never modified
 
 Release process:
@@ -279,7 +284,7 @@ version: "1.0"  # Must match a spec/X.Y/ directory
 - Schema bundling: `spec/draft/` bundled into `asp/spec/` at build time
 
 ### Dependencies
-- Core: click, pyyaml, jsonschema, pydantic, rich
+- Core: click, pyyaml, jsonschema, pydantic, rich, pypdf, httpx, rapidfuzz
 - Dev: pytest, pytest-cov, ruff, mypy, types-*
 
 ## Key Conventions
@@ -294,4 +299,3 @@ version: "1.0"  # Must match a spec/X.Y/ directory
 
 - **DESIGN.md**: Complete specification of the ASP format
 - **README.md**: User-facing documentation and quick start
-- **claude/asp/skills/asp/SKILL.md**: Skill instructions for working with ASP

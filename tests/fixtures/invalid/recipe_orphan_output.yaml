@@ -1,0 +1,13 @@
+version: "1.0"
+name: "Recipe Orphan Output"
+inputs:
+  - id: test_data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions: {}
+recipes:
+  run:
+    command: python src/main.py
+    outputs: [result, nonexistent_output]

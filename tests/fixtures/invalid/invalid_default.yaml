@@ -1,25 +1,19 @@
 # Default option doesn't exist in options
 version: "1.0"
-
-analysis:
-  name: "Test"
-  problem: "Test problem"
-  inputs:
-    - id: data
-      type: data
-  outputs:
-    - id: result
-      type: metric
-
-chunks:
-  main:
-    decisions:
-      method:
-        label: "Method"
-        type: method
-        default: nonexistent  # This option doesn't exist
-        options:
-          a:
-            label: "A"
-          b:
-            label: "B"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions:
+  method:
+    label: "Method"
+    type: method
+    default: nonexistent
+    options:
+      a:
+        label: "A"
+      b:
+        label: "B"

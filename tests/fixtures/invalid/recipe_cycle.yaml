@@ -1,0 +1,20 @@
+version: "1.0"
+name: "Recipe Cycle"
+inputs:
+  - id: test_data
+    type: data
+outputs:
+  - id: result_a
+    type: metric
+  - id: result_b
+    type: metric
+decisions: {}
+recipes:
+  step_a:
+    command: python src/a.py
+    outputs: [result_a]
+    depends_on: [step_b]
+  step_b:
+    command: python src/b.py
+    outputs: [result_b]
+    depends_on: [step_a]

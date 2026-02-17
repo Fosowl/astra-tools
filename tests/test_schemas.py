@@ -14,15 +14,14 @@ class TestSchemaGeneration:
         assert isinstance(schema, dict)
         assert "properties" in schema
         assert "version" in schema["properties"]
-        assert "analysis" in schema["properties"]
-        assert "chunks" in schema["properties"]
+        assert "decisions" in schema["properties"]
 
     def test_get_universe_schema(self):
         schema = get_universe_schema()
         assert isinstance(schema, dict)
         assert "properties" in schema
         assert "id" in schema["properties"]
-        assert "chunks" in schema["properties"]
+        assert "decisions" in schema["properties"]
 
     def test_get_insights_schema(self):
         schema = get_insights_schema()
@@ -35,11 +34,13 @@ class TestSchemaGeneration:
         assert "$defs" in schema
         # Should have definitions for nested models
         defs = schema["$defs"]
-        assert "AnalysisContent" in defs
+        assert "Analysis" in defs
         assert "Input" in defs
         assert "Output" in defs
         assert "Decision" in defs
         assert "Option" in defs
+        assert "Recipe" in defs
+        assert "Resources" in defs
 
     def test_schema_is_valid_json(self):
         # Schemas should be JSON-serializable

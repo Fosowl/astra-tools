@@ -1,5 +1,8 @@
 """Tests for CLI commands."""
 
+import json
+import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -9,7 +12,7 @@ from asp.cli import main
 
 
 @pytest.fixture
-def runner():
+def runner() -> CliRunner:
     """Return a CLI runner."""
     return CliRunner()
 
@@ -43,14 +46,12 @@ class TestValidateCommand:
     def test_validate_invalid_analysis(self, runner: CliRunner, invalid_dir: Path):
         result = runner.invoke(main, ["validate", str(invalid_dir / "missing_version.yaml")])
         assert result.exit_code == 1
-        assert "Schema validation errors" in result.output
+        assert "validation errors" in result.output
 
     def test_validate_universe_without_analysis(
         self, runner: CliRunner, baseline_universe_path: Path, tmp_path: Path
     ):
         # Copy universe to temp dir where there's no asp.yaml
-        import shutil
-
         temp_universe = tmp_path / "universes" / "test.yaml"
         temp_universe.parent.mkdir(parents=True)
         shutil.copy(baseline_universe_path, temp_universe)
@@ -125,8 +126,6 @@ class TestUniverseCommands:
     def test_universe_generate_default_output(
         self, runner: CliRunner, full_analysis_path: Path, tmp_path: Path
     ):
-        import shutil
-
         # Copy analysis to temp dir
         temp_analysis = tmp_path / "asp.yaml"
         shutil.copy(full_analysis_path, temp_analysis)
@@ -243,28 +242,29 @@ class TestInitCommand:
     """Tests for the init command."""
 
     def test_init_creates_project_structure(self, runner: CliRunner, tmp_path: Path):
-        """Test that basic init creates the project structure."""
+        """Test that basic init creates the minimal ASP scaffold."""
         project_dir = tmp_path / "my-analysis"
         result = runner.invoke(
             main,
             ["init", str(project_dir), "--no-git"],
         )
         assert result.exit_code == 0
-        assert "Created ASP analysis project" in result.output
+        assert "Created ASP analysis scaffold" in result.output
 
-        # Check directory structure
+        # Check directory structure (minimal scaffold)
         assert (project_dir / "asp.yaml").exists()
         assert (project_dir / ".gitignore").exists()
         assert (project_dir / "universes").is_dir()
         assert (project_dir / "universes" / "baseline.yaml").exists()
-        assert (project_dir / "results").is_dir()
-        assert (project_dir / "workflows").is_dir()
-        assert (project_dir / "steps").is_dir()
+        assert (project_dir / "outputs").is_dir()
+        assert (project_dir / "src").is_dir()
 
-        # scripts/ no longer created
+        # Agentic scaffolding NOT created (handled by prism init)
+        assert not (project_dir / ".claude").exists()
+        assert not (project_dir / "CLAUDE.md").exists()
+        assert not (project_dir / "workflows").exists()
+        assert not (project_dir / "steps").exists()
         assert not (project_dir / "scripts").exists()
-        assert not (project_dir / ".asp").exists()
-        assert not (project_dir / "executions").exists()
 
     def test_init_asp_yaml_content(self, runner: CliRunner, tmp_path: Path):
         """Test that the generated asp.yaml has the expected content."""
@@ -280,9 +280,8 @@ class TestInitCommand:
         content = (project_dir / "asp.yaml").read_text()
         assert "content-test" in content  # Directory name used as analysis name
         assert "version:" in content
-        assert "analysis:" in content
-        assert "chunks:" in content
         assert "decisions:" in content
+        assert "recipes:" in content
 
     def test_init_gitignore_content(self, runner: CliRunner, tmp_path: Path):
         """Test gitignore content."""
@@ -294,37 +293,8 @@ class TestInitCommand:
         assert result.exit_code == 0
 
         gitignore = (project_dir / ".gitignore").read_text()
-        assert "results/" in gitignore
+        assert "outputs/" in gitignore
         assert "__pycache__/" in gitignore
-
-    def test_init_creates_claude_settings(self, runner: CliRunner, tmp_path: Path):
-        """Test that init creates .claude/settings.json with plugin configuration."""
-        import json
-
-        project_dir = tmp_path / "settings-test"
-        result = runner.invoke(
-            main,
-            ["init", str(project_dir), "--no-git"],
-        )
-        assert result.exit_code == 0
-        assert "Created ASP analysis project" in result.output
-        assert ".claude/" in result.output
-
-        # Check settings.json is created
-        settings_path = project_dir / ".claude" / "settings.json"
-        assert settings_path.exists()
-
-        # Check settings content
-        settings = json.loads(settings_path.read_text())
-
-        # Check permissions
-        assert "permissions" in settings
-        assert "allow" in settings["permissions"]
-        allowed = settings["permissions"]["allow"]
-        assert "Bash(asp:*)" in allowed
-        assert "Edit" in allowed
-        assert "WebSearch" in allowed
-        assert "WebFetch" in allowed
 
     def test_init_existing_nonempty_dir_decline(self, runner: CliRunner, tmp_path: Path):
         """Test declining to overwrite existing non-empty directory."""
@@ -360,12 +330,8 @@ class TestInitCommand:
         assert result.exit_code == 1
         assert "already an ASP project" in result.output
 
-    def test_init_refuses_if_asp_yaml_exists_current_dir(
-        self, runner: CliRunner, tmp_path: Path
-    ):
+    def test_init_refuses_if_asp_yaml_exists_current_dir(self, runner: CliRunner, tmp_path: Path):
         """Test that init refuses to run in current dir if asp.yaml exists."""
-        import os
-
         old_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -398,8 +364,6 @@ class TestInitCommand:
 
     def test_init_current_directory(self, runner: CliRunner, tmp_path: Path):
         """Test init with default '.' directory."""
-        import os
-
         old_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -474,8 +438,6 @@ class TestBatchQuoteVerification:
             input="",  # Empty input
         )
         assert result.exit_code == 2
-        import json
-
         output = json.loads(result.output)
         assert "error" in output
         assert "No input" in output["error"]
@@ -488,34 +450,26 @@ class TestBatchQuoteVerification:
             input="not valid json{",
         )
         assert result.exit_code == 2
-        import json
-
         output = json.loads(result.output)
         assert "error" in output
         assert "Invalid JSON" in output["error"]
 
     def test_verify_quotes_paper_not_cached(self, runner: CliRunner):
         """Test error when paper is not in cache."""
-        import json as json_module
-
-        input_data = json_module.dumps({"quotes": [{"text": "some quote"}]})
+        input_data = json.dumps({"quotes": [{"text": "some quote"}]})
         result = runner.invoke(
             main,
             ["paper", "verify-quotes", "10.9999/nonexistent"],
             input=input_data,
         )
         assert result.exit_code == 2
-        output = json_module.loads(result.output)
+        output = json.loads(result.output)
         assert "error" in output
         assert "not in cache" in output["error"]
 
     def test_verify_quotes_empty_quotes_list(self, runner: CliRunner):
         """Test handling of empty quotes list."""
-        import json as json_module
-
-        # This test requires a paper to be cached, so we expect an error
-        # about the paper not being cached rather than processing the empty list
-        input_data = json_module.dumps({"quotes": []})
+        input_data = json.dumps({"quotes": []})
         result = runner.invoke(
             main,
             ["paper", "verify-quotes", "10.9999/nonexistent"],
@@ -526,16 +480,14 @@ class TestBatchQuoteVerification:
 
     def test_verify_quotes_output_format(self, runner: CliRunner):
         """Test that output has the expected JSON structure."""
-        import json as json_module
-
-        input_data = json_module.dumps({"quotes": [{"text": "test quote"}]})
+        input_data = json.dumps({"quotes": [{"text": "test quote"}]})
         result = runner.invoke(
             main,
             ["paper", "verify-quotes", "10.9999/test", "--version", "1"],
             input=input_data,
         )
         # Will fail because paper not cached, but check structure
-        output = json_module.loads(result.output)
+        output = json.loads(result.output)
         assert "doi" in output
         assert output["doi"] == "10.9999/test"
         assert "version" in output

@@ -6,10 +6,13 @@ avoiding the need for Pydantic model imports in the validation path.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -47,7 +50,7 @@ def get_input(data: dict[str, Any], input_id: str) -> dict[str, Any] | None:
     Returns:
         The input dict if found, None otherwise.
     """
-    inputs: list[dict[str, Any]] = data.get("analysis", {}).get("inputs", [])
+    inputs: list[dict[str, Any]] = data.get("inputs") or []
     for inp in inputs:
         if inp.get("id") == input_id:
             return inp
@@ -64,7 +67,7 @@ def get_output(data: dict[str, Any], output_id: str) -> dict[str, Any] | None:
     Returns:
         The output dict if found, None otherwise.
     """
-    outputs: list[dict[str, Any]] = data.get("analysis", {}).get("outputs", [])
+    outputs: list[dict[str, Any]] = data.get("outputs") or []
     for out in outputs:
         if out.get("id") == output_id:
             return out
@@ -72,31 +75,58 @@ def get_output(data: dict[str, Any], output_id: str) -> dict[str, Any] | None:
 
 
 def get_decision(
-    data: dict[str, Any], decision_id: str, chunk_id: str | None = None
+    data: dict[str, Any], decision_id: str, path: str | None = None
 ) -> dict[str, Any] | None:
     """Get a decision by ID from analysis data.
 
-    Searches across all chunks, or within a specific chunk if chunk_id is given.
+    Searches root decisions, then recursively through sub-analyses.
+    If path is given, searches only within that sub-analysis.
 
     Args:
         data: Analysis data as a dict.
         decision_id: The decision ID to find.
-        chunk_id: Optional chunk ID to search within.
+        path: Optional dot-separated path to a sub-analysis (e.g., 'build_mocks').
 
     Returns:
         The decision dict if found, None otherwise.
     """
-    chunks: dict[str, dict[str, Any]] = data.get("chunks", {})
-    if chunk_id is not None:
-        chunk = chunks.get(chunk_id, {})
-        result: dict[str, Any] | None = chunk.get("decisions", {}).get(decision_id)
+    if path is not None:
+        node = _resolve_node(data, path)
+        if node is None:
+            return None
+        result: dict[str, Any] | None = node.get("decisions", {}).get(decision_id)
         return result
-    # Search all chunks
-    for chunk in chunks.values():
-        decisions = chunk.get("decisions", {})
+
+    # Search root decisions first, then sub-analyses recursively
+    root_decisions: dict[str, Any] = data.get("decisions") or {}
+    if decision_id in root_decisions:
+        found: dict[str, Any] = root_decisions[decision_id]
+        return found
+    return _search_node_decision(data, decision_id)
+
+
+def _resolve_node(analysis_content: dict[str, Any], path: str) -> dict[str, Any] | None:
+    """Resolve a dot-separated path to a sub-analysis node."""
+    parts = path.split(".")
+    node = analysis_content
+    for part in parts:
+        analyses = node.get("analyses") or {}
+        if part not in analyses:
+            return None
+        node = analyses[part]
+    return node
+
+
+def _search_node_decision(node: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
+    """Recursively search a node's sub-analyses for a decision."""
+    for sub_node in (node.get("analyses") or {}).values():
+        decisions: dict[str, Any] = sub_node.get("decisions") or {}
         if decision_id in decisions:
-            found: dict[str, Any] = decisions[decision_id]
-            return found
+            match: dict[str, Any] = decisions[decision_id]
+            return match
+        nested = _search_node_decision(sub_node, decision_id)
+        if nested is not None:
+            return nested
     return None
 
 
@@ -114,25 +144,37 @@ def get_insight(data: dict[str, Any], insight_id: str) -> dict[str, Any] | None:
     return insights.get(insight_id)
 
 
-def get_default_universe(data: dict[str, Any]) -> dict[str, dict[str, str]]:
-    """Get the default universe based on decision defaults across all chunks.
+def get_default_universe(data: dict[str, Any]) -> dict[str, Any]:
+    """Get the default universe based on decision defaults across entire tree.
 
     Args:
         data: Analysis data as a dict.
 
     Returns:
-        Dict mapping chunk_id to dict of decision_id to default option_id.
+        Dict with 'decisions' and optional 'analyses' keys mirroring the tree.
     """
-    result: dict[str, dict[str, str]] = {}
-    chunks = data.get("chunks", {})
-    for chunk_id, chunk in chunks.items():
-        chunk_defaults: dict[str, str] = {}
-        for decision_id, decision in chunk.get("decisions", {}).items():
-            default = decision.get("default")
-            if default is not None:
-                chunk_defaults[decision_id] = default
-        if chunk_defaults:
-            result[chunk_id] = chunk_defaults
+    return _get_node_defaults(data)
+
+
+def _get_node_defaults(node: dict[str, Any]) -> dict[str, Any]:
+    """Recursively get defaults from a node."""
+    result: dict[str, Any] = {}
+    decisions: dict[str, str] = {}
+    for decision_id, decision in (node.get("decisions") or {}).items():
+        default = decision.get("default")
+        if default is not None:
+            decisions[decision_id] = default
+    if decisions:
+        result["decisions"] = decisions
+    sub_analyses = node.get("analyses") or {}
+    if sub_analyses:
+        analyses_defaults: dict[str, Any] = {}
+        for sub_id, sub_node in sub_analyses.items():
+            sub_defaults = _get_node_defaults(sub_node)
+            if sub_defaults:
+                analyses_defaults[sub_id] = sub_defaults
+        if analyses_defaults:
+            result["analyses"] = analyses_defaults
     return result
 
 
@@ -149,13 +191,18 @@ def create_universe_from_defaults(
         description: Optional description for the universe.
 
     Returns:
-        A universe dict with the default decisions selected under chunks.
+        A universe dict with the default decisions selected.
     """
-    return {
+    defaults = get_default_universe(data)
+    result: dict[str, Any] = {
         "id": universe_id,
         "description": description or "Default configuration using standard practices",
-        "chunks": get_default_universe(data),
     }
+    if "decisions" in defaults:
+        result["decisions"] = defaults["decisions"]
+    if "analyses" in defaults:
+        result["analyses"] = defaults["analyses"]
+    return result
 
 
 def get_input_ids(data: dict[str, Any]) -> set[str]:
@@ -167,8 +214,7 @@ def get_input_ids(data: dict[str, Any]) -> set[str]:
     Returns:
         Set of input IDs.
     """
-    inputs = data.get("analysis", {}).get("inputs", [])
-    return {inp.get("id") for inp in inputs if inp.get("id")}
+    return {inp.get("id") for inp in (data.get("inputs") or []) if inp.get("id")}
 
 
 def get_output_ids(data: dict[str, Any]) -> set[str]:
@@ -180,12 +226,11 @@ def get_output_ids(data: dict[str, Any]) -> set[str]:
     Returns:
         Set of output IDs.
     """
-    outputs = data.get("analysis", {}).get("outputs", [])
-    return {out.get("id") for out in outputs if out.get("id")}
+    return {out.get("id") for out in (data.get("outputs") or []) if out.get("id")}
 
 
 def get_decision_ids(data: dict[str, Any]) -> set[str]:
-    """Get all decision IDs from analysis data (across all chunks).
+    """Get all decision IDs from analysis data (across entire tree).
 
     Args:
         data: Analysis data as a dict.
@@ -194,9 +239,16 @@ def get_decision_ids(data: dict[str, Any]) -> set[str]:
         Set of decision IDs.
     """
     result: set[str] = set()
-    for chunk in data.get("chunks", {}).values():
-        result.update(chunk.get("decisions", {}).keys())
+    result.update((data.get("decisions") or {}).keys())
+    _collect_node_decision_ids(data, result)
     return result
+
+
+def _collect_node_decision_ids(node: dict[str, Any], result: set[str]) -> None:
+    """Recursively collect decision IDs from sub-analyses."""
+    for sub_node in (node.get("analyses") or {}).values():
+        result.update((sub_node.get("decisions") or {}).keys())
+        _collect_node_decision_ids(sub_node, result)
 
 
 def get_insight_ids(data: dict[str, Any]) -> set[str]:
@@ -220,8 +272,8 @@ def get_inputs(data: dict[str, Any]) -> list[dict[str, Any]]:
     Returns:
         List of input dicts.
     """
-    result: list[dict[str, Any]] = data.get("analysis", {}).get("inputs", [])
-    return result
+    inputs: list[dict[str, Any]] = data.get("inputs") or []
+    return inputs
 
 
 def get_outputs(data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -233,16 +285,15 @@ def get_outputs(data: dict[str, Any]) -> list[dict[str, Any]]:
     Returns:
         List of output dicts.
     """
-    result: list[dict[str, Any]] = data.get("analysis", {}).get("outputs", [])
-    return result
+    outputs: list[dict[str, Any]] = data.get("outputs") or []
+    return outputs
 
 
 def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Get all decisions from analysis data (collected from all chunks).
+    """Get all decisions from analysis data (collected from entire tree).
 
-    Warning: If two chunks define decisions with the same ID, the later chunk's
-    decision will overwrite the earlier one. A warning is logged when this occurs.
-    Use ``get_chunk_decisions()`` when chunk-scoped lookup is needed.
+    Warning: If different nodes define decisions with the same ID, later ones
+    overwrite earlier ones. Use ``get_analysis_decisions()`` for tree-scoped lookup.
 
     Args:
         data: Analysis data as a dict.
@@ -250,37 +301,67 @@ def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     Returns:
         Dict mapping decision_id to decision dict.
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
     result: dict[str, dict[str, Any]] = {}
-    for chunk_id, chunk in data.get("chunks", {}).items():
-        for decision_id, decision in chunk.get("decisions", {}).items():
-            if decision_id in result:
-                logger.warning(
-                    "Decision ID '%s' in chunk '%s' overwrites a decision with the same ID "
-                    "from an earlier chunk. Use get_chunk_decisions() for chunk-scoped access.",
-                    decision_id,
-                    chunk_id,
-                )
-            result[decision_id] = decision
+
+    # Root decisions
+    for decision_id, decision in (data.get("decisions") or {}).items():
+        result[decision_id] = decision
+
+    # Collect from sub-analyses
+    _collect_decisions_from_node(data, result)
+
     return result
 
 
-def get_chunk_decisions(data: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
-    """Get all decisions grouped by chunk.
+def _collect_decisions_from_node(
+    node: dict[str, Any],
+    result: dict[str, dict[str, Any]],
+) -> None:
+    """Recursively collect decisions from sub-analyses."""
+    for node_id, sub_node in (node.get("analyses") or {}).items():
+        for decision_id, decision in (sub_node.get("decisions") or {}).items():
+            if decision_id in result:
+                logger.warning(
+                    "Decision ID '%s' in analysis '%s' overwrites a decision with the same ID. "
+                    "Use get_analysis_decisions() for tree-scoped access.",
+                    decision_id,
+                    node_id,
+                )
+            result[decision_id] = decision
+        _collect_decisions_from_node(sub_node, result)
+
+
+def get_analysis_decisions(data: dict[str, Any]) -> dict[str, Any]:
+    """Get all decisions organized by analysis tree structure.
+
+    Returns a dict with:
+    - 'decisions': root-level decisions dict
+    - 'analyses': dict of sub-analysis ID to their recursive decision structure
 
     Args:
         data: Analysis data as a dict.
 
     Returns:
-        Dict mapping chunk_id to dict of decision_id to decision dict.
+        Recursive dict of decisions organized by analysis tree.
     """
-    result: dict[str, dict[str, dict[str, Any]]] = {}
-    for chunk_id, chunk in data.get("chunks", {}).items():
-        decisions = chunk.get("decisions", {})
-        if decisions:
-            result[chunk_id] = decisions
+    return _get_node_decision_tree(data)
+
+
+def _get_node_decision_tree(node: dict[str, Any]) -> dict[str, Any]:
+    """Build recursive decision tree from a node."""
+    result: dict[str, Any] = {}
+    decisions = node.get("decisions") or {}
+    if decisions:
+        result["decisions"] = decisions
+    sub_analyses = node.get("analyses") or {}
+    if sub_analyses:
+        analyses_result: dict[str, Any] = {}
+        for node_id, sub_node in sub_analyses.items():
+            sub_tree = _get_node_decision_tree(sub_node)
+            if sub_tree:
+                analyses_result[node_id] = sub_tree
+        if analyses_result:
+            result["analyses"] = analyses_result
     return result
 
 
@@ -298,17 +379,14 @@ def get_option(decision: dict[str, Any], option_id: str) -> dict[str, Any] | Non
     return result
 
 
-def get_option_value(decision: dict[str, Any], option_id: str) -> Any:
-    """Get the value from an option, or option_id if no value field.
+def get_option_value(decision: dict[str, Any], option_id: str) -> str:
+    """Get the value for an option (returns the option_id).
 
     Args:
         decision: Decision dict.
-        option_id: The option ID to get the value from.
+        option_id: The option ID.
 
     Returns:
-        The option's value field if present, otherwise the option_id string.
+        The option_id string.
     """
-    option = get_option(decision, option_id)
-    if option is None:
-        return option_id
-    return option.get("value", option_id)
+    return option_id

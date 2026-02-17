@@ -1,8 +1,29 @@
 """Pytest configuration and fixtures."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Add --run-network option to pytest."""
+    parser.addoption(
+        "--run-network",
+        action="store_true",
+        default=False,
+        help="Run tests that require network access",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip network tests unless --run-network is passed."""
+    if not config.getoption("--run-network"):
+        skip_network = pytest.mark.skip(reason="use --run-network to run network tests")
+        for item in items:
+            if "network" in item.keywords:
+                item.add_marker(skip_network)
+
 
 # Fixture directories
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -53,36 +74,29 @@ def svm_universe_path() -> Path:
 
 
 @pytest.fixture
-def minimal_analysis_data() -> dict:
+def minimal_analysis_data() -> dict[str, Any]:
     """Return minimal analysis data as dict."""
     return {
         "version": "1.0",
-        "analysis": {
-            "name": "Test Analysis",
-            "problem": "Test problem statement",
-            "inputs": [{"id": "test_data", "type": "data"}],
-            "outputs": [{"id": "result", "type": "metric", "dtype": "float"}],
-        },
-        "chunks": {
-            "main": {
-                "decisions": {
-                    "method": {
-                        "label": "Method",
-                        "type": "method",
-                        "default": "a",
-                        "options": {"a": {"label": "A"}, "b": {"label": "B"}},
-                    }
-                }
+        "name": "Test Analysis",
+        "inputs": [{"id": "test_data", "type": "data"}],
+        "outputs": [{"id": "result", "type": "metric"}],
+        "decisions": {
+            "method": {
+                "label": "Method",
+                "type": "method",
+                "default": "a",
+                "options": {"a": {"label": "A"}, "b": {"label": "B"}},
             }
         },
     }
 
 
 @pytest.fixture
-def baseline_universe_data() -> dict:
+def baseline_universe_data() -> dict[str, Any]:
     """Return baseline universe data as dict."""
     return {
         "id": "baseline",
         "description": "Test baseline",
-        "chunks": {"main": {"method": "a"}},
+        "decisions": {"method": "a"},
     }

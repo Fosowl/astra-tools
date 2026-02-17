@@ -1,15 +1,214 @@
 {
-  "$defs": {
-    "AnalysisContent": {
-      "additionalProperties": false,
-      "description": "The content of an analysis specification.",
-      "properties": {
-        "name": {
-          "description": "Human-readable name for the analysis",
-          "title": "Name",
+  "$id": "https://asp-spec.org/v1/analysis.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "A self-similar analysis specification.\n\nEvery level has the same structure: metadata, inputs, outputs,\ndecisions, insights, and optional sub-analyses. A sub-analysis extracted\nto its own file is a valid Analysis on its own.\n\nAt the root level, ``version``, ``name``, ``inputs``, and\n``outputs`` are required. In sub-analyses they are optional.",
+  "properties": {
+    "$schema": {
+      "anyOf": [
+        {
           "type": "string"
         },
-        "description": {
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "JSON Schema reference",
+      "title": "$Schema"
+    },
+    "version": {
+      "anyOf": [
+        {
+          "pattern": "^\\d+\\.\\d+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ASP specification version",
+      "title": "Version"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Human-readable name for the analysis",
+      "title": "Name"
+    },
+    "authors": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "List of authors",
+      "title": "Authors"
+    },
+    "tags": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Tags for categorization",
+      "title": "Tags"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Detailed description of this analysis",
+      "title": "Description"
+    },
+    "success_criteria": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Concrete criteria for determining if this analysis succeeded.",
+      "title": "Success Criteria"
+    },
+    "inputs": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Input"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "List of inputs for this analysis",
+      "title": "Inputs"
+    },
+    "outputs": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Output"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "List of expected outputs from this analysis",
+      "title": "Outputs"
+    },
+    "decisions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Decision"
+      },
+      "description": "Map of decision IDs to decision specifications",
+      "title": "Decisions",
+      "type": "object"
+    },
+    "insights": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Insight"
+      },
+      "description": "Map of insight IDs to insight specifications",
+      "title": "Insights",
+      "type": "object"
+    },
+    "container": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Default container image for recipes in this node",
+      "title": "Container"
+    },
+    "recipes": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/Recipe"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Map of recipe IDs to build rules that produce outputs",
+      "title": "Recipes"
+    },
+    "analyses": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/Analysis"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Map of sub-analysis IDs to nested analyses",
+      "title": "Analyses"
+    }
+  },
+  "title": "ASP Analysis Specification",
+  "type": "object",
+  "$defs": {
+    "Analysis": {
+      "$id": "https://asp-spec.org/v1/analysis.schema.json",
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "description": "A self-similar analysis specification.\n\nEvery level has the same structure: metadata, inputs, outputs,\ndecisions, insights, and optional sub-analyses. A sub-analysis extracted\nto its own file is a valid Analysis on its own.\n\nAt the root level, ``version``, ``name``, ``inputs``, and\n``outputs`` are required. In sub-analyses they are optional.",
+      "properties": {
+        "$schema": {
           "anyOf": [
             {
               "type": "string"
@@ -19,8 +218,35 @@
             }
           ],
           "default": null,
-          "description": "Detailed description of the analysis",
-          "title": "Description"
+          "description": "JSON Schema reference",
+          "title": "$Schema"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "pattern": "^\\d+\\.\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ASP specification version",
+          "title": "Version"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human-readable name for the analysis",
+          "title": "Name"
         },
         "authors": {
           "anyOf": [
@@ -54,10 +280,18 @@
           "description": "Tags for categorization",
           "title": "Tags"
         },
-        "problem": {
-          "description": "Problem statement describing what the analysis aims to achieve",
-          "title": "Problem",
-          "type": "string"
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Detailed description of this analysis",
+          "title": "Description"
         },
         "success_criteria": {
           "anyOf": [
@@ -72,57 +306,58 @@
             }
           ],
           "default": null,
-          "description": "Concrete criteria for determining if the analysis succeeded. Each criterion should be specific and verifiable.",
+          "description": "Concrete criteria for determining if this analysis succeeded.",
           "title": "Success Criteria"
         },
         "inputs": {
-          "description": "List of inputs for the analysis",
-          "items": {
-            "$ref": "#/$defs/Input"
-          },
-          "title": "Inputs",
-          "type": "array"
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Input"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "List of inputs for this analysis",
+          "title": "Inputs"
         },
         "outputs": {
-          "description": "List of expected outputs",
-          "items": {
-            "$ref": "#/$defs/Output"
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Output"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "List of expected outputs from this analysis",
+          "title": "Outputs"
+        },
+        "decisions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Decision"
           },
-          "title": "Outputs",
-          "type": "array"
-        }
-      },
-      "required": [
-        "name",
-        "problem",
-        "inputs",
-        "outputs"
-      ],
-      "title": "AnalysisContent",
-      "type": "object"
-    },
-    "Artefact": {
-      "additionalProperties": false,
-      "description": "An artefact produced by a chunk.",
-      "properties": {
-        "id": {
-          "description": "Unique identifier for the artefact",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "title": "Id",
-          "type": "string"
+          "description": "Map of decision IDs to decision specifications",
+          "title": "Decisions",
+          "type": "object"
         },
-        "type": {
-          "description": "Type of artefact",
-          "enum": [
-            "figure",
-            "table",
-            "data",
-            "report"
-          ],
-          "title": "Type",
-          "type": "string"
+        "insights": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Insight"
+          },
+          "description": "Map of insight IDs to insight specifications",
+          "title": "Insights",
+          "type": "object"
         },
-        "path": {
+        "container": {
           "anyOf": [
             {
               "type": "string"
@@ -132,28 +367,43 @@
             }
           ],
           "default": null,
-          "description": "Relative path for result file within results directory",
-          "title": "Path"
+          "description": "Default container image for recipes in this node",
+          "title": "Container"
         },
-        "description": {
+        "recipes": {
           "anyOf": [
             {
-              "type": "string"
+              "additionalProperties": {
+                "$ref": "#/$defs/Recipe"
+              },
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Description of the artefact",
-          "title": "Description"
+          "description": "Map of recipe IDs to build rules that produce outputs",
+          "title": "Recipes"
+        },
+        "analyses": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/Analysis"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Map of sub-analysis IDs to nested analyses",
+          "title": "Analyses"
         }
       },
-      "required": [
-        "id",
-        "type"
-      ],
-      "title": "Artefact",
+      "title": "ASP Analysis Specification",
       "type": "object"
     },
     "Checksum": {
@@ -183,80 +433,6 @@
       "title": "Checksum",
       "type": "object"
     },
-    "Chunk": {
-      "additionalProperties": false,
-      "description": "An inline chunk within an analysis \u2014 a scoped stage with its own problem,\ndecisions, and optional artefacts.",
-      "properties": {
-        "problem": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Problem statement for this chunk (optional for 'main' chunk, which inherits from analysis)",
-          "title": "Problem"
-        },
-        "success_criteria": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Concrete criteria for determining if this chunk succeeded.",
-          "title": "Success Criteria"
-        },
-        "plan": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Relative path to implementation notes for this chunk (e.g. steps/main/PLAN.md). Documents approach, libraries, and how decisions map to code.",
-          "title": "Plan"
-        },
-        "decisions": {
-          "additionalProperties": {
-            "$ref": "#/$defs/Decision"
-          },
-          "description": "Map of decision IDs to decision specifications scoped to this chunk",
-          "title": "Decisions",
-          "type": "object"
-        },
-        "artefacts": {
-          "anyOf": [
-            {
-              "items": {
-                "$ref": "#/$defs/Artefact"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "List of artefacts produced by this chunk",
-          "title": "Artefacts"
-        }
-      },
-      "title": "Chunk",
-      "type": "object"
-    },
     "Decision": {
       "additionalProperties": false,
       "description": "A decision point in the analysis.",
@@ -276,14 +452,6 @@
           "title": "Type",
           "type": "string"
         },
-        "importance": {
-          "default": 3,
-          "description": "Importance level (1=critical, 5=implementation detail)",
-          "maximum": 5,
-          "minimum": 1,
-          "title": "Importance",
-          "type": "integer"
-        },
         "rationale": {
           "anyOf": [
             {
@@ -296,19 +464,6 @@
           "default": null,
           "description": "Why this decision exists",
           "title": "Rationale"
-        },
-        "reviewed": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Whether a human has reviewed and confirmed this decision",
-          "title": "Reviewed"
         },
         "default": {
           "anyOf": [
@@ -342,7 +497,29 @@
     },
     "Evidence": {
       "additionalProperties": false,
-      "description": "Evidence from scientific literature with W3C-compliant selectors.\n\nReferences papers directly by DOI. At least one content selector\n(quote, figure, or table) is required. The FragmentSelector provides\noptional PDF location hints.\n\nFor arXiv papers, the DOI format is: 10.48550/arXiv.{id}\nThe version field is used for arXiv papers where version matters.",
+      "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by a recipe\n  in this analysis. The ``artifact`` field is an ``Output`` object \u2014\n  the same type used to declare outputs in the analysis \u2014 so artifact\n  evidence is structurally identical to declared outputs. The optional\n  ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
+      "oneOf": [
+        {
+          "properties": {
+            "doi": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "doi"
+          ]
+        },
+        {
+          "properties": {
+            "artifact": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "artifact"
+          ]
+        }
+      ],
       "properties": {
         "id": {
           "description": "Evidence ID",
@@ -351,10 +528,30 @@
           "type": "string"
         },
         "doi": {
+          "anyOf": [
+            {
+              "pattern": "^10\\.\\d{4,}/.*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
           "description": "DOI of the source paper (e.g., '10.48550/arXiv.1706.03762')",
-          "pattern": "^10\\.\\d{4,}/.*$",
-          "title": "Doi",
-          "type": "string"
+          "title": "Doi"
+        },
+        "artifact": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Output"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The analysis output that constitutes evidence \u2014 same type as declared outputs"
         },
         "version": {
           "anyOf": [
@@ -369,6 +566,18 @@
           "default": null,
           "description": "Paper version for arXiv papers (version matters for reproducibility)",
           "title": "Version"
+        },
+        "checksum": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Checksum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Checksum of the artifact for integrity verification"
         },
         "quote": {
           "anyOf": [
@@ -416,12 +625,11 @@
             }
           ],
           "default": null,
-          "description": "PDF location hint"
+          "description": "Location hint (page number for PDFs/reports)"
         }
       },
       "required": [
-        "id",
-        "doi"
+        "id"
       ],
       "title": "Evidence",
       "type": "object"
@@ -511,7 +719,7 @@
     },
     "Input": {
       "additionalProperties": false,
-      "description": "An input to the analysis.",
+      "description": "An input to the analysis.\n\nTwo kinds of inputs:\n- ``type: data`` \u2014 a dataset, file, or external resource (specify ``source``)\n- ``type: analysis`` \u2014 outputs from another ASP analysis (specify ``ref``)\n\nSub-analysis inputs can also use ``from`` to reference a parent input\nor a sibling's output (e.g., ``from: sibling_id.output_id``).",
       "properties": {
         "id": {
           "description": "Unique identifier for the input",
@@ -523,11 +731,23 @@
           "description": "Type of input",
           "enum": [
             "data",
-            "analysis",
-            "literature"
+            "analysis"
           ],
           "title": "Type",
           "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Description of the input",
+          "title": "Description"
         },
         "source": {
           "anyOf": [
@@ -535,15 +755,24 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/Source"
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "URI or path to the data source",
+          "title": "Source"
+        },
+        "checksum": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Checksum"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Source specification for the input",
-          "title": "Source"
+          "description": "Checksum for data integrity verification"
         },
         "ref": {
           "anyOf": [
@@ -555,10 +784,10 @@
             }
           ],
           "default": null,
-          "description": "Reference to another analysis (for type: analysis)",
+          "description": "Reference to another ASP analysis",
           "title": "Ref"
         },
-        "version": {
+        "ref_version": {
           "anyOf": [
             {
               "type": "string"
@@ -569,7 +798,7 @@
           ],
           "default": null,
           "description": "Version of the referenced analysis",
-          "title": "Version"
+          "title": "Ref Version"
         },
         "use_outputs": {
           "anyOf": [
@@ -587,7 +816,7 @@
           "description": "Specific outputs to use from referenced analysis",
           "title": "Use Outputs"
         },
-        "description": {
+        "from": {
           "anyOf": [
             {
               "type": "string"
@@ -597,8 +826,8 @@
             }
           ],
           "default": null,
-          "description": "Description of the input",
-          "title": "Description"
+          "description": "Reference to parent input or sibling output (e.g., 'input_id' or 'sibling.output_id')",
+          "title": "From"
         }
       },
       "required": [
@@ -610,7 +839,7 @@
     },
     "Insight": {
       "additionalProperties": false,
-      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge extracted from\nliterature, with full traceability to source material via W3C-compliant\ntext selectors. Evidence directly references papers by DOI.",
+      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge with full\ntraceability to source material. Evidence can come from literature\n(papers referenced by DOI) or from analysis artifacts (outputs\nproduced by recipes), both using W3C-compliant selectors.",
       "properties": {
         "id": {
           "description": "Unique identifier",
@@ -726,17 +955,6 @@
           "description": "Detailed description of the option",
           "title": "Description"
         },
-        "value": {
-          "anyOf": [
-            {},
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Configuration value for this option",
-          "title": "Value"
-        },
         "insights": {
           "anyOf": [
             {
@@ -794,7 +1012,7 @@
     },
     "Output": {
       "additionalProperties": false,
-      "description": "An expected output from the analysis.",
+      "description": "An expected output from the analysis.\n\nOutputs can declare their provenance via ``from`` to trace which\nsub-analysis produces them (e.g., ``from: inference.posterior``).",
       "properties": {
         "id": {
           "description": "Unique identifier for the output",
@@ -809,82 +1027,10 @@
             "figure",
             "table",
             "data",
-            "model",
             "report"
           ],
           "title": "Type",
           "type": "string"
-        },
-        "dtype": {
-          "anyOf": [
-            {
-              "enum": [
-                "float",
-                "int",
-                "bool",
-                "string"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Data type for metrics",
-          "title": "Dtype"
-        },
-        "range": {
-          "anyOf": [
-            {
-              "maxItems": 2,
-              "minItems": 2,
-              "prefixItems": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "number"
-                }
-              ],
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Valid range for numeric metrics [min, max]",
-          "title": "Range"
-        },
-        "formats": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Supported file formats for artifacts",
-          "title": "Formats"
-        },
-        "path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Relative path for result file within results directory",
-          "title": "Path"
         },
         "description": {
           "anyOf": [
@@ -898,6 +1044,19 @@
           "default": null,
           "description": "Description of the output",
           "title": "Description"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sub-analysis output that produces this (e.g., 'sub_analysis.output_id')",
+          "title": "From"
         }
       },
       "required": [
@@ -907,23 +1066,25 @@
       "title": "Output",
       "type": "object"
     },
-    "Source": {
+    "Recipe": {
       "additionalProperties": false,
-      "description": "Source specification for inputs.",
+      "description": "A build rule that produces one or more outputs.\n\nRecipes are the execution contract: run this command (optionally in a\ncontainer) to produce the declared outputs.  Dependencies between\nrecipes within the same analysis node form a DAG.",
       "properties": {
-        "type": {
-          "description": "Type of source",
-          "enum": [
-            "url",
-            "s3",
-            "sklearn",
-            "asp",
-            "file"
-          ],
-          "title": "Type",
+        "command": {
+          "description": "Command to execute (e.g., 'python src/train.py')",
+          "title": "Command",
           "type": "string"
         },
-        "url": {
+        "outputs": {
+          "description": "Output IDs this recipe produces (must match declared outputs)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "container": {
           "anyOf": [
             {
               "type": "string"
@@ -933,156 +1094,105 @@
             }
           ],
           "default": null,
-          "description": "URL for url type sources",
-          "title": "Url"
+          "description": "Container image override (defaults to node-level container)",
+          "title": "Container"
         },
-        "bucket": {
+        "depends_on": {
           "anyOf": [
             {
-              "type": "string"
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "S3 bucket name",
-          "title": "Bucket"
+          "description": "Recipe IDs that must complete before this recipe runs",
+          "title": "Depends On"
         },
-        "key": {
+        "resources": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/Resources"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "S3 object key",
-          "title": "Key"
-        },
-        "version_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "S3 version ID",
-          "title": "Version Id"
-        },
-        "region": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "AWS region",
-          "title": "Region"
-        },
-        "dataset": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "sklearn dataset name",
-          "title": "Dataset"
-        },
-        "analysis": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "ASP analysis reference",
-          "title": "Analysis"
-        },
-        "version": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Version of referenced analysis",
-          "title": "Version"
-        },
-        "output": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Output ID from referenced analysis",
-          "title": "Output"
-        },
-        "execution": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Specific execution ID",
-          "title": "Execution"
-        },
-        "path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Local file path",
-          "title": "Path"
-        },
-        "checksum": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Checksum"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Checksum for verification"
+          "description": "Compute resource requirements"
         }
       },
       "required": [
-        "type"
+        "command",
+        "outputs"
       ],
-      "title": "Source",
+      "title": "Recipe",
+      "type": "object"
+    },
+    "Resources": {
+      "additionalProperties": false,
+      "description": "Compute resource requirements for a recipe.",
+      "properties": {
+        "cpus": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of CPUs",
+          "title": "Cpus"
+        },
+        "memory": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Memory requirement (e.g., '8GB', '512MB')",
+          "title": "Memory"
+        },
+        "gpus": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of GPUs",
+          "title": "Gpus"
+        },
+        "time_limit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum wall time (e.g., '2h', '30m')",
+          "title": "Time Limit"
+        }
+      },
+      "title": "Resources",
       "type": "object"
     },
     "TableSelector": {
@@ -1183,57 +1293,5 @@
       "title": "TextQuoteSelector",
       "type": "object"
     }
-  },
-  "$id": "https://asp-spec.org/v1/analysis.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "additionalProperties": false,
-  "description": "Complete ASP analysis specification.",
-  "properties": {
-    "$schema": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "JSON Schema reference",
-      "title": "$Schema"
-    },
-    "version": {
-      "description": "ASP specification version",
-      "pattern": "^\\d+\\.\\d+$",
-      "title": "Version",
-      "type": "string"
-    },
-    "analysis": {
-      "$ref": "#/$defs/AnalysisContent",
-      "description": "The analysis specification"
-    },
-    "insights": {
-      "additionalProperties": {
-        "$ref": "#/$defs/Insight"
-      },
-      "description": "Map of insight IDs to insight specifications",
-      "title": "Insights",
-      "type": "object"
-    },
-    "chunks": {
-      "additionalProperties": {
-        "$ref": "#/$defs/Chunk"
-      },
-      "description": "Map of chunk IDs to chunk definitions. Single-stage analyses use a 'main' chunk. All decisions live under chunks.",
-      "title": "Chunks",
-      "type": "object"
-    }
-  },
-  "required": [
-    "version",
-    "analysis",
-    "chunks"
-  ],
-  "title": "ASP Analysis Specification",
-  "type": "object"
+  }
 }
