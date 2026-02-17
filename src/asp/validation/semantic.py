@@ -445,7 +445,7 @@ def _validate_constraint_ref(
                 "INVALID_CONSTRAINT_FORMAT",
                 f"Constraint '{ref}' should be in 'decision.option' format",
                 option_path,
-            )
+            ),
         ]
 
     decision_id, option_id = parts
@@ -456,7 +456,7 @@ def _validate_constraint_ref(
                 "INVALID_CONSTRAINT_REF",
                 f"Constraint ref '{ref}' points to non-existent decision '{decision_id}'",
                 option_path,
-            )
+            ),
         ]
 
     if option_id not in decisions[decision_id].get("options", {}):
@@ -465,7 +465,7 @@ def _validate_constraint_ref(
                 "INVALID_CONSTRAINT_REF",
                 f"Constraint ref '{ref}' points to non-existent option '{option_id}'",
                 option_path,
-            )
+            ),
         ]
 
     return []
