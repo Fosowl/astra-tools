@@ -20,7 +20,7 @@
     "version": {
       "anyOf": [
         {
-          "pattern": "^\\d+\\.\\d+$",
+          "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
           "type": "string"
         },
         {
@@ -224,7 +224,7 @@
         "version": {
           "anyOf": [
             {
-              "pattern": "^\\d+\\.\\d+$",
+              "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
               "type": "string"
             },
             {

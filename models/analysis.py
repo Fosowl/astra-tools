@@ -198,7 +198,7 @@ class Analysis(BaseModel):
     schema_: str | None = Field(default=None, alias="$schema", description="JSON Schema reference")
     version: str | None = Field(
         default=None,
-        pattern=r"^\d+\.\d+$",
+        pattern=r"^\d+\.\d+(\.\d+)?$",
         description="ASP specification version",
     )
 

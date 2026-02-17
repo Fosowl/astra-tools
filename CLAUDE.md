@@ -257,21 +257,22 @@ Universe files mirror this structure with `decisions` and `analyses` keys.
 
 ### Releasing a New Schema Version
 
-ASP uses **Major.Minor** versioning for the specification:
+ASP uses **semver** (Major.Minor.Patch) versioning for the specification:
 - **Major bump (1.x -> 2.0)**: Breaking changes - old files won't validate
 - **Minor bump (1.0 -> 1.1)**: New optional fields only - old files still valid
+- **Patch bump (1.0.0 -> 1.0.1)**: Bug fixes to schemas (no field changes)
 - **Immutable**: Released versions are never modified
 
 Release process:
 1. Ensure `spec/draft/` schemas are finalized
-2. Copy `spec/draft/` to `spec/X.Y/` (e.g., `spec/1.0/`)
-3. Add `spec/X.Y/README.md` with version notes
+2. Copy `spec/draft/` to `spec/X.Y.Z/` (e.g., `spec/1.0.0/`)
+3. Add `spec/X.Y.Z/README.md` with version notes
 4. Tag the release (e.g., `git tag v1.0.0`)
-5. The X.Y schemas are **immutable** after release
+5. The X.Y.Z schemas are **immutable** after release
 
 The `version` field in asp.yaml must match a released spec version:
 ```yaml
-version: "1.0"  # Must match a spec/X.Y/ directory
+version: "1.0.0"  # Must match a spec/X.Y.Z/ directory
 ```
 
 ## Configuration
@@ -290,7 +291,7 @@ version: "1.0"  # Must match a spec/X.Y/ directory
 ## Key Conventions
 
 1. **ID patterns**: Use `^[a-z][a-z0-9_]*$` (lowercase, underscores, starts with letter)
-2. **Version format**: `^\d+\.\d+$` - Major.Minor (e.g., "1.0", "1.1", "2.0")
+2. **Version format**: `^\d+\.\d+(\.\d+)?$` - semver (e.g., "0.0.6", "1.0", "1.0.0")
 3. **Constraint references**: Use "decision.option" format (e.g., "scaling.standard")
 4. **DOI format**: Pattern `10\.\d{4,}/.*` for paper references
 5. **Exclude none in YAML**: When serializing, use `exclude_none=True` to keep YAML clean
