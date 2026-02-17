@@ -138,6 +138,8 @@ asp validate asp.yaml --verify-evidence  # Verify evidence quotes
 # Exploration
 asp info                           # Show analysis summary
 asp info --decisions               # Show decision details
+asp info --inputs                  # Show input details
+asp info --outputs                 # Show output details
 asp viz                            # Visualize decision space (ASCII)
 asp viz --format mermaid           # Mermaid diagram
 
@@ -150,8 +152,14 @@ asp schema export                  # Export JSON schemas
 asp schema show analysis           # Print schema to stdout
 
 # Paper management
-asp paper add <doi>                # Cache a paper
+asp paper add <doi>                # Download and cache a paper
+asp paper add <doi> --pdf local.pdf  # Cache from local PDF
 asp paper list                     # List cached papers
+asp paper show <doi>               # Show paper details
+asp paper path <doi>               # Print PDF path (for piping)
+asp paper remove <doi>             # Remove a paper from cache
+asp paper fetch-metadata <doi>     # Fetch metadata from DOI.org
+asp paper fetch-metadata --all     # Fetch metadata for all cached papers
 asp paper verify-quote <doi> -q "text"  # Verify a quote
 asp paper verify-quotes <doi>      # Verify multiple quotes (JSON stdin)
 ```
@@ -165,6 +173,7 @@ my-analysis/
 ├── asp.yaml              # Analysis specification (source of truth)
 ├── .gitignore            # Git ignore rules
 ├── src/                  # Analysis code
+├── outputs/              # Analysis outputs
 └── universes/            # Universe definitions (decision selections)
     └── baseline.yaml
 ```
