@@ -91,20 +91,6 @@ class TableSelector(BaseModel):
 
 
 # =============================================================================
-# Checksum
-# =============================================================================
-
-
-class Checksum(BaseModel):
-    """Checksum for data integrity verification."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    algorithm: Literal["sha256", "sha512", "md5"] = Field(description="Hash algorithm")
-    value: str = Field(description="Hash value")
-
-
-# =============================================================================
 # Evidence
 # =============================================================================
 
@@ -119,8 +105,10 @@ class Evidence(BaseModel):
       ``10.48550/arXiv.{id}`` and set ``version``.
 
     - **Analysis artifact** (``artifact``): An output produced by a recipe
-      in this analysis. The ``produced_by`` field identifies the recipe,
-      and an optional ``checksum`` ensures artifact integrity.
+      in this analysis. The ``artifact`` field is an ``Output`` object —
+      the same type used to declare outputs in the analysis — so artifact
+      evidence is structurally identical to declared outputs. The optional
+      ``checksum`` ensures artifact integrity.
 
     Exactly one of ``doi`` or ``artifact`` must be set.
     At least one content selector (quote, figure, or table) is required.
@@ -136,10 +124,9 @@ class Evidence(BaseModel):
                     "properties": {"doi": {"type": "string"}},
                 },
                 {
-                    "required": ["artifact", "produced_by"],
+                    "required": ["artifact"],
                     "properties": {
-                        "artifact": {"type": "string"},
-                        "produced_by": {"type": "string"},
+                        "artifact": {"type": "object"},
                     },
                 },
             ]
@@ -154,9 +141,9 @@ class Evidence(BaseModel):
         pattern=r"^10\.\d{4,}/.*$",
         description="DOI of the source paper (e.g., '10.48550/arXiv.1706.03762')",
     )
-    artifact: str | None = Field(
+    artifact: Output | None = Field(
         default=None,
-        description="Output ID of the analysis-generated artifact that constitutes evidence",
+        description="The analysis output that constitutes evidence — same type as declared outputs",
     )
 
     # Literature-specific
@@ -167,10 +154,6 @@ class Evidence(BaseModel):
     )
 
     # Artifact-specific
-    produced_by: str | None = Field(
-        default=None,
-        description="Recipe ID that produces the artifact (required for artifact evidence)",
-    )
     checksum: Checksum | None = Field(
         default=None,
         description="Checksum of the artifact for integrity verification",
@@ -194,12 +177,6 @@ class Evidence(BaseModel):
 
         if has_doi == has_artifact:
             raise ValueError("Evidence must have exactly one of 'doi' (literature) or 'artifact'")
-
-        if has_artifact and self.produced_by is None:
-            raise ValueError("Artifact evidence requires 'produced_by' (recipe ID)")
-
-        if has_doi and self.produced_by is not None:
-            raise ValueError("'produced_by' is only valid for artifact evidence, not literature")
 
         if has_doi and self.checksum is not None:
             raise ValueError("'checksum' is only valid for artifact evidence, not literature")
@@ -309,3 +286,12 @@ class InsightCollection(BaseModel):
     def get_insight(self, insight_id: str) -> Insight | None:
         """Get insight by ID."""
         return self.insights.get(insight_id)
+
+
+# Resolve forward references to Output and Checksum from models.analysis.
+# Imported here (at module bottom) to avoid circular imports at module load time.
+from models.analysis import Checksum, Output  # noqa: E402
+
+Evidence.model_rebuild()
+Insight.model_rebuild()
+InsightCollection.model_rebuild()

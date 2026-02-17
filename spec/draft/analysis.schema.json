@@ -497,7 +497,7 @@
     },
     "Evidence": {
       "additionalProperties": false,
-      "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by a recipe\n  in this analysis. The ``produced_by`` field identifies the recipe,\n  and an optional ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
+      "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by a recipe\n  in this analysis. The ``artifact`` field is an ``Output`` object \u2014\n  the same type used to declare outputs in the analysis \u2014 so artifact\n  evidence is structurally identical to declared outputs. The optional\n  ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
       "oneOf": [
         {
           "properties": {
@@ -512,15 +512,11 @@
         {
           "properties": {
             "artifact": {
-              "type": "string"
-            },
-            "produced_by": {
-              "type": "string"
+              "type": "object"
             }
           },
           "required": [
-            "artifact",
-            "produced_by"
+            "artifact"
           ]
         }
       ],
@@ -548,15 +544,14 @@
         "artifact": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/Output"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Output ID of the analysis-generated artifact that constitutes evidence",
-          "title": "Artifact"
+          "description": "The analysis output that constitutes evidence \u2014 same type as declared outputs"
         },
         "version": {
           "anyOf": [
@@ -571,19 +566,6 @@
           "default": null,
           "description": "Paper version for arXiv papers (version matters for reproducibility)",
           "title": "Version"
-        },
-        "produced_by": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Recipe ID that produces the artifact (required for artifact evidence)",
-          "title": "Produced By"
         },
         "checksum": {
           "anyOf": [
