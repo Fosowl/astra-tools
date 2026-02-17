@@ -5,6 +5,28 @@ from typing import Any
 
 import pytest
 
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Add --run-network option to pytest."""
+    parser.addoption(
+        "--run-network",
+        action="store_true",
+        default=False,
+        help="Run tests that require network access",
+    )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Skip network tests unless --run-network is passed."""
+    if not config.getoption("--run-network"):
+        skip_network = pytest.mark.skip(reason="use --run-network to run network tests")
+        for item in items:
+            if "network" in item.keywords:
+                item.add_marker(skip_network)
+
+
 # Fixture directories
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 VALID_DIR = FIXTURES_DIR / "valid"
