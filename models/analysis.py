@@ -6,16 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from models.insight import Insight
-
-
-class Checksum(BaseModel):
-    """Checksum for data integrity verification."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    algorithm: Literal["sha256", "sha512", "md5"] = Field(description="Hash algorithm")
-    value: str = Field(description="Hash value")
+from models.insight import Checksum, Insight
 
 
 class Input(BaseModel):

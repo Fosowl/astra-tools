@@ -6,6 +6,7 @@ of the asp package. They are only used by tools/generate_schemas.py.
 
 from models.analysis import Analysis, Decision, Input, Option, Output
 from models.insight import (
+    Checksum,
     Evidence,
     FigureSelector,
     FragmentSelector,
@@ -32,6 +33,7 @@ __all__ = [
     "FigureSelector",
     "TableSelector",
     # Insight - Core
+    "Checksum",
     "Evidence",
     "Insight",
     "InsightCollection",

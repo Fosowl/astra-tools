@@ -497,7 +497,33 @@
     },
     "Evidence": {
       "additionalProperties": false,
-      "description": "Evidence from scientific literature with W3C-compliant selectors.\n\nReferences papers directly by DOI. At least one content selector\n(quote, figure, or table) is required. The FragmentSelector provides\noptional PDF location hints.\n\nFor arXiv papers, the DOI format is: 10.48550/arXiv.{id}\nThe version field is used for arXiv papers where version matters.",
+      "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by a recipe\n  in this analysis. The ``produced_by`` field identifies the recipe,\n  and an optional ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
+      "oneOf": [
+        {
+          "properties": {
+            "doi": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "doi"
+          ]
+        },
+        {
+          "properties": {
+            "artifact": {
+              "type": "string"
+            },
+            "produced_by": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "artifact",
+            "produced_by"
+          ]
+        }
+      ],
       "properties": {
         "id": {
           "description": "Evidence ID",
@@ -506,10 +532,31 @@
           "type": "string"
         },
         "doi": {
+          "anyOf": [
+            {
+              "pattern": "^10\\.\\d{4,}/.*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
           "description": "DOI of the source paper (e.g., '10.48550/arXiv.1706.03762')",
-          "pattern": "^10\\.\\d{4,}/.*$",
-          "title": "Doi",
-          "type": "string"
+          "title": "Doi"
+        },
+        "artifact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output ID of the analysis-generated artifact that constitutes evidence",
+          "title": "Artifact"
         },
         "version": {
           "anyOf": [
@@ -524,6 +571,31 @@
           "default": null,
           "description": "Paper version for arXiv papers (version matters for reproducibility)",
           "title": "Version"
+        },
+        "produced_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Recipe ID that produces the artifact (required for artifact evidence)",
+          "title": "Produced By"
+        },
+        "checksum": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Checksum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Checksum of the artifact for integrity verification"
         },
         "quote": {
           "anyOf": [
@@ -571,12 +643,11 @@
             }
           ],
           "default": null,
-          "description": "PDF location hint"
+          "description": "Location hint (page number for PDFs/reports)"
         }
       },
       "required": [
-        "id",
-        "doi"
+        "id"
       ],
       "title": "Evidence",
       "type": "object"
@@ -786,7 +857,7 @@
     },
     "Insight": {
       "additionalProperties": false,
-      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge extracted from\nliterature, with full traceability to source material via W3C-compliant\ntext selectors. Evidence directly references papers by DOI.",
+      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge with full\ntraceability to source material. Evidence can come from literature\n(papers referenced by DOI) or from analysis artifacts (outputs\nproduced by recipes), both using W3C-compliant selectors.",
       "properties": {
         "id": {
           "description": "Unique identifier",

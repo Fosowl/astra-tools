@@ -1,7 +1,11 @@
 """Pydantic models for scientific insights.
 
-Simplified insight model with W3C Web Annotation-compliant selectors
-for referencing content in scientific papers.
+Insight model with W3C Web Annotation-compliant selectors for referencing
+content in scientific papers AND analysis-generated artifacts.
+
+Evidence can come from two sources:
+- **Literature**: Referenced by DOI with W3C selectors into PDFs
+- **Analysis artifacts**: Referenced by output ID with a producing recipe
 
 W3C Web Annotation compliance:
 - TextQuoteSelector: https://www.w3.org/TR/annotation-model/#text-quote-selector
@@ -87,32 +91,89 @@ class TableSelector(BaseModel):
 
 
 # =============================================================================
+# Checksum
+# =============================================================================
+
+
+class Checksum(BaseModel):
+    """Checksum for data integrity verification."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    algorithm: Literal["sha256", "sha512", "md5"] = Field(description="Hash algorithm")
+    value: str = Field(description="Hash value")
+
+
+# =============================================================================
 # Evidence
 # =============================================================================
 
 
 class Evidence(BaseModel):
-    """Evidence from scientific literature with W3C-compliant selectors.
+    """Evidence from a source with W3C-compliant selectors.
 
-    References papers directly by DOI. At least one content selector
-    (quote, figure, or table) is required. The FragmentSelector provides
-    optional PDF location hints.
+    Evidence can reference two kinds of sources:
 
-    For arXiv papers, the DOI format is: 10.48550/arXiv.{id}
-    The version field is used for arXiv papers where version matters.
+    - **Literature** (``doi``): A paper referenced by DOI, with W3C selectors
+      pointing into the PDF. For arXiv papers, use DOI format
+      ``10.48550/arXiv.{id}`` and set ``version``.
+
+    - **Analysis artifact** (``artifact``): An output produced by a recipe
+      in this analysis. The ``produced_by`` field identifies the recipe,
+      and an optional ``checksum`` ensures artifact integrity.
+
+    Exactly one of ``doi`` or ``artifact`` must be set.
+    At least one content selector (quote, figure, or table) is required.
     """
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        json_schema_extra={
+            "oneOf": [
+                {
+                    "required": ["doi"],
+                    "properties": {"doi": {"type": "string"}},
+                },
+                {
+                    "required": ["artifact", "produced_by"],
+                    "properties": {
+                        "artifact": {"type": "string"},
+                        "produced_by": {"type": "string"},
+                    },
+                },
+            ]
+        },
+    )
 
     id: str = Field(min_length=1, description="Evidence ID")
-    doi: str = Field(
+
+    # Source: exactly one of doi or artifact
+    doi: str | None = Field(
+        default=None,
         pattern=r"^10\.\d{4,}/.*$",
         description="DOI of the source paper (e.g., '10.48550/arXiv.1706.03762')",
     )
+    artifact: str | None = Field(
+        default=None,
+        description="Output ID of the analysis-generated artifact that constitutes evidence",
+    )
+
+    # Literature-specific
     version: int | None = Field(
         default=None,
         ge=1,
         description="Paper version for arXiv papers (version matters for reproducibility)",
+    )
+
+    # Artifact-specific
+    produced_by: str | None = Field(
+        default=None,
+        description="Recipe ID that produces the artifact (required for artifact evidence)",
+    )
+    checksum: Checksum | None = Field(
+        default=None,
+        description="Checksum of the artifact for integrity verification",
     )
 
     # Content selectors (at least one required)
@@ -121,11 +182,31 @@ class Evidence(BaseModel):
     table: TableSelector | None = Field(default=None, description="Table reference")
 
     # Location hint
-    location: FragmentSelector | None = Field(default=None, description="PDF location hint")
+    location: FragmentSelector | None = Field(
+        default=None, description="Location hint (page number for PDFs/reports)"
+    )
 
     @model_validator(mode="after")
-    def require_at_least_one_selector(self) -> Evidence:
-        """Ensure at least one content selector is provided."""
+    def validate_source(self) -> Evidence:
+        """Ensure exactly one source type and at least one content selector."""
+        has_doi = self.doi is not None
+        has_artifact = self.artifact is not None
+
+        if has_doi == has_artifact:
+            raise ValueError("Evidence must have exactly one of 'doi' (literature) or 'artifact'")
+
+        if has_artifact and self.produced_by is None:
+            raise ValueError("Artifact evidence requires 'produced_by' (recipe ID)")
+
+        if has_doi and self.produced_by is not None:
+            raise ValueError("'produced_by' is only valid for artifact evidence, not literature")
+
+        if has_doi and self.checksum is not None:
+            raise ValueError("'checksum' is only valid for artifact evidence, not literature")
+
+        if has_artifact and self.version is not None:
+            raise ValueError("'version' is only valid for literature evidence, not artifacts")
+
         if not (self.quote or self.figure or self.table):
             raise ValueError(
                 "Evidence must have at least one content selector: quote, figure, or table"
@@ -133,14 +214,25 @@ class Evidence(BaseModel):
         return self
 
     @property
+    def is_literature(self) -> bool:
+        """Check if this evidence references a paper."""
+        return self.doi is not None
+
+    @property
+    def is_artifact(self) -> bool:
+        """Check if this evidence references an analysis artifact."""
+        return self.artifact is not None
+
+    @property
     def is_arxiv(self) -> bool:
         """Check if this evidence references an arXiv paper."""
-        return self.doi.startswith("10.48550/arXiv.")
+        return self.doi is not None and self.doi.startswith("10.48550/arXiv.")
 
     @property
     def arxiv_id(self) -> str | None:
         """Extract arXiv ID from DOI if this is an arXiv paper."""
         if self.is_arxiv:
+            assert self.doi is not None
             return self.doi.replace("10.48550/arXiv.", "")
         return None
 
@@ -153,9 +245,10 @@ class Evidence(BaseModel):
 class Insight(BaseModel):
     """A scientific insight with provenance and supporting evidence.
 
-    Represents a discrete unit of scientific knowledge extracted from
-    literature, with full traceability to source material via W3C-compliant
-    text selectors. Evidence directly references papers by DOI.
+    Represents a discrete unit of scientific knowledge with full
+    traceability to source material. Evidence can come from literature
+    (papers referenced by DOI) or from analysis artifacts (outputs
+    produced by recipes), both using W3C-compliant selectors.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
