@@ -89,7 +89,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pydantic
+          pip install pydantic pyyaml
 
       - name: Verify schemas are up to date
         run: |
