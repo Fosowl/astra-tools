@@ -12,11 +12,12 @@ A declarative specification format for scientific analyses that can be executed 
 ASP is the **core specification** for describing scientific analyses. It separates **what** you want to learn from **how** to compute it:
 
 - **Problem statement** - The research question
-- **Inputs** - Data, previous analyses, literature
-- **Outputs** - Metrics, figures, tables, models
+- **Inputs** - Data, previous analyses
+- **Outputs** - Metrics, figures, tables, data, reports
 - **Decisions** - The choices that define your analysis
-- **Insights** - Evidence from papers and prior analyses
+- **Insights** - Evidence from papers with quote verification
 - **Constraints** - Relationships between decision options
+- **Recipes** - Optional build rules for producing outputs
 
 ASP makes no prescription about execution frameworks. The specification defines *what* to compute; execution is handled by the agentic layer.
 
@@ -31,9 +32,9 @@ Prism (agent layer) =  Claude Code skills, project scaffolding, remote/HPC confi
 
 **Multiverse**: The space of all valid decision combinations. Its purpose is transparency and traceability, not exhaustive search.
 
-**Chunks**: All decisions live under chunks. Single-stage analyses use a `main` chunk. Complex analyses decompose into multiple chunks with their own decisions and artefacts.
+**Self-similar structure**: Every analysis node has the same shape (problem, inputs, outputs, decisions). Simple analyses are flat; complex analyses nest sub-analyses under `analyses:`.
 
-**Evidence-based decisions**: Link decisions to supporting evidence from papers or prior analyses, with quote verification.
+**Evidence-based decisions**: Link decisions to supporting evidence from papers, with quote verification.
 
 **Composability**: Use outputs from one analysis as inputs to another.
 
@@ -68,57 +69,61 @@ For full agentic scaffolding with Claude Code integration, use `prism init` inst
 
 ```yaml
 version: "1.0"
+name: "Iris Classification Study"
 
-analysis:
-  name: "Iris Classification Study"
-  problem: |
-    Build a robust classifier for the Iris dataset that accurately
-    predicts species from flower measurements.
+problem: |
+  Build a robust classifier for the Iris dataset that accurately
+  predicts species from flower measurements.
 
-  inputs:
-    - id: iris_data
-      type: data
-      source: "sklearn.datasets.load_iris"
+inputs:
+  - id: iris_data
+    type: data
+    source: "sklearn.datasets.load_iris"
 
-  outputs:
-    - id: accuracy
-      type: metric
-      dtype: float
-      range: [0, 1]
+outputs:
+  - id: accuracy
+    type: metric
+    description: "Classification accuracy on held-out test set"
 
-    - id: confusion_matrix
-      type: figure
-      formats: [png]
+  - id: confusion_matrix
+    type: figure
+    description: "Confusion matrix heatmap"
 
-chunks:
-  main:
-    decisions:
-      scaling:
-        label: "Feature Scaling"
-        type: method
-        importance: 2
-        default: standard
-        options:
-          none:
-            label: "No Scaling"
-          standard:
-            label: "StandardScaler"
-          minmax:
-            label: "MinMaxScaler"
-            incompatible_with: ["model.svm"]
+  - id: conclusion
+    type: report
+    description: "Summary of findings"
 
-      model:
-        label: "Classification Model"
-        type: method
-        importance: 1
-        default: random_forest
-        options:
-          svm:
-            label: "Support Vector Machine"
-          random_forest:
-            label: "Random Forest"
-          logistic:
-            label: "Logistic Regression"
+decisions:
+  scaling:
+    label: "Feature Scaling"
+    type: method
+    default: standard
+    options:
+      none:
+        label: "No Scaling"
+      standard:
+        label: "StandardScaler"
+      minmax:
+        label: "MinMaxScaler"
+        incompatible_with: ["model.svm"]
+
+  model:
+    label: "Classification Model"
+    type: method
+    default: random_forest
+    options:
+      svm:
+        label: "Support Vector Machine"
+        requires: ["scaling.standard"]
+      random_forest:
+        label: "Random Forest"
+      logistic:
+        label: "Logistic Regression"
+
+recipes:
+  train:
+    command: python src/train.py
+    outputs: [accuracy, confusion_matrix, conclusion]
 ```
 
 See [examples/iris/](examples/iris/) for a complete working example.
@@ -152,7 +157,8 @@ asp schema show analysis           # Print schema to stdout
 # Paper management
 asp paper add <doi>                # Cache a paper
 asp paper list                     # List cached papers
-asp paper verify-quotes <doi>      # Verify evidence quotes
+asp paper verify-quote <doi> -q "text"  # Verify a quote
+asp paper verify-quotes <doi>      # Verify multiple quotes (JSON stdin)
 ```
 
 ## Project Structure
@@ -163,6 +169,7 @@ An ASP project created with `asp init` has this minimal structure:
 my-analysis/
 ├── asp.yaml              # Analysis specification (source of truth)
 ├── .gitignore            # Git ignore rules
+├── src/                  # Analysis code
 └── universes/            # Universe definitions (decision selections)
     └── baseline.yaml
 ```
@@ -173,10 +180,11 @@ Use `prism init` for full agentic scaffolding (Claude Code config, scripts, HPC 
 
 1. **Declarative** - Spec says WHAT, not HOW
 2. **ASP is source of truth** - Implementations are derived from ASP
-3. **Transparent** - All decisions and alternatives documented
-4. **Composable** - Analyses build on each other
-5. **Evidence-linked** - Decisions cite supporting evidence
-6. **Reproducible** - Precise provenance and verification
+3. **Self-similar** - Every level has the same structure; sub-analyses are valid analyses
+4. **Transparent** - All decisions and alternatives documented
+5. **Composable** - Analyses build on each other
+6. **Evidence-linked** - Decisions cite supporting evidence
+7. **Reproducible** - Precise provenance and verification
 
 ## Documentation
 
