@@ -160,7 +160,13 @@ def _validate_analysis_node(
         from_ref = inp.get("from")
         if from_ref:
             errors.extend(
-                _validate_from_ref(from_ref, parent_input_ids, sibling_analyses, node_id, node_path)
+                _validate_from_ref(
+                    from_ref,
+                    parent_input_ids,
+                    sibling_analyses,
+                    node_id,
+                    node_path,
+                )
             )
 
     # Validate node output IDs are unique
