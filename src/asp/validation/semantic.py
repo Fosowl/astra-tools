@@ -423,7 +423,9 @@ def _validate_from_ref(
 
 
 def _validate_constraint_ref(
-    ref: str, decisions: dict[str, Any], option_path: str
+    ref: str,
+    decisions: dict[str, Any],
+    option_path: str,
 ) -> list[SemanticError]:
     """Validate a constraint reference (decision.option format)."""
     parts = ref.split(".")
