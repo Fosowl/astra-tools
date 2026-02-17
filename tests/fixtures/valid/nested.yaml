@@ -13,8 +13,20 @@ outputs:
   - id: parameter_constraints
     type: table
 
+decisions:
+  cosmology_model:
+    label: "Cosmological Model"
+    type: method
+    default: flat_lcdm
+    options:
+      flat_lcdm:
+        label: "Flat LCDM"
+      wcdm:
+        label: "wCDM"
+
 analyses:
   build_mocks:
+    parent_decisions: [cosmology_model]
     success_criteria:
       - "Mock catalog matches observed magnitude distribution"
     inputs:
@@ -35,6 +47,7 @@ analyses:
         options:
           homoscedastic:
             label: "Homoscedastic"
+            incompatible_with: ["cosmology_model.wcdm"]
           heteroscedastic:
             label: "Heteroscedastic"
     recipes:
@@ -70,3 +83,10 @@ analyses:
 
   validate:
     description: "Validate trained model against observed data."
+    inputs:
+      - id: model
+        type: data
+        from: train_network.trained_model
+    outputs:
+      - id: validation_report
+        type: report

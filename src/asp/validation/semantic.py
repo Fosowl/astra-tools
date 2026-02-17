@@ -102,6 +102,7 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
                 analysis_node,
                 insights,
                 parent_input_ids=input_ids,
+                parent_decisions=root_decisions,
                 sibling_analyses=sub_analyses,
                 path_prefix="analyses",
             )
@@ -115,12 +116,35 @@ def _validate_analysis_node(
     node: dict[str, Any],
     insights: dict[str, Any],
     parent_input_ids: set[str],
+    parent_decisions: dict[str, Any],
     sibling_analyses: dict[str, Any],
     path_prefix: str,
 ) -> list[SemanticError]:
     """Validate a single analysis node's decisions, inputs, and sub-analyses."""
     errors: list[SemanticError] = []
     node_path = f"{path_prefix}.{node_id}"
+
+    # Check required sub-analysis fields
+    for field in ("inputs", "outputs"):
+        if not node.get(field):
+            errors.append(
+                SemanticError(
+                    "MISSING_SUB_FIELD",
+                    f"Sub-analysis '{node_id}' is missing required field: {field}",
+                    node_path,
+                )
+            )
+
+    # Validate parent_decisions references
+    for pd in node.get("parent_decisions") or []:
+        if pd not in parent_decisions:
+            errors.append(
+                SemanticError(
+                    "INVALID_PARENT_DECISION",
+                    f"parent_decisions references non-existent parent decision: {pd}",
+                    f"{node_path}.parent_decisions",
+                )
+            )
 
     # Validate node inputs (check `from` references)
     node_inputs = node.get("inputs") or []
@@ -151,8 +175,13 @@ def _validate_analysis_node(
             node_output_ids.add(out_id)
 
     # Validate decisions
+    # Include parent decisions declared via parent_decisions for constraint resolution
     node_decisions = node.get("decisions") or {}
-    errors.extend(_validate_decisions(node_decisions, insights, node_path))
+    constraint_scope = dict(node_decisions)
+    for pd in node.get("parent_decisions") or []:
+        if pd in parent_decisions:
+            constraint_scope[pd] = parent_decisions[pd]
+    errors.extend(_validate_decisions(node_decisions, insights, node_path, constraint_scope))
 
     # Validate recipes
     node_recipes = node.get("recipes") or {}
@@ -168,6 +197,7 @@ def _validate_analysis_node(
                 sub_node,
                 insights,
                 parent_input_ids=node_input_ids,
+                parent_decisions=node_decisions,
                 sibling_analyses=sub_analyses,
                 path_prefix=f"{node_path}.analyses",
             )
@@ -180,9 +210,17 @@ def _validate_decisions(
     decisions: dict[str, Any],
     insights: dict[str, Any],
     path_prefix: str,
+    constraint_scope: dict[str, Any] | None = None,
 ) -> list[SemanticError]:
-    """Validate a set of decisions at a given node."""
+    """Validate a set of decisions at a given node.
+
+    Args:
+        constraint_scope: Decisions available for constraint resolution. Defaults to
+            decisions themselves, but may include parent decisions for sub-analyses.
+    """
     errors: list[SemanticError] = []
+    if constraint_scope is None:
+        constraint_scope = decisions
 
     decisions_prefix = f"{path_prefix}.decisions" if path_prefix else "decisions"
     for decision_id, decision in decisions.items():
@@ -216,15 +254,15 @@ def _validate_decisions(
                         )
                     )
 
-            # Check incompatible_with refs (scoped to this node's decisions)
+            # Check incompatible_with refs (scoped to constraint_scope)
             incompatible_with = option.get("incompatible_with") or []
             for ref in incompatible_with:
-                errors.extend(_validate_constraint_ref(ref, decisions, option_path))
+                errors.extend(_validate_constraint_ref(ref, constraint_scope, option_path))
 
-            # Check requires refs (scoped to this node's decisions)
+            # Check requires refs (scoped to constraint_scope)
             requires = option.get("requires") or []
             for ref in requires:
-                errors.extend(_validate_constraint_ref(ref, decisions, option_path))
+                errors.extend(_validate_constraint_ref(ref, constraint_scope, option_path))
 
     return errors
 
@@ -445,6 +483,7 @@ def validate_universe(
         universe_data,
         analysis_data,
         path_prefix="",
+        parent_universe_decisions={},
     )
 
 
@@ -452,6 +491,7 @@ def _validate_universe_node(
     universe_node: dict[str, Any],
     analysis_node: dict[str, Any],
     path_prefix: str,
+    parent_universe_decisions: dict[str, str],
 ) -> list[SemanticError]:
     """Recursively validate a universe node against an analysis node.
 
@@ -498,9 +538,18 @@ def _validate_universe_node(
                 )
             )
 
-    # Check constraints
+    # Check constraints (include parent decisions for cross-level constraints)
+    # Sub-analyses with parent_decisions can reference parent decision options in constraints
+    parent_decisions_refs = set(analysis_node.get("parent_decisions") or [])
+    effective_decisions = dict(universe_decisions)
+    for pd in parent_decisions_refs:
+        if pd in parent_universe_decisions:
+            effective_decisions[pd] = parent_universe_decisions[pd]
+
     errors.extend(
-        _validate_node_universe_constraints(universe_decisions, analysis_decisions, decisions_path)
+        _validate_node_universe_constraints(
+            effective_decisions, analysis_decisions, decisions_path
+        )
     )
 
     # Recurse into sub-analyses
@@ -524,6 +573,7 @@ def _validate_universe_node(
                 universe_sub.get(analysis_id, {}),
                 sub_analysis_node,
                 path_prefix=f"{analyses_prefix}.{analysis_id}",
+                parent_universe_decisions=universe_decisions,
             )
         )
 
