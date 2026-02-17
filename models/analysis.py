@@ -6,8 +6,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from models.insight import Insight
-
 
 class Checksum(BaseModel):
     """Checksum for data integrity verification."""
@@ -251,5 +249,8 @@ class Analysis(BaseModel):
     )
 
 
-# Required for Pydantic self-referencing models
+# Resolve forward references to Insight from models.insight.
+# Imported here (at module bottom) to avoid circular imports at module load time.
+from models.insight import Insight  # noqa: E402
+
 Analysis.model_rebuild()
