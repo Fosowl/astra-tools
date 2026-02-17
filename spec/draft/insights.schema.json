@@ -1,5 +1,32 @@
 {
   "$defs": {
+    "Checksum": {
+      "additionalProperties": false,
+      "description": "Checksum for data integrity verification.",
+      "properties": {
+        "algorithm": {
+          "description": "Hash algorithm",
+          "enum": [
+            "sha256",
+            "sha512",
+            "md5"
+          ],
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "value": {
+          "description": "Hash value",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "title": "Checksum",
+      "type": "object"
+    },
     "Evidence": {
       "additionalProperties": false,
       "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by a recipe\n  in this analysis. The ``artifact`` field is an ``Output`` object \u2014\n  the same type used to declare outputs in the analysis \u2014 so artifact\n  evidence is structurally identical to declared outputs. The optional\n  ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
@@ -137,33 +164,6 @@
         "id"
       ],
       "title": "Evidence",
-      "type": "object"
-    },
-    "Checksum": {
-      "additionalProperties": false,
-      "description": "Checksum for data integrity verification.",
-      "properties": {
-        "algorithm": {
-          "description": "Hash algorithm",
-          "enum": [
-            "sha256",
-            "sha512",
-            "md5"
-          ],
-          "title": "Algorithm",
-          "type": "string"
-        },
-        "value": {
-          "description": "Hash value",
-          "title": "Value",
-          "type": "string"
-        }
-      },
-      "required": [
-        "algorithm",
-        "value"
-      ],
-      "title": "Checksum",
       "type": "object"
     },
     "FigureSelector": {
