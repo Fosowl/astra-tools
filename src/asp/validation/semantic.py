@@ -65,7 +65,9 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
         if inp_id in input_ids:
             errors.append(
                 SemanticError(
-                    "DUPLICATE_INPUT", f"Duplicate input ID: {inp_id}", f"inputs.{inp_id}"
+                    "DUPLICATE_INPUT",
+                    f"Duplicate input ID: {inp_id}",
+                    f"inputs.{inp_id}",
                 )
             )
         if inp_id:
@@ -78,7 +80,9 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
         if out_id in output_ids:
             errors.append(
                 SemanticError(
-                    "DUPLICATE_OUTPUT", f"Duplicate output ID: {out_id}", f"outputs.{out_id}"
+                    "DUPLICATE_OUTPUT",
+                    f"Duplicate output ID: {out_id}",
+                    f"outputs.{out_id}",
                 )
             )
         if out_id:
@@ -462,7 +466,8 @@ def _validate_constraint_ref(
 
 
 def validate_universe(
-    universe_data: dict[str, Any], analysis_data: dict[str, Any]
+    universe_data: dict[str, Any],
+    analysis_data: dict[str, Any],
 ) -> list[SemanticError]:
     """Validate a universe against an analysis specification.
 
@@ -549,7 +554,9 @@ def _validate_universe_node(
 
     errors.extend(
         _validate_node_universe_constraints(
-            effective_decisions, analysis_decisions, decisions_path
+            effective_decisions,
+            analysis_decisions,
+            decisions_path,
         )
     )
 
