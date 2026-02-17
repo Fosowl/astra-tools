@@ -11,7 +11,6 @@ A declarative specification format for scientific analyses that can be executed 
 
 ASP is the **core specification** for describing scientific analyses. It separates **what** you want to learn from **how** to compute it:
 
-- **Problem statement** - The research question
 - **Inputs** - Data, previous analyses
 - **Outputs** - Metrics, figures, tables, data, reports
 - **Decisions** - The choices that define your analysis
@@ -28,11 +27,11 @@ Prism (agent layer) =  Claude Code skills, project scaffolding, remote/HPC confi
 
 ## Key Concepts
 
-**Universe**: A complete set of decisions -- one option selected for each decision point. Running a universe produces results that answer your problem statement.
+**Universe**: A complete set of decisions -- one option selected for each decision point. Running a universe produces the declared outputs.
 
 **Multiverse**: The space of all valid decision combinations. Its purpose is transparency and traceability, not exhaustive search.
 
-**Self-similar structure**: Every analysis node has the same shape (problem, inputs, outputs, decisions). Simple analyses are flat; complex analyses nest sub-analyses under `analyses:`.
+**Self-similar structure**: Every analysis node has the same shape (inputs, outputs, decisions). Simple analyses are flat; complex analyses nest sub-analyses under `analyses:`.
 
 **Evidence-based decisions**: Link decisions to supporting evidence from papers, with quote verification.
 
@@ -70,10 +69,6 @@ For full agentic scaffolding with Claude Code integration, use `prism init` inst
 ```yaml
 version: "1.0"
 name: "Iris Classification Study"
-
-problem: |
-  Build a robust classifier for the Iris dataset that accurately
-  predicts species from flower measurements.
 
 inputs:
   - id: iris_data

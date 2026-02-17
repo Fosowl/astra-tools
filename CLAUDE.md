@@ -83,7 +83,7 @@ ASP/
    - Built with Click and Rich for terminal UI
    - Commands: init, validate, info, universe, viz, schema, paper
    - Uses `find_analysis_file()` to locate `asp.yaml`
-   - `init` creates a minimal scaffold (asp.yaml, universes/, .gitignore)
+   - `init` creates a minimal scaffold (asp.yaml, universes/, src/, .gitignore)
 
 5. **Helpers** (`src/asp/helpers.py`)
    - Dict-based utilities: `load_yaml`, `get_decision`, `get_default_universe`
@@ -95,13 +95,14 @@ ASP/
 
 ### Key Concepts
 
-- **Analysis**: Self-similar node with description, inputs, outputs, decisions, recipes, and optional sub-analyses
-- **Decision**: A choice point with multiple options (e.g., "which scaling method?")
-- **Recipe**: A build rule that produces declared outputs (command + dependencies + resources)
-- **Universe**: One complete set of decisions across the entire analysis tree
+- **Analysis**: A self-similar node with inputs, outputs, decisions, insights, recipes, and optional sub-analyses. Every level has the same structure.
+- **Decision**: A choice point with multiple options (e.g., "which scaling method?"). Decisions live directly on the analysis node.
+- **Universe**: One complete set of decisions — one option per decision point. The universe mirrors the analysis tree structure.
 - **Multiverse**: The space of all valid decision combinations
-- **Insight**: Scientific knowledge from papers or prior analyses, with precise evidence
+- **Insight**: Scientific knowledge from papers, with precise evidence (W3C selectors)
+- **Recipe**: A build rule that produces one or more outputs (command, container, resources)
 - **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within an analysis node)
+- **Sub-analysis**: A nested analysis under `analyses:` with its own inputs, outputs, and decisions. Inputs can reference parent inputs (`from: input_id`) or sibling outputs (`from: sibling.output_id`).
 
 ## Development Commands
 
@@ -150,6 +151,8 @@ When users create a new analysis with `asp init my-analysis`:
 my-analysis/
 ├── asp.yaml              # Analysis specification (edit this)
 ├── .gitignore
+├── src/                  # Analysis code
+├── outputs/              # Analysis outputs
 └── universes/
     └── baseline.yaml     # Default universe (decision selections)
 ```
@@ -191,22 +194,39 @@ defaults = get_default_universe(data)
 ```
 
 ### 4. Constraint Validation
-Constraints are validated in `semantic.py`, scoped within each chunk:
+Constraints are validated in `semantic.py`, scoped within each analysis node:
 - `incompatible_with`: Lists of "decision.option" pairs that cannot coexist
 - `requires`: Lists of "decision.option" pairs that must be selected together
-- Universe validation checks these constraints per chunk
+- Universe validation checks these constraints per node
 
 ### 5. Insight-Based Decisions
 Decisions can reference insights:
 ```yaml
-chunks:
-  main:
-    decisions:
-      scaling:
-        options:
-          standard:
-            insights: [compute_scaling]  # References insights.compute_scaling
+decisions:
+  scaling:
+    options:
+      standard:
+        insights: [compute_scaling]  # References insights.compute_scaling
 ```
+
+### 6. Self-Similar Nesting
+Simple analyses put decisions at the top level. Complex analyses nest sub-analyses:
+```yaml
+# Root level
+decisions:
+  method: ...
+
+# Nested sub-analyses
+analyses:
+  preprocessing:
+    decisions:
+      scaling: ...
+  training:
+    decisions:
+      optimizer: ...
+```
+
+Universe files mirror this structure with `decisions` and `analyses` keys.
 
 ## Testing Philosophy
 
@@ -215,11 +235,11 @@ chunks:
 - `invalid/`: Files with specific validation errors (each tests one rule)
 
 ### Test Organization
-- `test_models.py`: Pydantic model validation
 - `test_schemas.py`: JSON schema validation
 - `test_validation.py`: Schema and semantic validation
-- `test_insight.py`: Insight model and evidence validation
 - `test_cli.py`: CLI commands
+- `test_evidence_verification.py`: Evidence verification
+- `test_unicode_matching.py`: Unicode text matching
 
 ## Common Development Tasks
 

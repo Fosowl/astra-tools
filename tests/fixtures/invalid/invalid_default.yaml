@@ -1,7 +1,6 @@
 # Default option doesn't exist in options
 version: "1.0"
 name: "Test"
-description: "Test problem"
 inputs:
   - id: data
     type: data

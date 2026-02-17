@@ -59,7 +59,6 @@ def minimal_analysis_data() -> dict[str, Any]:
     return {
         "version": "1.0",
         "name": "Test Analysis",
-        "description": "Test problem statement",
         "inputs": [{"id": "test_data", "type": "data"}],
         "outputs": [{"id": "result", "type": "metric"}],
         "decisions": {

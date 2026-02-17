@@ -140,7 +140,7 @@ def _create_boilerplate_asp_yaml(directory: Path) -> None:
 version: "1.0"
 name: "{name}"
 description: |
-  TODO: What research question are you trying to answer?
+  TODO: Describe the goal of this analysis.
 
 inputs:
   - id: primary_data
@@ -154,7 +154,7 @@ outputs:
 
   - id: conclusion
     type: report
-    description: "Summary addressing the problem statement"
+    description: "Summary of analysis findings"
 
 decisions:
   example_method:
@@ -397,7 +397,7 @@ def info(
     console.print(f"\n[bold]{data.get('name', 'Unknown')}[/bold]")
     console.print(f"Version: {data.get('version', 'Unknown')}")
     if data.get("description"):
-        console.print(f"\n{data['description'].strip()}")
+        console.print(f"\n{data['description']}")
 
     # Summary stats
     input_list = get_inputs(data)

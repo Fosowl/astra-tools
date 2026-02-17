@@ -1,6 +1,5 @@
 version: "1.0"
 name: "Recipe Cycle"
-description: "Test recipe dependency cycle"
 inputs:
   - id: test_data
     type: data

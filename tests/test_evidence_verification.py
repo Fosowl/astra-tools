@@ -278,7 +278,6 @@ class TestFullValidationWorkflow:
         analysis = {
             "version": "1.0",
             "name": "Test Analysis",
-            "description": "Test the evidence verification system",
             "inputs": [{"id": "data", "type": "data"}],
             "outputs": [{"id": "result", "type": "metric"}],
             "decisions": {

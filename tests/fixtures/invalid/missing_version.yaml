@@ -1,6 +1,5 @@
 # Missing required 'version' field
 name: "Test"
-description: "Test problem"
 inputs:
   - id: data
     type: data

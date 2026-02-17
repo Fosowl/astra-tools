@@ -179,14 +179,12 @@ class Decision(BaseModel):
 class Analysis(BaseModel):
     """A self-similar analysis specification.
 
-    Every level has the same structure: description, inputs, outputs,
+    Every level has the same structure: metadata, inputs, outputs,
     decisions, insights, and optional sub-analyses. A sub-analysis extracted
     to its own file is a valid Analysis on its own.
 
-    At the root level, ``version`` and ``name`` are additionally required.
-    Sub-analyses must declare ``inputs`` and ``outputs`` (enforced by
-    semantic validation).  Use ``parent_decisions`` to declare dependencies
-    on parent-scope decisions for cross-level constraints.
+    At the root level, ``version``, ``name``, ``inputs``, and
+    ``outputs`` are required. In sub-analyses they are optional.
     """
 
     model_config = ConfigDict(
@@ -213,7 +211,7 @@ class Analysis(BaseModel):
 
     # Analysis content
     description: str | None = Field(
-        default=None, description="Description of what this analysis aims to achieve"
+        default=None, description="Detailed description of this analysis"
     )
     success_criteria: list[str] | None = Field(
         default=None,
@@ -234,13 +232,6 @@ class Analysis(BaseModel):
     insights: dict[str, Insight] = Field(
         default_factory=dict,
         description="Map of insight IDs to insight specifications",
-    )
-
-    # Cross-level dependencies
-    parent_decisions: list[str] | None = Field(
-        default=None,
-        description="Decision IDs from parent scope that this sub-analysis depends on. "
-        "Makes parent decisions available for constraints and enables standalone packaging.",
     )
 
     # Execution

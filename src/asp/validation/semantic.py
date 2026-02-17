@@ -34,8 +34,6 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     - Decisions: defaults exist, evidence refs valid, constraint refs valid
     - Sub-analysis validation (recursive)
     - `from` reference validation on sub-analysis inputs
-    - `parent_decisions` references valid parent decisions
-    - Sub-analyses require inputs and outputs
 
     Args:
         data: The analysis data as a dict.
@@ -45,7 +43,7 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     """
     errors: list[SemanticError] = []
 
-    # Root analysis requires name, inputs, outputs
+    # Root analysis requires version, name, inputs, outputs
     for field in ("version", "name", "inputs", "outputs"):
         if field not in data or data[field] is None:
             errors.append(
@@ -86,9 +84,9 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
         if out_id:
             output_ids.add(out_id)
 
-    # Validate root-level decisions (no parent decisions at root)
+    # Validate root-level decisions
     root_decisions = data.get("decisions") or {}
-    errors.extend(_validate_decisions(root_decisions, {}, insights, ""))
+    errors.extend(_validate_decisions(root_decisions, insights, ""))
 
     # Validate recipes
     recipes = data.get("recipes") or {}
@@ -106,7 +104,6 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
                 parent_input_ids=input_ids,
                 sibling_analyses=sub_analyses,
                 path_prefix="analyses",
-                parent_decisions_defs=root_decisions,
             )
         )
 
@@ -120,50 +117,15 @@ def _validate_analysis_node(
     parent_input_ids: set[str],
     sibling_analyses: dict[str, Any],
     path_prefix: str,
-    parent_decisions_defs: dict[str, Any],
 ) -> list[SemanticError]:
-    """Validate a single analysis node's decisions, inputs, outputs, and sub-analyses."""
+    """Validate a single analysis node's decisions, inputs, and sub-analyses."""
     errors: list[SemanticError] = []
     node_path = f"{path_prefix}.{node_id}"
 
-    # Sub-analyses require inputs and outputs
-    node_inputs = node.get("inputs")
-    node_outputs = node.get("outputs")
-    if not node_inputs:
-        errors.append(
-            SemanticError(
-                "MISSING_SUB_FIELD",
-                f"Sub-analysis '{node_id}' is missing required field 'inputs'",
-                f"{node_path}.inputs",
-            )
-        )
-    if not node_outputs:
-        errors.append(
-            SemanticError(
-                "MISSING_SUB_FIELD",
-                f"Sub-analysis '{node_id}' is missing required field 'outputs'",
-                f"{node_path}.outputs",
-            )
-        )
-
-    # Validate parent_decisions references
-    declared_parent_ids = node.get("parent_decisions") or []
-    resolved_parent_defs: dict[str, Any] = {}
-    for pd_id in declared_parent_ids:
-        if pd_id not in parent_decisions_defs:
-            errors.append(
-                SemanticError(
-                    "INVALID_PARENT_DECISION",
-                    f"parent_decisions references unknown decision '{pd_id}'",
-                    f"{node_path}.parent_decisions",
-                )
-            )
-        else:
-            resolved_parent_defs[pd_id] = parent_decisions_defs[pd_id]
-
     # Validate node inputs (check `from` references)
+    node_inputs = node.get("inputs") or []
     node_input_ids: set[str] = set()
-    for inp in node_inputs or []:
+    for inp in node_inputs:
         inp_id = inp.get("id")
         if inp_id:
             node_input_ids.add(inp_id)
@@ -175,7 +137,7 @@ def _validate_analysis_node(
 
     # Validate node output IDs are unique
     node_output_ids: set[str] = set()
-    for out in node_outputs or []:
+    for out in node.get("outputs") or []:
         out_id = out.get("id")
         if out_id in node_output_ids:
             errors.append(
@@ -188,18 +150,14 @@ def _validate_analysis_node(
         if out_id:
             node_output_ids.add(out_id)
 
-    # Validate decisions (with parent decisions visible for constraint resolution)
+    # Validate decisions
     node_decisions = node.get("decisions") or {}
-    errors.extend(_validate_decisions(node_decisions, resolved_parent_defs, insights, node_path))
+    errors.extend(_validate_decisions(node_decisions, insights, node_path))
 
     # Validate recipes
     node_recipes = node.get("recipes") or {}
     if node_recipes:
         errors.extend(_validate_recipes(node_recipes, node_output_ids, node_path))
-
-    # Build visible decisions for children: this node's own + resolved parent decisions
-    # (children can declare parent_decisions referencing any of these)
-    visible_at_this_level = {**resolved_parent_defs, **node_decisions}
 
     # Recurse into sub-analyses
     sub_analyses = node.get("analyses") or {}
@@ -212,7 +170,6 @@ def _validate_analysis_node(
                 parent_input_ids=node_input_ids,
                 sibling_analyses=sub_analyses,
                 path_prefix=f"{node_path}.analyses",
-                parent_decisions_defs=visible_at_this_level,
             )
         )
 
@@ -221,18 +178,11 @@ def _validate_analysis_node(
 
 def _validate_decisions(
     decisions: dict[str, Any],
-    parent_decisions: dict[str, Any],
     insights: dict[str, Any],
     path_prefix: str,
 ) -> list[SemanticError]:
-    """Validate a set of decisions at a given node.
-
-    Constraint references can target both local decisions and declared parent decisions.
-    """
+    """Validate a set of decisions at a given node."""
     errors: list[SemanticError] = []
-
-    # Visible decisions for constraint resolution: parent + local (local shadows parent)
-    visible_decisions = {**parent_decisions, **decisions}
 
     decisions_prefix = f"{path_prefix}.decisions" if path_prefix else "decisions"
     for decision_id, decision in decisions.items():
@@ -266,15 +216,15 @@ def _validate_decisions(
                         )
                     )
 
-            # Check incompatible_with refs (visible decisions: local + parent)
+            # Check incompatible_with refs (scoped to this node's decisions)
             incompatible_with = option.get("incompatible_with") or []
             for ref in incompatible_with:
-                errors.extend(_validate_constraint_ref(ref, visible_decisions, option_path))
+                errors.extend(_validate_constraint_ref(ref, decisions, option_path))
 
-            # Check requires refs (visible decisions: local + parent)
+            # Check requires refs (scoped to this node's decisions)
             requires = option.get("requires") or []
             for ref in requires:
-                errors.extend(_validate_constraint_ref(ref, visible_decisions, option_path))
+                errors.extend(_validate_constraint_ref(ref, decisions, option_path))
 
     return errors
 
@@ -483,7 +433,6 @@ def validate_universe(
     - All decisions in the analysis have a selection in the universe
     - All selections point to valid options
     - No constraint violations (requires, incompatible_with)
-    - Cross-level constraints via parent_decisions are respected
 
     Args:
         universe_data: The universe data as a dict.
@@ -496,8 +445,6 @@ def validate_universe(
         universe_data,
         analysis_data,
         path_prefix="",
-        parent_universe_decisions={},
-        parent_analysis_decisions={},
     )
 
 
@@ -505,13 +452,11 @@ def _validate_universe_node(
     universe_node: dict[str, Any],
     analysis_node: dict[str, Any],
     path_prefix: str,
-    parent_universe_decisions: dict[str, str],
-    parent_analysis_decisions: dict[str, Any],
 ) -> list[SemanticError]:
     """Recursively validate a universe node against an analysis node.
 
     Validates decisions at this level, checks for unknown/missing analyses,
-    checks cross-level constraints via parent_decisions, then recurses.
+    then recurses into sub-analyses.
     """
     errors: list[SemanticError] = []
 
@@ -553,26 +498,10 @@ def _validate_universe_node(
                 )
             )
 
-    # Build visible selections for constraint checking (parent decisions + local)
-    declared_parent_ids = set(analysis_node.get("parent_decisions") or [])
-    relevant_parent_universe = {
-        k: v for k, v in parent_universe_decisions.items() if k in declared_parent_ids
-    }
-    relevant_parent_analysis = {
-        k: v for k, v in parent_analysis_decisions.items() if k in declared_parent_ids
-    }
-
-    visible_universe = {**relevant_parent_universe, **universe_decisions}
-    visible_analysis = {**relevant_parent_analysis, **analysis_decisions}
-
-    # Check constraints with full visibility
+    # Check constraints
     errors.extend(
-        _validate_node_universe_constraints(visible_universe, visible_analysis, decisions_path)
+        _validate_node_universe_constraints(universe_decisions, analysis_decisions, decisions_path)
     )
-
-    # Build what's visible at this level for children
-    this_level_universe = {**relevant_parent_universe, **universe_decisions}
-    this_level_analysis = {**relevant_parent_analysis, **analysis_decisions}
 
     # Recurse into sub-analyses
     analysis_sub = analysis_node.get("analyses") or {}
@@ -595,8 +524,6 @@ def _validate_universe_node(
                 universe_sub.get(analysis_id, {}),
                 sub_analysis_node,
                 path_prefix=f"{analyses_prefix}.{analysis_id}",
-                parent_universe_decisions=this_level_universe,
-                parent_analysis_decisions=this_level_analysis,
             )
         )
 
