@@ -414,7 +414,9 @@ def _validate_from_ref(
         if sibling_id == current_node_id:
             return _error(f"from reference '{from_ref}' cannot reference own outputs")
         if sibling_id not in sibling_analyses:
-            return _error(f"from reference '{from_ref}' points to non-existent sibling '{sibling_id}'")
+            return _error(
+                f"from reference '{from_ref}' points to non-existent sibling '{sibling_id}'"
+            )
         sibling_outputs = sibling_analyses[sibling_id].get("outputs") or []
         sibling_output_ids = {o.get("id") for o in sibling_outputs if o.get("id")}
         if output_id not in sibling_output_ids:
