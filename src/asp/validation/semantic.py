@@ -400,6 +400,7 @@ def _validate_from_ref(
     `from: input_id` references a parent input.
     `from: sibling.output_id` references a sibling's output.
     """
+
     def _error(message: str) -> list[SemanticError]:
         return [SemanticError("INVALID_FROM_REF", message, node_path)]
 
