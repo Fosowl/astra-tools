@@ -14,6 +14,7 @@ The generated schemas are:
     - spec/draft/insights.schema.json
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -57,7 +58,16 @@ def _inline_root_ref(schema: dict) -> dict:
 
 def main() -> None:
     """Generate JSON schemas from Pydantic models."""
-    SPEC_DIR.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser(description="Generate JSON schemas from Pydantic models")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=SPEC_DIR,
+        help=f"Output directory (default: {SPEC_DIR})",
+    )
+    args = parser.parse_args()
+    output_dir: Path = args.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     schemas = {
         "analysis.schema.json": _inline_root_ref(
@@ -72,13 +82,13 @@ def main() -> None:
     }
 
     for name, schema in schemas.items():
-        output_path = SPEC_DIR / name
+        output_path = output_dir / name
         with open(output_path, "w") as f:
             json.dump(schema, f, indent=2)
             f.write("\n")
         print(f"Generated {output_path}")
 
-    print(f"\nAll schemas generated in {SPEC_DIR}")
+    print(f"\nAll schemas generated in {output_dir}")
 
 
 if __name__ == "__main__":
