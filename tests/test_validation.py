@@ -237,6 +237,10 @@ class TestExcludedOptionValidation:
         errors = validate_analysis_file(invalid_dir / "excluded_default.yaml")
         assert any(e.code == "EXCLUDED_DEFAULT" for e in errors)
 
+    def test_orphan_excluded_reason(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "orphan_excluded_reason.yaml")
+        assert any(e.code == "ORPHAN_EXCLUDED_REASON" for e in errors)
+
 
 class TestUniverseNewFeaturesValidation:
     """Tests for universe validation with conditional decisions and excluded options."""

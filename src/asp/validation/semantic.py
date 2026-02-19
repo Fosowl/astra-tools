@@ -685,7 +685,9 @@ def _validate_universe_node(
             if len(when_parts) == 2:
                 when_decision_id, when_option_id = when_parts
                 # Look in current universe decisions and parent decisions
-                selected = universe_decisions.get(when_decision_id) or parent_universe_decisions.get(when_decision_id)
+                selected = universe_decisions.get(when_decision_id)
+                if selected is None:
+                    selected = parent_universe_decisions.get(when_decision_id)
                 if selected != when_option_id:
                     # Condition not met — this decision should NOT be in the universe
                     if decision_id in universe_decisions:
