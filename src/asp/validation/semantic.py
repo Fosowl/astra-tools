@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from asp.helpers import load_yaml
+from asp.helpers import _collect_node_decisions, load_yaml
 
 
 class SemanticError:
@@ -24,23 +24,6 @@ class SemanticError:
         if self.path:
             return f"[{self.code}] {self.path}: {self.message}"
         return f"[{self.code}] {self.message}"
-
-
-def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
-    """Collect all decisions from either flat 'decisions' or 'decision_groups'.
-
-    An analysis node can specify decisions in one of two ways:
-    - Flat: ``decisions: {id: {...}, ...}``
-    - Grouped: ``decision_groups: [{label: ..., decisions: {id: {...}, ...}}, ...]``
-
-    Returns a single flat dict merging all decisions regardless of source.
-    """
-    decisions: dict[str, Any] = dict(node.get("decisions") or {})
-    for group in node.get("decision_groups") or []:
-        group_decisions = group.get("decisions") or {}
-        if isinstance(group_decisions, dict):
-            decisions.update(group_decisions)
-    return decisions
 
 
 def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:

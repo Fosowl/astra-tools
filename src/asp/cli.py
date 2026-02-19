@@ -14,6 +14,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 from asp.helpers import (
+    _collect_node_decisions,
     create_universe_from_defaults,
     get_analysis_decisions,
     get_decisions,
@@ -529,7 +530,7 @@ def generate_universe(
 
 def _check_missing_defaults(node: dict[str, Any], missing: list[str], prefix: str = "") -> None:
     """Recursively check for decisions without defaults."""
-    for d_id, d in (node.get("decisions") or {}).items():
+    for d_id, d in _collect_node_decisions(node).items():
         if d.get("default") is None:
             missing.append(f"{prefix}{d_id}")
     for analysis_id, sub_node in (node.get("analyses") or {}).items():
@@ -601,7 +602,7 @@ def _viz_ascii(data: dict[str, Any]) -> None:
 
 def _viz_ascii_node(parent_tree: Tree, node: dict[str, Any]) -> None:
     """Recursively add decisions to an ASCII tree."""
-    decisions = node.get("decisions") or {}
+    decisions = _collect_node_decisions(node)
     for decision_id, decision in decisions.items():
         branch = parent_tree.add(f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')})")
 
@@ -639,7 +640,7 @@ def _viz_mermaid(data: dict[str, Any]) -> None:
 
 def _viz_mermaid_node(lines: list[str], node: dict[str, Any], node_prefix: str) -> None:
     """Recursively generate Mermaid subgraphs for an analysis node."""
-    decisions = node.get("decisions") or {}
+    decisions = _collect_node_decisions(node)
     sub_analyses = node.get("analyses") or {}
 
     # If this node has decisions or sub-analyses, wrap in subgraph

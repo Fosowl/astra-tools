@@ -104,7 +104,7 @@ def get_decision(
         node = _resolve_node(data, path)
         if node is None:
             return None
-        result: dict[str, Any] | None = node.get("decisions", {}).get(decision_id)
+        result: dict[str, Any] | None = _collect_node_decisions(node).get(decision_id)
         return result
 
     # Search root decisions first, then sub-analyses recursively
@@ -130,7 +130,7 @@ def _resolve_node(analysis_content: dict[str, Any], path: str) -> dict[str, Any]
 def _search_node_decision(node: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
     """Recursively search a node's sub-analyses for a decision."""
     for sub_node in (node.get("analyses") or {}).values():
-        decisions: dict[str, Any] = sub_node.get("decisions") or {}
+        decisions: dict[str, Any] = _collect_node_decisions(sub_node)
         if decision_id in decisions:
             match: dict[str, Any] = decisions[decision_id]
             return match
@@ -383,7 +383,7 @@ def get_analysis_decisions(data: dict[str, Any]) -> dict[str, Any]:
 def _get_node_decision_tree(node: dict[str, Any]) -> dict[str, Any]:
     """Build recursive decision tree from a node."""
     result: dict[str, Any] = {}
-    decisions = node.get("decisions") or {}
+    decisions = _collect_node_decisions(node)
     if decisions:
         result["decisions"] = decisions
     sub_analyses = node.get("analyses") or {}
