@@ -1,0 +1,27 @@
+# Decision group does not include all decisions (seed is missing)
+version: "1.0"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions:
+  method:
+    label: "Method"
+    type: method
+    options:
+      a:
+        label: "A"
+  seed:
+    label: "Seed"
+    type: parameter
+    options:
+      s1:
+        label: "1"
+decision_groups:
+  - label: "Methods"
+    decisions:
+      - method
+  # seed is not in any group

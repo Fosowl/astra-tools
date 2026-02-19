@@ -92,6 +92,11 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     root_decisions = data.get("decisions") or {}
     errors.extend(_validate_decisions(root_decisions, insights, ""))
 
+    # Validate decision groups
+    decision_groups = data.get("decision_groups") or []
+    if decision_groups:
+        errors.extend(_validate_decision_groups(decision_groups, root_decisions, ""))
+
     # Validate recipes
     recipes = data.get("recipes") or {}
     if recipes:
@@ -111,6 +116,56 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
                 path_prefix="analyses",
             )
         )
+
+    return errors
+
+
+def _validate_decision_groups(
+    groups: list[dict[str, Any]],
+    decisions: dict[str, Any],
+    path_prefix: str,
+) -> list[SemanticError]:
+    """Validate decision groups cover all decisions exactly once."""
+    errors: list[SemanticError] = []
+    groups_prefix = f"{path_prefix}.decision_groups" if path_prefix else "decision_groups"
+
+    seen_decisions: dict[str, int] = {}  # decision_id -> group_index
+
+    for i, group in enumerate(groups):
+        group_path = f"{groups_prefix}[{i}]"
+        group_decisions = group.get("decisions") or []
+
+        for decision_id in group_decisions:
+            if decision_id not in decisions:
+                errors.append(
+                    SemanticError(
+                        "INVALID_GROUP_DECISION",
+                        f"Decision group references non-existent decision '{decision_id}'",
+                        group_path,
+                    )
+                )
+            if decision_id in seen_decisions:
+                errors.append(
+                    SemanticError(
+                        "DUPLICATE_GROUP_DECISION",
+                        f"Decision '{decision_id}' appears in multiple groups "
+                        f"(groups {seen_decisions[decision_id]} and {i})",
+                        group_path,
+                    )
+                )
+            else:
+                seen_decisions[decision_id] = i
+
+    # Check all decisions are covered
+    for decision_id in decisions:
+        if decision_id not in seen_decisions:
+            errors.append(
+                SemanticError(
+                    "UNGROUPED_DECISION",
+                    f"Decision '{decision_id}' is not in any decision group",
+                    groups_prefix,
+                )
+            )
 
     return errors
 
@@ -248,6 +303,41 @@ def _validate_decisions(
                 )
             )
 
+        # Check `when` condition references a valid decision.option
+        when = decision.get("when")
+        if when:
+            when_parts = when.split(".")
+            if len(when_parts) == 2:
+                when_decision_id, when_option_id = when_parts
+                if when_decision_id not in decisions and when_decision_id not in (constraint_scope or {}):
+                    errors.append(
+                        SemanticError(
+                            "INVALID_WHEN_REF",
+                            f"'when' references non-existent decision '{when_decision_id}'",
+                            decision_path,
+                        )
+                    )
+                else:
+                    ref_decision = decisions.get(when_decision_id) or (constraint_scope or {}).get(when_decision_id)
+                    if ref_decision and when_option_id not in ref_decision.get("options", {}):
+                        errors.append(
+                            SemanticError(
+                                "INVALID_WHEN_REF",
+                                f"'when' references non-existent option '{when_option_id}' "
+                                f"in decision '{when_decision_id}'",
+                                decision_path,
+                            )
+                        )
+                # Check no self-reference
+                if when_decision_id == decision_id:
+                    errors.append(
+                        SemanticError(
+                            "INVALID_WHEN_REF",
+                            f"'when' cannot reference own decision",
+                            decision_path,
+                        )
+                    )
+
         # Validate options
         for option_id, option in options.items():
             option_path = f"{decision_path}.options.{option_id}"
@@ -273,6 +363,38 @@ def _validate_decisions(
             requires = option.get("requires") or []
             for ref in requires:
                 errors.extend(_validate_constraint_ref(ref, constraint_scope, option_path))
+
+            # Check excluded option consistency
+            is_excluded = option.get("excluded", False)
+            excluded_reason = option.get("excluded_reason")
+            if is_excluded and not excluded_reason:
+                errors.append(
+                    SemanticError(
+                        "MISSING_EXCLUDED_REASON",
+                        f"Excluded option '{option_id}' must have an 'excluded_reason'",
+                        option_path,
+                    )
+                )
+            if excluded_reason and not is_excluded:
+                errors.append(
+                    SemanticError(
+                        "ORPHAN_EXCLUDED_REASON",
+                        f"Option '{option_id}' has 'excluded_reason' but is not marked excluded",
+                        option_path,
+                    )
+                )
+
+        # Check default is not an excluded option
+        if default is not None and default in options:
+            default_option = options[default]
+            if default_option.get("excluded", False):
+                errors.append(
+                    SemanticError(
+                        "EXCLUDED_DEFAULT",
+                        f"Default option '{default}' is marked as excluded",
+                        decision_path,
+                    )
+                )
 
     return errors
 
@@ -540,8 +662,43 @@ def _validate_universe_node(
                 )
             )
 
-    # Check all analysis decisions are covered
+        # Check option is not excluded
+        if option_id in options:
+            selected_option = options[option_id]
+            if selected_option.get("excluded", False):
+                errors.append(
+                    SemanticError(
+                        "EXCLUDED_OPTION_SELECTED",
+                        f"Universe selects excluded option '{option_id}' for decision '{decision_id}'",
+                        f"{decisions_path}.{decision_id}",
+                    )
+                )
+
+    # Check all analysis decisions are covered (respecting conditional decisions)
     for decision_id in analysis_decisions:
+        decision = analysis_decisions[decision_id]
+        when = decision.get("when")
+
+        # If conditional, check if the condition is met
+        if when:
+            when_parts = when.split(".")
+            if len(when_parts) == 2:
+                when_decision_id, when_option_id = when_parts
+                # Look in current universe decisions and parent decisions
+                selected = universe_decisions.get(when_decision_id) or parent_universe_decisions.get(when_decision_id)
+                if selected != when_option_id:
+                    # Condition not met — this decision should NOT be in the universe
+                    if decision_id in universe_decisions:
+                        errors.append(
+                            SemanticError(
+                                "INACTIVE_DECISION",
+                                f"Universe specifies decision '{decision_id}' but its condition "
+                                f"'{when}' is not met ('{when_decision_id}' = '{selected}')",
+                                f"{decisions_path}.{decision_id}",
+                            )
+                        )
+                    continue  # Skip the missing check
+
         if decision_id not in universe_decisions:
             errors.append(
                 SemanticError(

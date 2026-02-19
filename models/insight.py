@@ -159,6 +159,16 @@ class Evidence(BaseModel):
         description="Checksum of the artifact for integrity verification",
     )
 
+    # Artifact snapshot (immutable copy for iterative analysis)
+    snapshot: str | None = Field(
+        default=None,
+        description="Path to immutable copy of the artifact (only valid when artifact is set)",
+    )
+    source_commit: str | None = Field(
+        default=None,
+        description="Git commit that produced the original artifact (only valid when artifact is set)",
+    )
+
     # Content selectors (at least one required)
     quote: TextQuoteSelector | None = Field(default=None, description="Text quote anchor")
     figure: FigureSelector | None = Field(default=None, description="Figure reference")
@@ -180,6 +190,12 @@ class Evidence(BaseModel):
 
         if has_doi and self.checksum is not None:
             raise ValueError("'checksum' is only valid for artifact evidence, not literature")
+
+        if has_doi and self.snapshot is not None:
+            raise ValueError("'snapshot' is only valid for artifact evidence, not literature")
+
+        if has_doi and self.source_commit is not None:
+            raise ValueError("'source_commit' is only valid for artifact evidence, not literature")
 
         if has_artifact and self.version is not None:
             raise ValueError("'version' is only valid for literature evidence, not artifacts")

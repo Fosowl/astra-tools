@@ -194,6 +194,66 @@ class TestRecipeValidation:
         assert errors == []
 
 
+class TestDecisionGroupValidation:
+    """Tests for decision group validation."""
+
+    def test_valid_decision_groups(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "full_v2.yaml")
+        assert errors == []
+
+    def test_ungrouped_decision(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "decision_group_missing_decision.yaml")
+        assert any(e.code == "UNGROUPED_DECISION" for e in errors)
+
+    def test_duplicate_group_decision(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "decision_group_duplicate.yaml")
+        assert any(e.code == "DUPLICATE_GROUP_DECISION" for e in errors)
+
+    def test_nonexistent_group_decision(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "decision_group_nonexistent.yaml")
+        assert any(e.code == "INVALID_GROUP_DECISION" for e in errors)
+
+
+class TestConditionalDecisionValidation:
+    """Tests for conditional decision (when) validation."""
+
+    def test_valid_when(self, valid_dir: Path):
+        errors = validate_analysis_file(valid_dir / "full_v2.yaml")
+        assert errors == []
+
+    def test_invalid_when_ref(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "invalid_when_ref.yaml")
+        assert any(e.code == "INVALID_WHEN_REF" for e in errors)
+
+
+class TestExcludedOptionValidation:
+    """Tests for excluded option validation."""
+
+    def test_excluded_no_reason(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "excluded_no_reason.yaml")
+        assert any(e.code == "MISSING_EXCLUDED_REASON" for e in errors)
+
+    def test_excluded_default(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "excluded_default.yaml")
+        assert any(e.code == "EXCLUDED_DEFAULT" for e in errors)
+
+
+class TestUniverseNewFeaturesValidation:
+    """Tests for universe validation with conditional decisions and excluded options."""
+
+    def test_excluded_option_in_universe(self, invalid_dir: Path, valid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "full_v2.yaml")
+        universe_data = load_yaml(invalid_dir / "universe_excluded_option.yaml")
+        errors = validate_universe(universe_data, analysis_data)
+        assert any(e.code == "EXCLUDED_OPTION_SELECTED" for e in errors)
+
+    def test_inactive_decision_in_universe(self, invalid_dir: Path, valid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "full_v2.yaml")
+        universe_data = load_yaml(invalid_dir / "universe_inactive_decision.yaml")
+        errors = validate_universe(universe_data, analysis_data)
+        assert any(e.code == "INACTIVE_DECISION" for e in errors)
+
+
 class TestSemanticError:
     """Tests for SemanticError class."""
 

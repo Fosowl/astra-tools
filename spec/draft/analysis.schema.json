@@ -145,6 +145,22 @@
       "title": "Decisions",
       "type": "object"
     },
+    "decision_groups": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/DecisionGroup"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Organizational grouping of decisions by pipeline stage",
+      "title": "Decision Groups"
+    },
     "insights": {
       "additionalProperties": {
         "$ref": "#/$defs/Insight"
@@ -349,6 +365,22 @@
           "title": "Decisions",
           "type": "object"
         },
+        "decision_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/DecisionGroup"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Organizational grouping of decisions by pipeline stage",
+          "title": "Decision Groups"
+        },
         "insights": {
           "additionalProperties": {
             "$ref": "#/$defs/Insight"
@@ -465,6 +497,20 @@
           "description": "Why this decision exists",
           "title": "Rationale"
         },
+        "when": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Condition: 'decision_id.option_id' \u2014 this decision only exists when that option is selected",
+          "title": "When"
+        },
         "default": {
           "anyOf": [
             {
@@ -493,6 +539,45 @@
         "options"
       ],
       "title": "Decision",
+      "type": "object"
+    },
+    "DecisionGroup": {
+      "additionalProperties": false,
+      "description": "Organizational grouping of decisions by pipeline stage.\n\nGroups decisions for UI rendering so the viewer doesn't see a flat list.\nEvery decision must appear in exactly one group when groups are present.",
+      "properties": {
+        "label": {
+          "description": "Human-readable name for the group",
+          "title": "Label",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What this stage of the pipeline does",
+          "title": "Description"
+        },
+        "decisions": {
+          "description": "Decision IDs belonging to this group",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Decisions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "decisions"
+      ],
+      "title": "DecisionGroup",
       "type": "object"
     },
     "Evidence": {
@@ -578,6 +663,32 @@
           ],
           "default": null,
           "description": "Checksum of the artifact for integrity verification"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to immutable copy of the artifact (only valid when artifact is set)",
+          "title": "Snapshot"
+        },
+        "source_commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Git commit that produced the original artifact (only valid when artifact is set)",
+          "title": "Source Commit"
         },
         "quote": {
           "anyOf": [
@@ -1002,6 +1113,25 @@
           "default": null,
           "description": "List of decision.option pairs that must also be selected",
           "title": "Requires"
+        },
+        "excluded": {
+          "default": false,
+          "description": "Whether this option was considered and rejected",
+          "title": "Excluded",
+          "type": "boolean"
+        },
+        "excluded_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why this option was excluded",
+          "title": "Excluded Reason"
         }
       },
       "required": [

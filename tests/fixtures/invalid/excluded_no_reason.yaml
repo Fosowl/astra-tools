@@ -1,0 +1,20 @@
+# Excluded option without excluded_reason
+version: "1.0"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions:
+  method:
+    label: "Method"
+    type: method
+    options:
+      a:
+        label: "A"
+      b:
+        label: "B"
+        excluded: true
+        # Missing excluded_reason

@@ -1,0 +1,23 @@
+# when field references a nonexistent decision
+version: "1.0"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions:
+  method:
+    label: "Method"
+    type: method
+    options:
+      a:
+        label: "A"
+  conditional:
+    label: "Conditional"
+    type: parameter
+    when: nonexistent.a
+    options:
+      x:
+        label: "X"

@@ -133,6 +133,20 @@ class Recipe(BaseModel):
     )
 
 
+class DecisionGroup(BaseModel):
+    """Organizational grouping of decisions by pipeline stage.
+
+    Groups decisions for UI rendering so the viewer doesn't see a flat list.
+    Every decision must appear in exactly one group when groups are present.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(description="Human-readable name for the group")
+    description: str | None = Field(default=None, description="What this stage of the pipeline does")
+    decisions: list[str] = Field(min_length=1, description="Decision IDs belonging to this group")
+
+
 class Option(BaseModel):
     """An option for a decision."""
 
@@ -151,6 +165,10 @@ class Option(BaseModel):
         default=None,
         description="List of decision.option pairs that must also be selected",
     )
+    excluded: bool = Field(default=False, description="Whether this option was considered and rejected")
+    excluded_reason: str | None = Field(
+        default=None, description="Why this option was excluded"
+    )
 
 
 class Decision(BaseModel):
@@ -161,6 +179,11 @@ class Decision(BaseModel):
     label: str = Field(description="Human-readable name for the decision")
     type: Literal["data", "method", "parameter"] = Field(description="Category of decision")
     rationale: str | None = Field(default=None, description="Why this decision exists")
+    when: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$",
+        description="Condition: 'decision_id.option_id' — this decision only exists when that option is selected",
+    )
     default: str | None = Field(
         default=None, description="Default option ID for baseline universes"
     )
@@ -226,6 +249,10 @@ class Analysis(BaseModel):
     decisions: dict[str, Decision] = Field(
         default_factory=dict,
         description="Map of decision IDs to decision specifications",
+    )
+    decision_groups: list[DecisionGroup] | None = Field(
+        default=None,
+        description="Organizational grouping of decisions by pipeline stage",
     )
     insights: dict[str, Insight] = Field(
         default_factory=dict,

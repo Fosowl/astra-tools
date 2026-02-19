@@ -1,0 +1,21 @@
+# Default option is marked as excluded
+version: "1.0"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+decisions:
+  method:
+    label: "Method"
+    type: method
+    default: b
+    options:
+      a:
+        label: "A"
+      b:
+        label: "B"
+        excluded: true
+        excluded_reason: "No longer supported"

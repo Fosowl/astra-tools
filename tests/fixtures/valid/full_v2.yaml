@@ -1,0 +1,160 @@
+# Full analysis with v2 features: decision groups, conditional decisions,
+# excluded options, and evidence snapshots.
+$schema: "https://asp-spec.org/v1/schema.json"
+version: "1.0"
+name: "Full Analysis v2"
+description: "A comprehensive test analysis with all v2 features"
+authors:
+  - "Test Author"
+tags:
+  - test
+  - example
+inputs:
+  - id: primary_data
+    type: data
+    source: "test.csv"
+    description: "Primary test data"
+  - id: reference_study
+    type: analysis
+    ref: "analyses/reference"
+    ref_version: "v1.0"
+    description: "Reference study for evidence"
+outputs:
+  - id: accuracy
+    type: metric
+    description: "Model accuracy"
+  - id: f1_score
+    type: metric
+    description: "F1 score"
+  - id: plot
+    type: figure
+    description: "Results plot"
+  - id: summary
+    type: table
+    description: "Results summary"
+  - id: trained_output
+    type: data
+    description: "Trained model artifact"
+  - id: conclusion
+    type: report
+    description: "Analysis conclusion"
+
+insights:
+  compute_scaling:
+    id: compute_scaling
+    claim: "Standard scaling improves SVM convergence."
+    created_at: "2024-01-15T10:00:00Z"
+    evidence:
+      - id: ev1
+        artifact:
+          id: trained_output
+          type: data
+        snapshot: "snapshots/trained_output_abc123.pkl"
+        source_commit: "abc123def456"
+        quote:
+          type: TextQuoteSelector
+          exact: "Standard scaling leads to faster convergence"
+
+decisions:
+  preprocessing:
+    label: "Preprocessing Method"
+    type: method
+    rationale: "Choice of preprocessing affects model performance"
+    default: standard
+    options:
+      none:
+        label: "No Preprocessing"
+        description: "Use raw data"
+      standard:
+        label: "Standardization"
+        description: "Z-score normalization"
+      minmax:
+        label: "Min-Max Scaling"
+        description: "Scale to [0, 1]"
+        incompatible_with:
+          - model.svm
+      deprecated_method:
+        label: "Deprecated Method"
+        description: "An old method no longer recommended"
+        excluded: true
+        excluded_reason: "Superseded by standardization; causes numerical instability"
+
+  model:
+    label: "Model Type"
+    type: method
+    rationale: "Core algorithmic choice"
+    default: rf
+    options:
+      svm:
+        label: "SVM"
+        description: "Support Vector Machine"
+        requires:
+          - preprocessing.standard
+      rf:
+        label: "Random Forest"
+        description: "Ensemble of decision trees"
+      lr:
+        label: "Logistic Regression"
+        description: "Linear classifier"
+
+  # Conditional decision: only active when model is SVM
+  svm_kernel:
+    label: "SVM Kernel"
+    type: parameter
+    rationale: "Kernel choice for SVM"
+    when: model.svm
+    default: rbf
+    options:
+      linear:
+        label: "Linear"
+      rbf:
+        label: "RBF"
+      poly:
+        label: "Polynomial"
+
+  test_split:
+    label: "Test Split"
+    type: parameter
+    rationale: "Trade-off between training data and evaluation"
+    default: split_20
+    options:
+      split_20:
+        label: "20%"
+      split_30:
+        label: "30%"
+
+  seed:
+    label: "Random Seed"
+    type: parameter
+    rationale: "For reproducibility"
+    default: seed_42
+    options:
+      seed_42:
+        label: "42"
+      seed_123:
+        label: "123"
+
+decision_groups:
+  - label: "Data Preparation"
+    description: "How input data is prepared"
+    decisions:
+      - preprocessing
+  - label: "Model Selection"
+    description: "Choice of model and its parameters"
+    decisions:
+      - model
+      - svm_kernel
+  - label: "Evaluation"
+    description: "How the model is evaluated"
+    decisions:
+      - test_split
+      - seed
+
+recipes:
+  preprocess:
+    command: python src/preprocess.py
+    outputs: [trained_output]
+  evaluate:
+    command: python src/evaluate.py
+    outputs: [accuracy, f1_score, plot, summary, conclusion]
+    depends_on: [preprocess]
