@@ -201,17 +201,13 @@ class TestDecisionGroupValidation:
         errors = validate_analysis_file(valid_dir / "full_v2.yaml")
         assert errors == []
 
-    def test_ungrouped_decision(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "decision_group_missing_decision.yaml")
-        assert any(e.code == "UNGROUPED_DECISION" for e in errors)
-
     def test_duplicate_group_decision(self, invalid_dir: Path):
         errors = validate_analysis_file(invalid_dir / "decision_group_duplicate.yaml")
         assert any(e.code == "DUPLICATE_GROUP_DECISION" for e in errors)
 
-    def test_nonexistent_group_decision(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "decision_group_nonexistent.yaml")
-        assert any(e.code == "INVALID_GROUP_DECISION" for e in errors)
+    def test_decisions_and_groups(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "decisions_and_groups.yaml")
+        assert any(e.code == "DECISIONS_AND_GROUPS" for e in errors)
 
 
 class TestConditionalDecisionValidation:

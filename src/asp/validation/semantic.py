@@ -26,6 +26,23 @@ class SemanticError:
         return f"[{self.code}] {self.message}"
 
 
+def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
+    """Collect all decisions from either flat 'decisions' or 'decision_groups'.
+
+    An analysis node can specify decisions in one of two ways:
+    - Flat: ``decisions: {id: {...}, ...}``
+    - Grouped: ``decision_groups: [{label: ..., decisions: {id: {...}, ...}}, ...]``
+
+    Returns a single flat dict merging all decisions regardless of source.
+    """
+    decisions: dict[str, Any] = dict(node.get("decisions") or {})
+    for group in node.get("decision_groups") or []:
+        group_decisions = group.get("decisions") or {}
+        if isinstance(group_decisions, dict):
+            decisions.update(group_decisions)
+    return decisions
+
+
 def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     """Validate an analysis specification semantically.
 
@@ -88,14 +105,26 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
         if out_id:
             output_ids.add(out_id)
 
-    # Validate root-level decisions
-    root_decisions = data.get("decisions") or {}
-    errors.extend(_validate_decisions(root_decisions, insights, ""))
+    # Collect all decisions (from flat 'decisions' or 'decision_groups')
+    root_decisions = _collect_node_decisions(data)
 
-    # Validate decision groups
-    decision_groups = data.get("decision_groups") or []
-    if decision_groups:
-        errors.extend(_validate_decision_groups(decision_groups, root_decisions, ""))
+    # Check mutual exclusivity
+    has_flat = bool(data.get("decisions"))
+    has_groups = bool(data.get("decision_groups"))
+    if has_flat and has_groups:
+        errors.append(
+            SemanticError(
+                "DECISIONS_AND_GROUPS",
+                "Use either 'decisions' (flat) or 'decision_groups' (grouped), not both",
+            )
+        )
+
+    # Validate decision groups for duplicate IDs across groups
+    if has_groups:
+        errors.extend(_validate_decision_groups(data.get("decision_groups") or [], ""))
+
+    # Validate all decisions (regardless of source)
+    errors.extend(_validate_decisions(root_decisions, insights, ""))
 
     # Validate recipes
     recipes = data.get("recipes") or {}
@@ -122,10 +151,9 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
 
 def _validate_decision_groups(
     groups: list[dict[str, Any]],
-    decisions: dict[str, Any],
     path_prefix: str,
 ) -> list[SemanticError]:
-    """Validate decision groups cover all decisions exactly once."""
+    """Validate decision groups don't have duplicate decision IDs across groups."""
     errors: list[SemanticError] = []
     groups_prefix = f"{path_prefix}.decision_groups" if path_prefix else "decision_groups"
 
@@ -133,17 +161,11 @@ def _validate_decision_groups(
 
     for i, group in enumerate(groups):
         group_path = f"{groups_prefix}[{i}]"
-        group_decisions = group.get("decisions") or []
+        group_decisions = group.get("decisions") or {}
+        if not isinstance(group_decisions, dict):
+            continue
 
         for decision_id in group_decisions:
-            if decision_id not in decisions:
-                errors.append(
-                    SemanticError(
-                        "INVALID_GROUP_DECISION",
-                        f"Decision group references non-existent decision '{decision_id}'",
-                        group_path,
-                    )
-                )
             if decision_id in seen_decisions:
                 errors.append(
                     SemanticError(
@@ -155,17 +177,6 @@ def _validate_decision_groups(
                 )
             else:
                 seen_decisions[decision_id] = i
-
-    # Check all decisions are covered
-    for decision_id in decisions:
-        if decision_id not in seen_decisions:
-            errors.append(
-                SemanticError(
-                    "UNGROUPED_DECISION",
-                    f"Decision '{decision_id}' is not in any decision group",
-                    groups_prefix,
-                )
-            )
 
     return errors
 
@@ -241,7 +252,7 @@ def _validate_analysis_node(
 
     # Validate decisions
     # Include parent decisions declared via parent_decisions for constraint resolution
-    node_decisions = node.get("decisions") or {}
+    node_decisions = _collect_node_decisions(node)
     constraint_scope = dict(node_decisions)
     for pd in node.get("parent_decisions") or []:
         if pd in parent_decisions:
@@ -636,7 +647,7 @@ def _validate_universe_node(
     errors: list[SemanticError] = []
 
     # Validate decisions at this level
-    analysis_decisions = analysis_node.get("decisions") or {}
+    analysis_decisions = _collect_node_decisions(analysis_node)
     universe_decisions = universe_node.get("decisions") or {}
     decisions_path = f"{path_prefix}.decisions" if path_prefix else "decisions"
 

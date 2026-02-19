@@ -15,6 +15,16 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
+    """Collect decisions from flat 'decisions' or 'decision_groups'."""
+    decisions: dict[str, Any] = dict(node.get("decisions") or {})
+    for group in node.get("decision_groups") or []:
+        group_decisions = group.get("decisions") or {}
+        if isinstance(group_decisions, dict):
+            decisions.update(group_decisions)
+    return decisions
+
+
 def load_yaml(path: str | Path) -> dict[str, Any]:
     """Load a YAML file and return its contents as a dict.
 
@@ -98,7 +108,7 @@ def get_decision(
         return result
 
     # Search root decisions first, then sub-analyses recursively
-    root_decisions: dict[str, Any] = data.get("decisions") or {}
+    root_decisions = _collect_node_decisions(data)
     if decision_id in root_decisions:
         found: dict[str, Any] = root_decisions[decision_id]
         return found
@@ -164,7 +174,7 @@ def _get_node_defaults(node: dict[str, Any]) -> dict[str, Any]:
     """
     result: dict[str, Any] = {}
     decisions: dict[str, str] = {}
-    all_decisions = node.get("decisions") or {}
+    all_decisions = _collect_node_decisions(node)
 
     # First pass: collect defaults for unconditional decisions
     for decision_id, decision in all_decisions.items():
@@ -262,7 +272,7 @@ def get_decision_ids(data: dict[str, Any]) -> set[str]:
         Set of decision IDs.
     """
     result: set[str] = set()
-    result.update((data.get("decisions") or {}).keys())
+    result.update(_collect_node_decisions(data).keys())
     _collect_node_decision_ids(data, result)
     return result
 
@@ -270,7 +280,7 @@ def get_decision_ids(data: dict[str, Any]) -> set[str]:
 def _collect_node_decision_ids(node: dict[str, Any], result: set[str]) -> None:
     """Recursively collect decision IDs from sub-analyses."""
     for sub_node in (node.get("analyses") or {}).values():
-        result.update((sub_node.get("decisions") or {}).keys())
+        result.update(_collect_node_decisions(sub_node).keys())
         _collect_node_decision_ids(sub_node, result)
 
 
@@ -327,7 +337,7 @@ def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
 
     # Root decisions
-    for decision_id, decision in (data.get("decisions") or {}).items():
+    for decision_id, decision in _collect_node_decisions(data).items():
         result[decision_id] = decision
 
     # Collect from sub-analyses
@@ -342,7 +352,7 @@ def _collect_decisions_from_node(
 ) -> None:
     """Recursively collect decisions from sub-analyses."""
     for node_id, sub_node in (node.get("analyses") or {}).items():
-        for decision_id, decision in (sub_node.get("decisions") or {}).items():
+        for decision_id, decision in _collect_node_decisions(sub_node).items():
             if decision_id in result:
                 logger.warning(
                     "Decision ID '%s' in analysis '%s' overwrites a decision with the same ID. "

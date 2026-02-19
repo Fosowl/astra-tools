@@ -1,5 +1,5 @@
-# Full analysis with v2 features: decision groups, conditional decisions,
-# excluded options, and evidence snapshots.
+# Full analysis with v2 features: decision groups with nested decisions,
+# conditional decisions, excluded options, and evidence snapshots.
 $schema: "https://asp-spec.org/v1/schema.json"
 version: "1.0"
 name: "Full Analysis v2"
@@ -55,100 +55,90 @@ insights:
           type: TextQuoteSelector
           exact: "Standard scaling leads to faster convergence"
 
-decisions:
-  preprocessing:
-    label: "Preprocessing Method"
-    type: method
-    rationale: "Choice of preprocessing affects model performance"
-    default: standard
-    options:
-      none:
-        label: "No Preprocessing"
-        description: "Use raw data"
-      standard:
-        label: "Standardization"
-        description: "Z-score normalization"
-      minmax:
-        label: "Min-Max Scaling"
-        description: "Scale to [0, 1]"
-        incompatible_with:
-          - model.svm
-      deprecated_method:
-        label: "Deprecated Method"
-        description: "An old method no longer recommended"
-        excluded: true
-        excluded_reason: "Superseded by standardization; causes numerical instability"
-
-  model:
-    label: "Model Type"
-    type: method
-    rationale: "Core algorithmic choice"
-    default: rf
-    options:
-      svm:
-        label: "SVM"
-        description: "Support Vector Machine"
-        requires:
-          - preprocessing.standard
-      rf:
-        label: "Random Forest"
-        description: "Ensemble of decision trees"
-      lr:
-        label: "Logistic Regression"
-        description: "Linear classifier"
-
-  # Conditional decision: only active when model is SVM
-  svm_kernel:
-    label: "SVM Kernel"
-    type: parameter
-    rationale: "Kernel choice for SVM"
-    when: model.svm
-    default: rbf
-    options:
-      linear:
-        label: "Linear"
-      rbf:
-        label: "RBF"
-      poly:
-        label: "Polynomial"
-
-  test_split:
-    label: "Test Split"
-    type: parameter
-    rationale: "Trade-off between training data and evaluation"
-    default: split_20
-    options:
-      split_20:
-        label: "20%"
-      split_30:
-        label: "30%"
-
-  seed:
-    label: "Random Seed"
-    type: parameter
-    rationale: "For reproducibility"
-    default: seed_42
-    options:
-      seed_42:
-        label: "42"
-      seed_123:
-        label: "123"
-
 decision_groups:
   - label: "Data Preparation"
     description: "How input data is prepared"
     decisions:
-      - preprocessing
+      preprocessing:
+        label: "Preprocessing Method"
+        type: method
+        rationale: "Choice of preprocessing affects model performance"
+        default: standard
+        options:
+          none:
+            label: "No Preprocessing"
+            description: "Use raw data"
+          standard:
+            label: "Standardization"
+            description: "Z-score normalization"
+          minmax:
+            label: "Min-Max Scaling"
+            description: "Scale to [0, 1]"
+            incompatible_with:
+              - model.svm
+          deprecated_method:
+            label: "Deprecated Method"
+            description: "An old method no longer recommended"
+            excluded: true
+            excluded_reason: "Superseded by standardization; causes numerical instability"
+
   - label: "Model Selection"
     description: "Choice of model and its parameters"
     decisions:
-      - model
-      - svm_kernel
+      model:
+        label: "Model Type"
+        type: method
+        rationale: "Core algorithmic choice"
+        default: rf
+        options:
+          svm:
+            label: "SVM"
+            description: "Support Vector Machine"
+            requires:
+              - preprocessing.standard
+          rf:
+            label: "Random Forest"
+            description: "Ensemble of decision trees"
+          lr:
+            label: "Logistic Regression"
+            description: "Linear classifier"
+      svm_kernel:
+        label: "SVM Kernel"
+        type: parameter
+        rationale: "Kernel choice for SVM"
+        when: model.svm
+        default: rbf
+        options:
+          linear:
+            label: "Linear"
+          rbf:
+            label: "RBF"
+          poly:
+            label: "Polynomial"
+
   - label: "Evaluation"
     description: "How the model is evaluated"
     decisions:
-      - test_split
-      - seed
+      test_split:
+        label: "Test Split"
+        type: parameter
+        rationale: "Trade-off between training data and evaluation"
+        default: split_20
+        options:
+          split_20:
+            label: "20%"
+          split_30:
+            label: "30%"
+      seed:
+        label: "Random Seed"
+        type: parameter
+        rationale: "For reproducibility"
+        default: seed_42
+        options:
+          seed_42:
+            label: "42"
+          seed_123:
+            label: "123"
 
 recipes:
   preprocess:

@@ -1,4 +1,4 @@
-# Decision appears in two groups
+# Same decision in two groups
 version: "1.0"
 name: "Test"
 inputs:
@@ -7,24 +7,24 @@ inputs:
 outputs:
   - id: result
     type: metric
-decisions:
-  method:
-    label: "Method"
-    type: method
-    options:
-      a:
-        label: "A"
-  seed:
-    label: "Seed"
-    type: parameter
-    options:
-      s1:
-        label: "1"
 decision_groups:
   - label: "Group 1"
     decisions:
-      - method
-      - seed
+      method:
+        label: "Method"
+        type: method
+        default: a
+        options:
+          a:
+            label: "A"
+          b:
+            label: "B"
   - label: "Group 2"
     decisions:
-      - method
+      method:
+        label: "Method copy"
+        type: method
+        default: x
+        options:
+          x:
+            label: "X"

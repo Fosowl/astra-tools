@@ -543,7 +543,7 @@
     },
     "DecisionGroup": {
       "additionalProperties": false,
-      "description": "Organizational grouping of decisions by pipeline stage.\n\nGroups decisions for UI rendering so the viewer doesn't see a flat list.\nEvery decision must appear in exactly one group when groups are present.",
+      "description": "Organizational grouping of decisions by pipeline stage.\n\nContains decisions for this pipeline stage.",
       "properties": {
         "label": {
           "description": "Human-readable name for the group",
@@ -564,13 +564,12 @@
           "title": "Description"
         },
         "decisions": {
-          "description": "Decision IDs belonging to this group",
-          "items": {
-            "type": "string"
+          "additionalProperties": {
+            "$ref": "#/$defs/Decision"
           },
-          "minItems": 1,
+          "description": "Map of decision IDs to decision specifications",
           "title": "Decisions",
-          "type": "array"
+          "type": "object"
         }
       },
       "required": [

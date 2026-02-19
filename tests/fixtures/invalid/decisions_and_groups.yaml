@@ -1,4 +1,4 @@
-# Decision group does not include all decisions (seed is missing)
+# Both flat decisions and decision_groups (invalid)
 version: "1.0"
 name: "Test"
 inputs:
@@ -11,17 +11,17 @@ decisions:
   method:
     label: "Method"
     type: method
+    default: a
     options:
       a:
         label: "A"
-  seed:
-    label: "Seed"
-    type: parameter
-    options:
-      s1:
-        label: "1"
 decision_groups:
-  - label: "Methods"
+  - label: "Group 1"
     decisions:
-      - method
-  # seed is not in any group
+      other:
+        label: "Other"
+        type: method
+        default: x
+        options:
+          x:
+            label: "X"

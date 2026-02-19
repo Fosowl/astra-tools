@@ -133,20 +133,6 @@ class Recipe(BaseModel):
     )
 
 
-class DecisionGroup(BaseModel):
-    """Organizational grouping of decisions by pipeline stage.
-
-    Groups decisions for UI rendering so the viewer doesn't see a flat list.
-    Every decision must appear in exactly one group when groups are present.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    label: str = Field(description="Human-readable name for the group")
-    description: str | None = Field(default=None, description="What this stage of the pipeline does")
-    decisions: list[str] = Field(min_length=1, description="Decision IDs belonging to this group")
-
-
 class Option(BaseModel):
     """An option for a decision."""
 
@@ -195,6 +181,19 @@ class Decision(BaseModel):
         if self.default is not None and self.default not in self.options:
             raise ValueError(f"Default option '{self.default}' not found in options")
         return self
+
+
+class DecisionGroup(BaseModel):
+    """Organizational grouping of decisions by pipeline stage.
+
+    Contains decisions for this pipeline stage.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(description="Human-readable name for the group")
+    description: str | None = Field(default=None, description="What this stage of the pipeline does")
+    decisions: dict[str, Decision] = Field(description="Map of decision IDs to decision specifications")
 
 
 class Analysis(BaseModel):
@@ -274,6 +273,17 @@ class Analysis(BaseModel):
         default=None,
         description="Map of sub-analysis IDs to nested analyses",
     )
+
+    @model_validator(mode="after")
+    def validate_decisions_or_groups(self) -> Analysis:
+        """Ensure decisions are specified via either flat 'decisions' or 'decision_groups', not both."""
+        has_flat = bool(self.decisions)
+        has_groups = bool(self.decision_groups)
+        if has_flat and has_groups:
+            raise ValueError(
+                "Use either 'decisions' (flat) or 'decision_groups' (grouped), not both"
+            )
+        return self
 
 
 # Resolve forward references to Insight from models.insight.
