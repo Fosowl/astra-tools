@@ -253,7 +253,6 @@ class Insight(BaseModel):
     evidence: list[Evidence] = Field(min_length=1, description="Supporting evidence")
 
     # Optional classification
-    confidence: float | None = Field(default=None, ge=0.0, le=1.0, description="Confidence [0,1]")
     derived: bool = Field(default=False, description="True if synthesized/inferred")
 
     # Optional context
