@@ -160,7 +160,6 @@ outputs:
 decisions:
   example_method:
     label: "Example Method Choice"
-    type: method
     rationale: "TODO: Explain why this decision matters"
     default: option_a
     options:

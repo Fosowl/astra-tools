@@ -61,7 +61,6 @@ decision_groups:
     decisions:
       preprocessing:
         label: "Preprocessing Method"
-        type: method
         rationale: "Choice of preprocessing affects model performance"
         default: standard
         options:
@@ -87,7 +86,6 @@ decision_groups:
     decisions:
       model:
         label: "Model Type"
-        type: method
         rationale: "Core algorithmic choice"
         default: rf
         options:
@@ -104,7 +102,6 @@ decision_groups:
             description: "Linear classifier"
       svm_kernel:
         label: "SVM Kernel"
-        type: parameter
         rationale: "Kernel choice for SVM"
         when: model.svm
         default: rbf
@@ -121,7 +118,6 @@ decision_groups:
     decisions:
       test_split:
         label: "Test Split"
-        type: parameter
         rationale: "Trade-off between training data and evaluation"
         default: split_20
         options:
@@ -131,7 +127,6 @@ decision_groups:
             label: "30%"
       seed:
         label: "Random Seed"
-        type: parameter
         rationale: "For reproducibility"
         default: seed_42
         options:

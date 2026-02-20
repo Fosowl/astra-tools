@@ -10,7 +10,6 @@ outputs:
 decisions:
   method:
     label: "Method"
-    type: method
     default: a
     options:
       a:
@@ -20,7 +19,6 @@ decision_groups:
     decisions:
       other:
         label: "Other"
-        type: method
         default: x
         options:
           x:

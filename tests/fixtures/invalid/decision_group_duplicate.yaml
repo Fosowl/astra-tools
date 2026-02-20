@@ -12,7 +12,6 @@ decision_groups:
     decisions:
       method:
         label: "Method"
-        type: method
         default: a
         options:
           a:
@@ -23,7 +22,6 @@ decision_groups:
     decisions:
       method:
         label: "Method copy"
-        type: method
         default: x
         options:
           x:

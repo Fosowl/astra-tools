@@ -10,13 +10,11 @@ outputs:
 decisions:
   method:
     label: "Method"
-    type: method
     options:
       a:
         label: "A"
   conditional:
     label: "Conditional"
-    type: parameter
     when: nonexistent.a
     options:
       x:

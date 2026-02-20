@@ -474,16 +474,6 @@
           "title": "Label",
           "type": "string"
         },
-        "type": {
-          "description": "Category of decision",
-          "enum": [
-            "data",
-            "method",
-            "parameter"
-          ],
-          "title": "Type",
-          "type": "string"
-        },
         "rationale": {
           "anyOf": [
             {
@@ -535,7 +525,6 @@
       },
       "required": [
         "label",
-        "type",
         "options"
       ],
       "title": "Decision",

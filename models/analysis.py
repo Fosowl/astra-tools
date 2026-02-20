@@ -163,7 +163,6 @@ class Decision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label: str = Field(description="Human-readable name for the decision")
-    type: Literal["data", "method", "parameter"] = Field(description="Category of decision")
     rationale: str | None = Field(default=None, description="Why this decision exists")
     when: str | None = Field(
         default=None,

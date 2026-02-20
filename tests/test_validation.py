@@ -47,9 +47,6 @@ class TestSchemaValidation:
         errors = validate_analysis_schema(invalid_dir / "invalid_output_type.yaml")
         assert len(errors) > 0
 
-    def test_invalid_decision_type(self, invalid_dir: Path):
-        errors = validate_analysis_schema(invalid_dir / "invalid_decision_type.yaml")
-        assert len(errors) > 0
 
 
 class TestSemanticValidation:
