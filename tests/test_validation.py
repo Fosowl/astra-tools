@@ -258,8 +258,12 @@ class TestRecipeHelpers:
         data = {
             "outputs": [
                 {"id": "clean", "type": "data", "recipe": {"command": "clean.py"}},
-                {"id": "train", "type": "data", "recipe": {"command": "train.py", "inputs": ["clean"]}},
-                {"id": "eval", "type": "metric", "recipe": {"command": "eval.py", "inputs": ["train"]}},
+                {"id": "train", "type": "data", "recipe": {
+                    "command": "train.py", "inputs": ["clean"],
+                }},
+                {"id": "eval", "type": "metric", "recipe": {
+                    "command": "eval.py", "inputs": ["train"],
+                }},
                 {"id": "external", "type": "data"},  # no recipe
             ],
         }

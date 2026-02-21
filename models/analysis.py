@@ -64,6 +64,46 @@ class Input(BaseModel):
     )
 
 
+class Resources(BaseModel):
+    """Compute resource requirements for a recipe."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cpus: int | None = Field(default=None, ge=1, description="Number of CPUs")
+    memory: str | None = Field(
+        default=None, description="Memory requirement (e.g., '8GB', '512MB')"
+    )
+    gpus: int | None = Field(default=None, ge=1, description="Number of GPUs")
+    time_limit: str | None = Field(
+        default=None, description="Maximum wall time (e.g., '2h', '30m')"
+    )
+
+
+class Recipe(BaseModel):
+    """A build rule that produces an output.
+
+    Recipes are the execution contract: run this command (optionally in a
+    container) to produce the parent output. Dependencies on other outputs
+    are declared via ``inputs``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    command: str = Field(description="Command to execute (e.g., 'python src/train.py')")
+    inputs: list[str] | None = Field(
+        default=None,
+        description="Output IDs that must be materialized before this recipe runs",
+    )
+    container: str | None = Field(
+        default=None,
+        description="Container image override (defaults to node-level container)",
+    )
+    resources: Resources | None = Field(
+        default=None,
+        description="Compute resource requirements",
+    )
+
+
 class Output(BaseModel):
     """An expected output from the analysis.
 
@@ -94,44 +134,6 @@ class Output(BaseModel):
     recipe: Recipe | None = Field(
         default=None,
         description="Inline recipe describing how to produce this output",
-    )
-
-
-class Resources(BaseModel):
-    """Compute resource requirements for a recipe."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    cpus: int | None = Field(default=None, ge=1, description="Number of CPUs")
-    memory: str | None = Field(default=None, description="Memory requirement (e.g., '8GB', '512MB')")
-    gpus: int | None = Field(default=None, ge=1, description="Number of GPUs")
-    time_limit: str | None = Field(
-        default=None, description="Maximum wall time (e.g., '2h', '30m')"
-    )
-
-
-class Recipe(BaseModel):
-    """A build rule that produces an output.
-
-    Recipes are the execution contract: run this command (optionally in a
-    container) to produce the parent output. Dependencies on other outputs
-    are declared via ``inputs``.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    command: str = Field(description="Command to execute (e.g., 'python src/train.py')")
-    inputs: list[str] | None = Field(
-        default=None,
-        description="Output IDs that must be materialized before this recipe runs",
-    )
-    container: str | None = Field(
-        default=None,
-        description="Container image override (defaults to node-level container)",
-    )
-    resources: Resources | None = Field(
-        default=None,
-        description="Compute resource requirements",
     )
 
 
