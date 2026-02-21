@@ -176,10 +176,14 @@ class TestRecipeValidation:
             "name": "test",
             "inputs": [],
             "outputs": [
-                {"id": "result", "type": "metric", "recipe": {
-                    "command": "python run.py",
-                    "inputs": ["nonexistent"],
-                }},
+                {
+                    "id": "result",
+                    "type": "metric",
+                    "recipe": {
+                        "command": "python run.py",
+                        "inputs": ["nonexistent"],
+                    },
+                },
             ],
         }
         errors = validate_analysis(data)
@@ -209,10 +213,14 @@ class TestRecipeValidation:
             "inputs": [],
             "outputs": [
                 {"id": "cleaned", "type": "data", "recipe": {"command": "python clean.py"}},
-                {"id": "result", "type": "metric", "recipe": {
-                    "command": "python analyze.py",
-                    "inputs": ["cleaned"],
-                }},
+                {
+                    "id": "result",
+                    "type": "metric",
+                    "recipe": {
+                        "command": "python analyze.py",
+                        "inputs": ["cleaned"],
+                    },
+                },
             ],
         }
         errors = validate_analysis(data)
@@ -225,9 +233,13 @@ class TestRecipeValidation:
             "name": "test",
             "inputs": [],
             "outputs": [
-                {"id": "result", "type": "metric", "recipe": {
-                    "command": "python run.py",
-                }},
+                {
+                    "id": "result",
+                    "type": "metric",
+                    "recipe": {
+                        "command": "python run.py",
+                    },
+                },
             ],
         }
         errors = validate_analysis(data)
@@ -258,12 +270,22 @@ class TestRecipeHelpers:
         data = {
             "outputs": [
                 {"id": "clean", "type": "data", "recipe": {"command": "clean.py"}},
-                {"id": "train", "type": "data", "recipe": {
-                    "command": "train.py", "inputs": ["clean"],
-                }},
-                {"id": "eval", "type": "metric", "recipe": {
-                    "command": "eval.py", "inputs": ["train"],
-                }},
+                {
+                    "id": "train",
+                    "type": "data",
+                    "recipe": {
+                        "command": "train.py",
+                        "inputs": ["clean"],
+                    },
+                },
+                {
+                    "id": "eval",
+                    "type": "metric",
+                    "recipe": {
+                        "command": "eval.py",
+                        "inputs": ["train"],
+                    },
+                },
                 {"id": "external", "type": "data"},  # no recipe
             ],
         }
