@@ -248,6 +248,39 @@ class TestRecipeValidation:
         assert "RECIPE_CYCLE" in codes
 
 
+class TestRecipeHelpers:
+    """Tests for recipe helper functions."""
+
+    def test_get_output_dependencies(self):
+        """get_output_dependencies should return output-to-output DAG."""
+        from asp.helpers import get_output_dependencies
+
+        data = {
+            "outputs": [
+                {"id": "clean", "type": "data", "recipe": {"command": "clean.py"}},
+                {"id": "train", "type": "data", "recipe": {"command": "train.py", "inputs": ["clean"]}},
+                {"id": "eval", "type": "metric", "recipe": {"command": "eval.py", "inputs": ["train"]}},
+                {"id": "external", "type": "data"},  # no recipe
+            ],
+        }
+        deps = get_output_dependencies(data)
+        assert deps == {"clean": [], "train": ["clean"], "eval": ["train"], "external": []}
+
+    def test_get_outputs_with_recipes(self):
+        """get_outputs_with_recipes should return only outputs that have recipes."""
+        from asp.helpers import get_outputs_with_recipes
+
+        data = {
+            "outputs": [
+                {"id": "a", "type": "data", "recipe": {"command": "run_a"}},
+                {"id": "b", "type": "data"},
+            ],
+        }
+        result = get_outputs_with_recipes(data)
+        assert len(result) == 1
+        assert result[0]["id"] == "a"
+
+
 class TestSemanticError:
     """Tests for SemanticError class."""
 

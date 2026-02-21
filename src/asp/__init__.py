@@ -16,7 +16,9 @@ from asp.helpers import (
     get_option,
     get_option_value,
     get_output,
+    get_output_dependencies,
     get_outputs,
+    get_outputs_with_recipes,
     load_yaml,
     save_yaml,
 )
@@ -49,7 +51,9 @@ __all__ = [
     "get_option",
     "get_option_value",
     "get_output",
+    "get_output_dependencies",
     "get_outputs",
+    "get_outputs_with_recipes",
     "load_yaml",
     "save_yaml",
     # Validation

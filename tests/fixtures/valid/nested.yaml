@@ -36,9 +36,14 @@ analyses:
     outputs:
       - id: mock_catalog
         type: data
+        recipe:
+          command: python src/generate_mocks.py
       - id: mock_sample_plot
         type: figure
         description: "Sample mock catalog visualization"
+        recipe:
+          command: python src/generate_mocks.py
+          inputs: [mock_catalog]
     decisions:
       noise_model:
         label: "Noise Model"
@@ -50,10 +55,6 @@ analyses:
             incompatible_with: ["cosmology_model.wcdm"]
           heteroscedastic:
             label: "Heteroscedastic"
-    recipes:
-      generate:
-        command: python src/generate_mocks.py
-        outputs: [mock_catalog, mock_sample_plot]
 
   train_network:
     inputs:
@@ -63,6 +64,11 @@ analyses:
     outputs:
       - id: trained_model
         type: data
+        recipe:
+          command: python src/train.py
+          resources:
+            gpus: 1
+            memory: "32GB"
     decisions:
       architecture:
         label: "Network Architecture"
@@ -73,13 +79,6 @@ analyses:
             label: "Masked Autoregressive Flow"
           npe:
             label: "Neural Posterior Estimation"
-    recipes:
-      train:
-        command: python src/train.py
-        outputs: [trained_model]
-        resources:
-          gpus: 1
-          memory: "32GB"
 
   validate:
     description: "Validate trained model against observed data."

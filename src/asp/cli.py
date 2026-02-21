@@ -151,10 +151,15 @@ outputs:
   - id: main_result
     type: metric
     description: "TODO: Describe your primary output metric"
+    recipe:
+      command: python src/main.py
 
   - id: conclusion
     type: report
     description: "Summary of analysis findings"
+    recipe:
+      command: python src/main.py
+      inputs: [main_result]
 
 decisions:
   example_method:
@@ -169,11 +174,6 @@ decisions:
       option_b:
         label: "Option B"
         description: "TODO: Describe option B"
-
-recipes:
-  run:
-    command: python src/main.py
-    outputs: [main_result, conclusion]
 """
     (directory / "asp.yaml").write_text(asp_yaml)
 

@@ -23,29 +23,46 @@ inputs:
     description: "Our previous study on scaling methods"
 
 outputs:
+  - id: trained_output
+    type: data
+    description: "Best performing classifier"
+    recipe:
+      command: python src/train.py
+
   - id: accuracy
     type: metric
     description: "Classification accuracy on held-out test set"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
 
   - id: f1_score
     type: metric
     description: "Macro-averaged F1 score"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
 
   - id: confusion_matrix
     type: figure
     description: "Confusion matrix heatmap"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
 
   - id: model_comparison
     type: table
     description: "Accuracy by model and preprocessing combination"
-
-  - id: trained_output
-    type: data
-    description: "Best performing classifier"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
 
   - id: conclusion
     type: report
     description: "Summary of classifier performance and suitability for the application"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
 
 decisions:
   scaling:
@@ -105,12 +122,3 @@ decisions:
         label: "42"
       seed_123:
         label: "123"
-
-recipes:
-  train:
-    command: python src/train.py
-    outputs: [trained_output]
-  evaluate:
-    command: python src/evaluate.py
-    outputs: [accuracy, f1_score, confusion_matrix, model_comparison, conclusion]
-    depends_on: [train]
