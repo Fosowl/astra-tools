@@ -166,22 +166,6 @@
       "description": "Default container image for recipes in this node",
       "title": "Container"
     },
-    "recipes": {
-      "anyOf": [
-        {
-          "additionalProperties": {
-            "$ref": "#/$defs/Recipe"
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Map of recipe IDs to build rules that produce outputs",
-      "title": "Recipes"
-    },
     "analyses": {
       "anyOf": [
         {
@@ -369,22 +353,6 @@
           "default": null,
           "description": "Default container image for recipes in this node",
           "title": "Container"
-        },
-        "recipes": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/Recipe"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Map of recipe IDs to build rules that produce outputs",
-          "title": "Recipes"
         },
         "analyses": {
           "anyOf": [
@@ -1057,6 +1025,18 @@
           "default": null,
           "description": "Sub-analysis output that produces this (e.g., 'sub_analysis.output_id')",
           "title": "From"
+        },
+        "recipe": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Recipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Inline recipe describing how to produce this output"
         }
       },
       "required": [
@@ -1068,21 +1048,28 @@
     },
     "Recipe": {
       "additionalProperties": false,
-      "description": "A build rule that produces one or more outputs.\n\nRecipes are the execution contract: run this command (optionally in a\ncontainer) to produce the declared outputs.  Dependencies between\nrecipes within the same analysis node form a DAG.",
+      "description": "A build rule that produces an output.\n\nRecipes are the execution contract: run this command (optionally in a\ncontainer) to produce the parent output. Dependencies on other outputs\nare declared via ``inputs``.",
       "properties": {
         "command": {
           "description": "Command to execute (e.g., 'python src/train.py')",
           "title": "Command",
           "type": "string"
         },
-        "outputs": {
-          "description": "Output IDs this recipe produces (must match declared outputs)",
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Outputs",
-          "type": "array"
+        "inputs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output IDs that must be materialized before this recipe runs",
+          "title": "Inputs"
         },
         "container": {
           "anyOf": [
@@ -1096,22 +1083,6 @@
           "default": null,
           "description": "Container image override (defaults to node-level container)",
           "title": "Container"
-        },
-        "depends_on": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Recipe IDs that must complete before this recipe runs",
-          "title": "Depends On"
         },
         "resources": {
           "anyOf": [
@@ -1127,8 +1098,7 @@
         }
       },
       "required": [
-        "command",
-        "outputs"
+        "command"
       ],
       "title": "Recipe",
       "type": "object"

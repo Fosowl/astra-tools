@@ -392,6 +392,18 @@
           "default": null,
           "description": "Sub-analysis output that produces this (e.g., 'sub_analysis.output_id')",
           "title": "From"
+        },
+        "recipe": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Recipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Inline recipe describing how to produce this output"
         }
       },
       "required": [
@@ -399,6 +411,125 @@
         "type"
       ],
       "title": "Output",
+      "type": "object"
+    },
+    "Recipe": {
+      "additionalProperties": false,
+      "description": "A build rule that produces an output.\n\nRecipes are the execution contract: run this command (optionally in a\ncontainer) to produce the parent output. Dependencies on other outputs\nare declared via ``inputs``.",
+      "properties": {
+        "command": {
+          "description": "Command to execute (e.g., 'python src/train.py')",
+          "title": "Command",
+          "type": "string"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output IDs that must be materialized before this recipe runs",
+          "title": "Inputs"
+        },
+        "container": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Container image override (defaults to node-level container)",
+          "title": "Container"
+        },
+        "resources": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Resources"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Compute resource requirements"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "title": "Recipe",
+      "type": "object"
+    },
+    "Resources": {
+      "additionalProperties": false,
+      "description": "Compute resource requirements for a recipe.",
+      "properties": {
+        "cpus": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of CPUs",
+          "title": "Cpus"
+        },
+        "memory": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Memory requirement (e.g., '8GB', '512MB')",
+          "title": "Memory"
+        },
+        "gpus": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of GPUs",
+          "title": "Gpus"
+        },
+        "time_limit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum wall time (e.g., '2h', '30m')",
+          "title": "Time Limit"
+        }
+      },
+      "title": "Resources",
       "type": "object"
     },
     "TableSelector": {
