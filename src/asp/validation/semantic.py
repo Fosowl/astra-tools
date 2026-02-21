@@ -92,10 +92,8 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
     root_decisions = data.get("decisions") or {}
     errors.extend(_validate_decisions(root_decisions, insights, ""))
 
-    # Validate recipes
-    recipes = data.get("recipes") or {}
-    if recipes:
-        errors.extend(_validate_recipes(recipes, output_ids, ""))
+    # Validate output recipes
+    errors.extend(_validate_output_recipes(outputs, ""))
 
     # Validate sub-analyses recursively
     sub_analyses = data.get("analyses") or {}
@@ -193,10 +191,9 @@ def _validate_analysis_node(
             constraint_scope[pd] = parent_decisions[pd]
     errors.extend(_validate_decisions(node_decisions, insights, node_path, constraint_scope))
 
-    # Validate recipes
-    node_recipes = node.get("recipes") or {}
-    if node_recipes:
-        errors.extend(_validate_recipes(node_recipes, node_output_ids, node_path))
+    # Validate output recipes
+    node_outputs = node.get("outputs") or []
+    errors.extend(_validate_output_recipes(node_outputs, node_path))
 
     # Recurse into sub-analyses
     sub_analyses = node.get("analyses") or {}
@@ -277,96 +274,68 @@ def _validate_decisions(
     return errors
 
 
-def _validate_recipes(
-    recipes: dict[str, Any],
-    declared_output_ids: set[str],
+def _validate_output_recipes(
+    outputs: list[dict[str, Any]],
     path_prefix: str,
 ) -> list[SemanticError]:
-    """Validate recipes at a given analysis node.
+    """Validate inline recipes on outputs.
 
     Checks:
-    - Every recipe output references a declared output ID
-    - No output is claimed by more than one recipe
-    - depends_on references valid recipe IDs
-    - No dependency cycles
+    - Recipe inputs reference declared output IDs
+    - No cycles in the output dependency graph
     """
     errors: list[SemanticError] = []
-    recipes_prefix = f"{path_prefix}.recipes" if path_prefix else "recipes"
+    outputs_prefix = f"{path_prefix}.outputs" if path_prefix else "outputs"
 
-    # Track which outputs are claimed by recipes
-    claimed_outputs: dict[str, str] = {}  # output_id -> recipe_id
+    # Collect all output IDs at this level
+    output_ids = {out.get("id") for out in outputs if out.get("id")}
 
-    for recipe_id, recipe in recipes.items():
-        recipe_path = f"{recipes_prefix}.{recipe_id}"
-        recipe_outputs = recipe.get("outputs") or []
-
-        for out_id in recipe_outputs:
-            # Check output is declared
-            if out_id not in declared_output_ids:
+    # Build dependency graph and validate inputs
+    dep_graph: dict[str, list[str]] = {}
+    for out in outputs:
+        out_id = out.get("id")
+        if not out_id:
+            continue
+        recipe = out.get("recipe")
+        if not recipe:
+            dep_graph[out_id] = []
+            continue
+        inputs = recipe.get("inputs") or []
+        dep_graph[out_id] = inputs
+        for inp_id in inputs:
+            if inp_id not in output_ids:
                 errors.append(
                     SemanticError(
-                        "ORPHAN_RECIPE_OUTPUT",
-                        f"Recipe output '{out_id}' is not declared in outputs",
-                        recipe_path,
-                    )
-                )
-            # Check output not already claimed
-            if out_id in claimed_outputs:
-                errors.append(
-                    SemanticError(
-                        "DUPLICATE_RECIPE_OUTPUT",
-                        f"Output '{out_id}' is claimed by both "
-                        f"'{claimed_outputs[out_id]}' and '{recipe_id}'",
-                        recipe_path,
-                    )
-                )
-            else:
-                claimed_outputs[out_id] = recipe_id
-
-        # Check depends_on references
-        depends_on = recipe.get("depends_on") or []
-        for dep_id in depends_on:
-            if dep_id not in recipes:
-                errors.append(
-                    SemanticError(
-                        "INVALID_RECIPE_DEP",
-                        f"Recipe depends on unknown recipe '{dep_id}'",
-                        recipe_path,
-                    )
-                )
-            elif dep_id == recipe_id:
-                errors.append(
-                    SemanticError(
-                        "RECIPE_CYCLE",
-                        f"Recipe '{recipe_id}' depends on itself",
-                        recipe_path,
+                        "INVALID_RECIPE_INPUT",
+                        f"Recipe input '{inp_id}' is not a declared output",
+                        f"{outputs_prefix}.{out_id}.recipe",
                     )
                 )
 
-    # Check for dependency cycles (beyond self-reference)
-    cycle = _detect_recipe_cycle(recipes)
+    # Check for cycles
+    cycle = _detect_output_cycle(dep_graph)
     if cycle:
         errors.append(
             SemanticError(
                 "RECIPE_CYCLE",
                 f"Dependency cycle detected: {' -> '.join(cycle)}",
-                recipes_prefix,
+                outputs_prefix,
             )
         )
 
     return errors
 
 
-def _detect_recipe_cycle(recipes: dict[str, Any]) -> list[str] | None:
-    """Detect cycles in recipe dependency graph. Returns cycle path or None."""
+def _detect_output_cycle(dep_graph: dict[str, list[str]]) -> list[str] | None:
+    """Detect cycles in output dependency graph. Returns cycle path or None."""
     _white, _gray, _black = 0, 1, 2
-    color: dict[str, int] = {rid: _white for rid in recipes}
+    color: dict[str, int] = {oid: _white for oid in dep_graph}
     path: list[str] = []
 
     def dfs(node: str) -> list[str] | None:
         color[node] = _gray
         path.append(node)
-        for dep in recipes[node].get("depends_on") or []:
+        for dep in dep_graph.get(node, []):
             if dep not in color:
                 continue  # invalid ref, caught elsewhere
             if color[dep] == _gray:
@@ -380,9 +349,9 @@ def _detect_recipe_cycle(recipes: dict[str, Any]) -> list[str] | None:
         color[node] = _black
         return None
 
-    for rid in recipes:
-        if color[rid] == _white:
-            result = dfs(rid)
+    for oid in dep_graph:
+        if color[oid] == _white:
+            result = dfs(oid)
             if result:
                 return result
     return None
