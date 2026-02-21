@@ -29,7 +29,7 @@
     },
     "Evidence": {
       "additionalProperties": false,
-      "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by a recipe\n  in this analysis. The ``artifact`` field is an ``Output`` object \u2014\n  the same type used to declare outputs in the analysis \u2014 so artifact\n  evidence is structurally identical to declared outputs. The optional\n  ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
+      "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by this\n  analysis, referenced by its output ID (the ``id`` field in\n  ``outputs``). The optional ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
       "oneOf": [
         {
           "properties": {
@@ -44,7 +44,7 @@
         {
           "properties": {
             "artifact": {
-              "type": "object"
+              "type": "string"
             }
           },
           "required": [
@@ -76,14 +76,15 @@
         "artifact": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Output"
+              "type": "string"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "The analysis output that constitutes evidence \u2014 same type as declared outputs"
+          "description": "Output ID referencing a declared output in this analysis",
+          "title": "Artifact"
         },
         "version": {
           "anyOf": [
@@ -251,7 +252,7 @@
     },
     "Insight": {
       "additionalProperties": false,
-      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge with full\ntraceability to source material. Evidence can come from literature\n(papers referenced by DOI) or from analysis artifacts (outputs\nproduced by recipes), both using W3C-compliant selectors.",
+      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge with full\ntraceability to source material. Evidence can come from literature\n(papers referenced by DOI) or from analysis artifacts (outputs\nreferenced by ID), both using W3C-compliant selectors.",
       "properties": {
         "id": {
           "description": "Unique identifier",
@@ -343,193 +344,6 @@
         "evidence"
       ],
       "title": "Insight",
-      "type": "object"
-    },
-    "Output": {
-      "additionalProperties": false,
-      "description": "An expected output from the analysis.\n\nOutputs can declare their provenance via ``from`` to trace which\nsub-analysis produces them (e.g., ``from: inference.posterior``).",
-      "properties": {
-        "id": {
-          "description": "Unique identifier for the output",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "title": "Id",
-          "type": "string"
-        },
-        "type": {
-          "description": "Type of output",
-          "enum": [
-            "metric",
-            "figure",
-            "table",
-            "data",
-            "report"
-          ],
-          "title": "Type",
-          "type": "string"
-        },
-        "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Description of the output",
-          "title": "Description"
-        },
-        "from": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Sub-analysis output that produces this (e.g., 'sub_analysis.output_id')",
-          "title": "From"
-        },
-        "recipe": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Recipe"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Inline recipe describing how to produce this output"
-        }
-      },
-      "required": [
-        "id",
-        "type"
-      ],
-      "title": "Output",
-      "type": "object"
-    },
-    "Recipe": {
-      "additionalProperties": false,
-      "description": "A build rule that produces an output.\n\nRecipes are the execution contract: run this command (optionally in a\ncontainer) to produce the parent output. Dependencies on other outputs\nare declared via ``inputs``.",
-      "properties": {
-        "command": {
-          "description": "Command to execute (e.g., 'python src/train.py')",
-          "title": "Command",
-          "type": "string"
-        },
-        "inputs": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Output IDs that must be materialized before this recipe runs",
-          "title": "Inputs"
-        },
-        "container": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Container image override (defaults to node-level container)",
-          "title": "Container"
-        },
-        "resources": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Resources"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Compute resource requirements"
-        }
-      },
-      "required": [
-        "command"
-      ],
-      "title": "Recipe",
-      "type": "object"
-    },
-    "Resources": {
-      "additionalProperties": false,
-      "description": "Compute resource requirements for a recipe.",
-      "properties": {
-        "cpus": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Number of CPUs",
-          "title": "Cpus"
-        },
-        "memory": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Memory requirement (e.g., '8GB', '512MB')",
-          "title": "Memory"
-        },
-        "gpus": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Number of GPUs",
-          "title": "Gpus"
-        },
-        "time_limit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum wall time (e.g., '2h', '30m')",
-          "title": "Time Limit"
-        }
-      },
-      "title": "Resources",
       "type": "object"
     },
     "TableSelector": {
