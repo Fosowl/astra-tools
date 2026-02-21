@@ -90,6 +90,12 @@ class Output(BaseModel):
         "(e.g., 'sub_analysis.output_id')",
     )
 
+    # Execution: how to produce this output
+    recipe: Recipe | None = Field(
+        default=None,
+        description="Inline recipe describing how to produce this output",
+    )
+
 
 class Resources(BaseModel):
     """Compute resource requirements for a recipe."""
@@ -105,27 +111,23 @@ class Resources(BaseModel):
 
 
 class Recipe(BaseModel):
-    """A build rule that produces one or more outputs.
+    """A build rule that produces an output.
 
     Recipes are the execution contract: run this command (optionally in a
-    container) to produce the declared outputs.  Dependencies between
-    recipes within the same analysis node form a DAG.
+    container) to produce the parent output. Dependencies on other outputs
+    are declared via ``inputs``.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     command: str = Field(description="Command to execute (e.g., 'python src/train.py')")
-    outputs: list[str] = Field(
-        min_length=1,
-        description="Output IDs this recipe produces (must match declared outputs)",
+    inputs: list[str] | None = Field(
+        default=None,
+        description="Output IDs that must be materialized before this recipe runs",
     )
     container: str | None = Field(
         default=None,
         description="Container image override (defaults to node-level container)",
-    )
-    depends_on: list[str] | None = Field(
-        default=None,
-        description="Recipe IDs that must complete before this recipe runs",
     )
     resources: Resources | None = Field(
         default=None,
@@ -237,11 +239,6 @@ class Analysis(BaseModel):
         default=None,
         description="Default container image for recipes in this node",
     )
-    recipes: dict[str, Recipe] | None = Field(
-        default=None,
-        description="Map of recipe IDs to build rules that produce outputs",
-    )
-
     # Self-similar nesting
     analyses: dict[str, Analysis] | None = Field(
         default=None,
