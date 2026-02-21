@@ -430,10 +430,21 @@ def info(
         table = Table(show_header=True)
         table.add_column("ID")
         table.add_column("Type")
+        table.add_column("Recipe")
         table.add_column("Description")
 
         for out in output_list:
-            table.add_row(out.get("id", ""), out.get("type", ""), out.get("description", ""))
+            recipe = out.get("recipe")
+            if recipe:
+                recipe_str = recipe.get("command", "yes")
+            else:
+                recipe_str = "[dim]-[/dim]"
+            table.add_row(
+                out.get("id", ""),
+                out.get("type", ""),
+                recipe_str,
+                out.get("description", ""),
+            )
         console.print(table)
 
     # Decisions (recursive tree)
