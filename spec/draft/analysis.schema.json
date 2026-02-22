@@ -159,11 +159,14 @@
           "type": "string"
         },
         {
+          "$ref": "#/$defs/ContainerBuildSpec"
+        },
+        {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Default container image for recipes in this node",
+      "description": "Default container image for recipes in this node. Can be a string (pre-built image) or a build spec with 'build' key.",
       "title": "Container"
     },
     "analyses": {
@@ -347,11 +350,14 @@
               "type": "string"
             },
             {
+              "$ref": "#/$defs/ContainerBuildSpec"
+            },
+            {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Default container image for recipes in this node",
+          "description": "Default container image for recipes in this node. Can be a string (pre-built image) or a build spec with 'build' key.",
           "title": "Container"
         },
         "analyses": {
@@ -399,6 +405,51 @@
         "value"
       ],
       "title": "Checksum",
+      "type": "object"
+    },
+    "ContainerBuildSpec": {
+      "additionalProperties": false,
+      "description": "Specification for building a container image from a Containerfile.",
+      "properties": {
+        "build": {
+          "description": "Path to Containerfile relative to project root",
+          "title": "Build",
+          "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Build context directory",
+          "title": "Context"
+        },
+        "args": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Docker build arguments",
+          "title": "Args"
+        }
+      },
+      "required": [
+        "build"
+      ],
+      "title": "ContainerBuildSpec",
       "type": "object"
     },
     "Decision": {
@@ -1078,11 +1129,14 @@
               "type": "string"
             },
             {
+              "$ref": "#/$defs/ContainerBuildSpec"
+            },
+            {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Container image override (defaults to node-level container)",
+          "description": "Container image override (defaults to node-level container). Can be a string (pre-built image) or a build spec with 'build' key.",
           "title": "Container"
         },
         "resources": {
