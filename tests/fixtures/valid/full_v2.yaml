@@ -1,5 +1,5 @@
 # Full analysis with v2 features: decision groups with nested decisions,
-# conditional decisions, excluded options, and evidence snapshots.
+# conditional decisions and excluded options.
 $schema: "https://asp-spec.org/v1/schema.json"
 version: "1.0"
 name: "Full Analysis v2"
@@ -49,8 +49,6 @@ insights:
         artifact:
           id: trained_output
           type: data
-        snapshot: "snapshots/trained_output_abc123.pkl"
-        source_commit: "abc123def456"
         quote:
           type: TextQuoteSelector
           exact: "Standard scaling leads to faster convergence"
