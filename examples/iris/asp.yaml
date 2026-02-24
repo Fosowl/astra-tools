@@ -67,7 +67,7 @@ outputs:
 decisions:
   scaling:
     label: "Feature Scaling"
-    type: method
+
     rationale: "Scaling affects distance-based algorithms like SVM"
     default: standard
     options:
@@ -85,7 +85,7 @@ decisions:
 
   model:
     label: "Classification Model"
-    type: method
+
     rationale: "Core algorithmic choice affecting accuracy and interpretability"
     default: random_forest
     options:
@@ -103,7 +103,7 @@ decisions:
 
   test_size:
     label: "Test Set Proportion"
-    type: parameter
+
     rationale: "Trade-off between training data and evaluation reliability"
     default: small
     options:
@@ -114,7 +114,7 @@ decisions:
 
   random_seed:
     label: "Random Seed"
-    type: parameter
+
     rationale: "For reproducibility and stability testing"
     default: seed_42
     options:

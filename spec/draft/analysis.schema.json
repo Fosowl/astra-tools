@@ -461,16 +461,6 @@
           "title": "Label",
           "type": "string"
         },
-        "type": {
-          "description": "Category of decision",
-          "enum": [
-            "data",
-            "method",
-            "parameter"
-          ],
-          "title": "Type",
-          "type": "string"
-        },
         "rationale": {
           "anyOf": [
             {
@@ -483,6 +473,36 @@
           "default": null,
           "description": "Why this decision exists",
           "title": "Rationale"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tags for grouping and categorizing this decision",
+          "title": "Tags"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Condition: 'decision_id.option_id' \u2014 this decision only exists when that option is selected",
+          "title": "When"
         },
         "default": {
           "anyOf": [
@@ -508,7 +528,6 @@
       },
       "required": [
         "label",
-        "type",
         "options"
       ],
       "title": "Decision",
@@ -598,6 +617,32 @@
           ],
           "default": null,
           "description": "Checksum of the artifact for integrity verification"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to immutable copy of the artifact (only valid when artifact is set)",
+          "title": "Snapshot"
+        },
+        "source_commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Git commit that produced the original artifact (only valid when artifact is set)",
+          "title": "Source Commit"
         },
         "quote": {
           "anyOf": [
@@ -888,21 +933,6 @@
           "title": "Evidence",
           "type": "array"
         },
-        "confidence": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Confidence [0,1]",
-          "title": "Confidence"
-        },
         "derived": {
           "default": false,
           "description": "True if synthesized/inferred",
@@ -1022,6 +1052,25 @@
           "default": null,
           "description": "List of decision.option pairs that must also be selected",
           "title": "Requires"
+        },
+        "excluded": {
+          "default": false,
+          "description": "Whether this option was considered and rejected",
+          "title": "Excluded",
+          "type": "boolean"
+        },
+        "excluded_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why this option was excluded",
+          "title": "Excluded Reason"
         }
       },
       "required": [

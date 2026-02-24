@@ -1,4 +1,4 @@
-# Constraint references non-existent decision/option
+# Option has excluded_reason but excluded is not true
 version: "1.0"
 name: "Test"
 inputs:
@@ -13,5 +13,6 @@ decisions:
     options:
       a:
         label: "A"
-        requires:
-          - nonexistent.option
+      b:
+        label: "B"
+        excluded_reason: "This reason is orphaned because excluded is not set"

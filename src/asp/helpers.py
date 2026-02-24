@@ -15,6 +15,12 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
+    """Collect decisions from a node."""
+    decisions: dict[str, Any] = dict(node.get("decisions") or {})
+    return decisions
+
+
 def load_yaml(path: str | Path) -> dict[str, Any]:
     """Load a YAML file and return its contents as a dict.
 
@@ -94,11 +100,11 @@ def get_decision(
         node = _resolve_node(data, path)
         if node is None:
             return None
-        result: dict[str, Any] | None = node.get("decisions", {}).get(decision_id)
+        result: dict[str, Any] | None = _collect_node_decisions(node).get(decision_id)
         return result
 
     # Search root decisions first, then sub-analyses recursively
-    root_decisions: dict[str, Any] = data.get("decisions") or {}
+    root_decisions = _collect_node_decisions(data)
     if decision_id in root_decisions:
         found: dict[str, Any] = root_decisions[decision_id]
         return found
@@ -120,7 +126,7 @@ def _resolve_node(analysis_content: dict[str, Any], path: str) -> dict[str, Any]
 def _search_node_decision(node: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
     """Recursively search a node's sub-analyses for a decision."""
     for sub_node in (node.get("analyses") or {}).values():
-        decisions: dict[str, Any] = sub_node.get("decisions") or {}
+        decisions: dict[str, Any] = _collect_node_decisions(sub_node)
         if decision_id in decisions:
             match: dict[str, Any] = decisions[decision_id]
             return match
@@ -157,13 +163,36 @@ def get_default_universe(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _get_node_defaults(node: dict[str, Any]) -> dict[str, Any]:
-    """Recursively get defaults from a node."""
+    """Recursively get defaults from a node.
+
+    Skips conditional decisions whose ``when`` condition is not met
+    by the defaults being collected so far.
+    """
     result: dict[str, Any] = {}
     decisions: dict[str, str] = {}
-    for decision_id, decision in (node.get("decisions") or {}).items():
+    all_decisions = _collect_node_decisions(node)
+
+    # First pass: collect defaults for unconditional decisions
+    for decision_id, decision in all_decisions.items():
+        if decision.get("when"):
+            continue  # handle in second pass
         default = decision.get("default")
         if default is not None:
             decisions[decision_id] = default
+
+    # Second pass: collect defaults for conditional decisions whose condition is met
+    for decision_id, decision in all_decisions.items():
+        when = decision.get("when")
+        if not when:
+            continue
+        when_parts = when.split(".")
+        if len(when_parts) == 2:
+            when_decision_id, when_option_id = when_parts
+            if decisions.get(when_decision_id) == when_option_id:
+                default = decision.get("default")
+                if default is not None:
+                    decisions[decision_id] = default
+
     if decisions:
         result["decisions"] = decisions
     sub_analyses = node.get("analyses") or {}
@@ -239,7 +268,7 @@ def get_decision_ids(data: dict[str, Any]) -> set[str]:
         Set of decision IDs.
     """
     result: set[str] = set()
-    result.update((data.get("decisions") or {}).keys())
+    result.update(_collect_node_decisions(data).keys())
     _collect_node_decision_ids(data, result)
     return result
 
@@ -247,7 +276,7 @@ def get_decision_ids(data: dict[str, Any]) -> set[str]:
 def _collect_node_decision_ids(node: dict[str, Any], result: set[str]) -> None:
     """Recursively collect decision IDs from sub-analyses."""
     for sub_node in (node.get("analyses") or {}).values():
-        result.update((sub_node.get("decisions") or {}).keys())
+        result.update(_collect_node_decisions(sub_node).keys())
         _collect_node_decision_ids(sub_node, result)
 
 
@@ -304,7 +333,7 @@ def get_decisions(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
 
     # Root decisions
-    for decision_id, decision in (data.get("decisions") or {}).items():
+    for decision_id, decision in _collect_node_decisions(data).items():
         result[decision_id] = decision
 
     # Collect from sub-analyses
@@ -319,7 +348,7 @@ def _collect_decisions_from_node(
 ) -> None:
     """Recursively collect decisions from sub-analyses."""
     for node_id, sub_node in (node.get("analyses") or {}).items():
-        for decision_id, decision in (sub_node.get("decisions") or {}).items():
+        for decision_id, decision in _collect_node_decisions(sub_node).items():
             if decision_id in result:
                 logger.warning(
                     "Decision ID '%s' in analysis '%s' overwrites a decision with the same ID. "
@@ -350,7 +379,7 @@ def get_analysis_decisions(data: dict[str, Any]) -> dict[str, Any]:
 def _get_node_decision_tree(node: dict[str, Any]) -> dict[str, Any]:
     """Build recursive decision tree from a node."""
     result: dict[str, Any] = {}
-    decisions = node.get("decisions") or {}
+    decisions = _collect_node_decisions(node)
     if decisions:
         result["decisions"] = decisions
     sub_analyses = node.get("analyses") or {}
