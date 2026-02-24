@@ -48,7 +48,6 @@ class TestSchemaValidation:
         assert len(errors) > 0
 
 
-
 class TestSemanticValidation:
     """Tests for semantic validation."""
 
