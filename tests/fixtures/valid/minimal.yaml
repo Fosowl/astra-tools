@@ -10,7 +10,6 @@ outputs:
 decisions:
   method:
     label: "Method"
-    type: method
     default: option_a
     options:
       option_a:

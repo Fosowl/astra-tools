@@ -1,4 +1,4 @@
-# Constraint references non-existent decision/option
+# Default option is marked as excluded
 version: "1.0"
 name: "Test"
 inputs:
@@ -10,8 +10,11 @@ outputs:
 decisions:
   method:
     label: "Method"
+    default: b
     options:
       a:
         label: "A"
-        requires:
-          - nonexistent.option
+      b:
+        label: "B"
+        excluded: true
+        excluded_reason: "No longer supported"

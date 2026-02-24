@@ -151,6 +151,10 @@ class Option(BaseModel):
         default=None,
         description="List of decision.option pairs that must also be selected",
     )
+    excluded: bool = Field(default=False, description="Whether this option was considered and rejected")
+    excluded_reason: str | None = Field(
+        default=None, description="Why this option was excluded"
+    )
 
 
 class Decision(BaseModel):
@@ -159,8 +163,15 @@ class Decision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label: str = Field(description="Human-readable name for the decision")
-    type: Literal["data", "method", "parameter"] = Field(description="Category of decision")
     rationale: str | None = Field(default=None, description="Why this decision exists")
+    tags: list[str] | None = Field(
+        default=None, description="Tags for grouping and categorizing this decision"
+    )
+    when: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$",
+        description="Condition: 'decision_id.option_id' — this decision only exists when that option is selected",
+    )
     default: str | None = Field(
         default=None, description="Default option ID for baseline universes"
     )
@@ -247,6 +258,7 @@ class Analysis(BaseModel):
         default=None,
         description="Map of sub-analysis IDs to nested analyses",
     )
+
 
 
 # Resolve forward references to Insight from models.insight.

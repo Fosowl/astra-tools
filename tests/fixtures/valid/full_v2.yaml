@@ -1,7 +1,9 @@
+# Full analysis with v2 features: decision tags,
+# conditional decisions, excluded options, and evidence snapshots.
 $schema: "https://asp-spec.org/v1/schema.json"
 version: "1.0"
-name: "Full Analysis"
-description: "A comprehensive test analysis with all features"
+name: "Full Analysis v2"
+description: "A comprehensive test analysis with all v2 features"
 authors:
   - "Test Author"
 tags:
@@ -37,10 +39,27 @@ outputs:
     type: report
     description: "Analysis conclusion"
 
+insights:
+  compute_scaling:
+    id: compute_scaling
+    claim: "Standard scaling improves SVM convergence."
+    created_at: "2024-01-15T10:00:00Z"
+    evidence:
+      - id: ev1
+        artifact:
+          id: trained_output
+          type: data
+        snapshot: "snapshots/trained_output_abc123.pkl"
+        source_commit: "abc123def456"
+        quote:
+          type: TextQuoteSelector
+          exact: "Standard scaling leads to faster convergence"
+
 decisions:
   preprocessing:
     label: "Preprocessing Method"
     rationale: "Choice of preprocessing affects model performance"
+    tags: [data_preparation]
     default: standard
     options:
       none:
@@ -54,10 +73,16 @@ decisions:
         description: "Scale to [0, 1]"
         incompatible_with:
           - model.svm
+      deprecated_method:
+        label: "Deprecated Method"
+        description: "An old method no longer recommended"
+        excluded: true
+        excluded_reason: "Superseded by standardization; causes numerical instability"
 
   model:
     label: "Model Type"
     rationale: "Core algorithmic choice"
+    tags: [model_selection]
     default: rf
     options:
       svm:
@@ -71,20 +96,34 @@ decisions:
       lr:
         label: "Logistic Regression"
         description: "Linear classifier"
+  svm_kernel:
+    label: "SVM Kernel"
+    rationale: "Kernel choice for SVM"
+    tags: [model_selection]
+    when: model.svm
+    default: rbf
+    options:
+      linear:
+        label: "Linear"
+      rbf:
+        label: "RBF"
+      poly:
+        label: "Polynomial"
 
   test_split:
     label: "Test Split"
     rationale: "Trade-off between training data and evaluation"
+    tags: [evaluation]
     default: split_20
     options:
       split_20:
         label: "20%"
       split_30:
         label: "30%"
-
   seed:
     label: "Random Seed"
     rationale: "For reproducibility"
+    tags: [evaluation]
     default: seed_42
     options:
       seed_42:

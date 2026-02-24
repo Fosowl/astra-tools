@@ -1,4 +1,4 @@
-# Invalid decision type
+# when field references a nonexistent decision
 version: "1.0"
 name: "Test"
 inputs:
@@ -10,7 +10,12 @@ outputs:
 decisions:
   method:
     label: "Method"
-    type: invalid_type
     options:
       a:
         label: "A"
+  conditional:
+    label: "Conditional"
+    when: nonexistent.a
+    options:
+      x:
+        label: "X"
