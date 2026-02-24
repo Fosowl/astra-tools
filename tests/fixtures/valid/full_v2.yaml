@@ -1,4 +1,4 @@
-# Full analysis with v2 features: decision tags, tag_definitions,
+# Full analysis with v2 features: decision tags,
 # conditional decisions, excluded options, and evidence snapshots.
 $schema: "https://asp-spec.org/v1/schema.json"
 version: "1.0"
@@ -54,14 +54,6 @@ insights:
         quote:
           type: TextQuoteSelector
           exact: "Standard scaling leads to faster convergence"
-
-tag_definitions:
-  data_preparation:
-    description: "How input data is prepared"
-  model_selection:
-    description: "Choice of model and its parameters"
-  evaluation:
-    description: "How the model is evaluated"
 
 decisions:
   preprocessing:

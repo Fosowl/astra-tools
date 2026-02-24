@@ -185,14 +185,6 @@ class Decision(BaseModel):
         return self
 
 
-class TagDefinition(BaseModel):
-    """Definition for a decision tag, providing description and optional ordering."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    description: str | None = Field(default=None, description="What this tag/group represents")
-
-
 class Analysis(BaseModel):
     """A self-similar analysis specification.
 
@@ -245,10 +237,6 @@ class Analysis(BaseModel):
     decisions: dict[str, Decision] = Field(
         default_factory=dict,
         description="Map of decision IDs to decision specifications",
-    )
-    tag_definitions: dict[str, TagDefinition] | None = Field(
-        default=None,
-        description="Descriptions for decision tags used in this analysis",
     )
     insights: dict[str, Insight] = Field(
         default_factory=dict,

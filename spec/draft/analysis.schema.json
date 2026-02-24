@@ -145,22 +145,6 @@
       "title": "Decisions",
       "type": "object"
     },
-    "tag_definitions": {
-      "anyOf": [
-        {
-          "additionalProperties": {
-            "$ref": "#/$defs/TagDefinition"
-          },
-          "type": "object"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Descriptions for decision tags used in this analysis",
-      "title": "Tag Definitions"
-    },
     "insights": {
       "additionalProperties": {
         "$ref": "#/$defs/Insight"
@@ -364,22 +348,6 @@
           "description": "Map of decision IDs to decision specifications",
           "title": "Decisions",
           "type": "object"
-        },
-        "tag_definitions": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/TagDefinition"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Descriptions for decision tags used in this analysis",
-          "title": "Tag Definitions"
         },
         "insights": {
           "additionalProperties": {
@@ -1323,27 +1291,6 @@
         "label"
       ],
       "title": "TableSelector",
-      "type": "object"
-    },
-    "TagDefinition": {
-      "additionalProperties": false,
-      "description": "Definition for a decision tag, providing description and optional ordering.",
-      "properties": {
-        "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "What this tag/group represents",
-          "title": "Description"
-        }
-      },
-      "title": "TagDefinition",
       "type": "object"
     },
     "TextQuoteSelector": {

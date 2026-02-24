@@ -191,17 +191,14 @@ class TestRecipeValidation:
 
 
 class TestDecisionTagsValidation:
-    """Tests for decision tags and tag_definitions."""
+    """Tests for decision tags."""
 
     def test_valid_decision_tags(self, valid_dir: Path):
         errors = validate_analysis_file(valid_dir / "full_v2.yaml")
         assert errors == []
 
-    def test_tag_definitions_present(self, valid_dir: Path):
+    def test_decisions_with_tags(self, valid_dir: Path):
         data = load_yaml(valid_dir / "full_v2.yaml")
-        assert "tag_definitions" in data
-        assert "data_preparation" in data["tag_definitions"]
-        # Decisions reference tags
         assert data["decisions"]["preprocessing"]["tags"] == ["data_preparation"]
 
 
