@@ -111,6 +111,32 @@
           "default": null,
           "description": "Checksum of the artifact for integrity verification"
         },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to immutable copy of the artifact (only valid when artifact is set)",
+          "title": "Snapshot"
+        },
+        "source_commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Git commit that produced the original artifact (only valid when artifact is set)",
+          "title": "Source Commit"
+        },
         "quote": {
           "anyOf": [
             {
