@@ -256,7 +256,8 @@ def _validate_decisions(
             when_parts = when.split(".")
             if len(when_parts) == 2:
                 when_decision_id, when_option_id = when_parts
-                if when_decision_id not in decisions and when_decision_id not in (constraint_scope or {}):
+                scope = constraint_scope or {}
+                if when_decision_id not in decisions and when_decision_id not in scope:
                     errors.append(
                         SemanticError(
                             "INVALID_WHEN_REF",
@@ -265,7 +266,10 @@ def _validate_decisions(
                         )
                     )
                 else:
-                    ref_decision = decisions.get(when_decision_id) or (constraint_scope or {}).get(when_decision_id)
+                    ref_decision = (
+                        decisions.get(when_decision_id)
+                        or (constraint_scope or {}).get(when_decision_id)
+                    )
                     if ref_decision and when_option_id not in ref_decision.get("options", {}):
                         errors.append(
                             SemanticError(
@@ -280,7 +284,7 @@ def _validate_decisions(
                     errors.append(
                         SemanticError(
                             "INVALID_WHEN_REF",
-                            f"'when' cannot reference own decision",
+                            "'when' cannot reference own decision",
                             decision_path,
                         )
                     )
@@ -616,7 +620,8 @@ def _validate_universe_node(
                 errors.append(
                     SemanticError(
                         "EXCLUDED_OPTION_SELECTED",
-                        f"Universe selects excluded option '{option_id}' for decision '{decision_id}'",
+                        f"Universe selects excluded option '{option_id}' "
+                        f"for decision '{decision_id}'",
                         f"{decisions_path}.{decision_id}",
                     )
                 )
