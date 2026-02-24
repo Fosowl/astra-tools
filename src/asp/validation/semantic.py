@@ -88,25 +88,10 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
         if out_id:
             output_ids.add(out_id)
 
-    # Collect all decisions (from flat 'decisions' or 'decision_groups')
+    # Collect all decisions
     root_decisions = _collect_node_decisions(data)
 
-    # Check mutual exclusivity
-    has_flat = bool(data.get("decisions"))
-    has_groups = bool(data.get("decision_groups"))
-    if has_flat and has_groups:
-        errors.append(
-            SemanticError(
-                "DECISIONS_AND_GROUPS",
-                "Use either 'decisions' (flat) or 'decision_groups' (grouped), not both",
-            )
-        )
-
-    # Validate decision groups for duplicate IDs across groups
-    if has_groups:
-        errors.extend(_validate_decision_groups(data.get("decision_groups") or [], ""))
-
-    # Validate all decisions (regardless of source)
+    # Validate all decisions
     errors.extend(_validate_decisions(root_decisions, insights, ""))
 
     # Validate recipes
@@ -128,38 +113,6 @@ def validate_analysis(data: dict[str, Any]) -> list[SemanticError]:
                 path_prefix="analyses",
             )
         )
-
-    return errors
-
-
-def _validate_decision_groups(
-    groups: list[dict[str, Any]],
-    path_prefix: str,
-) -> list[SemanticError]:
-    """Validate decision groups don't have duplicate decision IDs across groups."""
-    errors: list[SemanticError] = []
-    groups_prefix = f"{path_prefix}.decision_groups" if path_prefix else "decision_groups"
-
-    seen_decisions: dict[str, int] = {}  # decision_id -> group_index
-
-    for i, group in enumerate(groups):
-        group_path = f"{groups_prefix}[{i}]"
-        group_decisions = group.get("decisions") or {}
-        if not isinstance(group_decisions, dict):
-            continue
-
-        for decision_id in group_decisions:
-            if decision_id in seen_decisions:
-                errors.append(
-                    SemanticError(
-                        "DUPLICATE_GROUP_DECISION",
-                        f"Decision '{decision_id}' appears in multiple groups "
-                        f"(groups {seen_decisions[decision_id]} and {i})",
-                        group_path,
-                    )
-                )
-            else:
-                seen_decisions[decision_id] = i
 
     return errors
 

@@ -145,21 +145,21 @@
       "title": "Decisions",
       "type": "object"
     },
-    "decision_groups": {
+    "tag_definitions": {
       "anyOf": [
         {
-          "items": {
-            "$ref": "#/$defs/DecisionGroup"
+          "additionalProperties": {
+            "$ref": "#/$defs/TagDefinition"
           },
-          "type": "array"
+          "type": "object"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Organizational grouping of decisions by pipeline stage",
-      "title": "Decision Groups"
+      "description": "Descriptions for decision tags used in this analysis",
+      "title": "Tag Definitions"
     },
     "insights": {
       "additionalProperties": {
@@ -365,21 +365,21 @@
           "title": "Decisions",
           "type": "object"
         },
-        "decision_groups": {
+        "tag_definitions": {
           "anyOf": [
             {
-              "items": {
-                "$ref": "#/$defs/DecisionGroup"
+              "additionalProperties": {
+                "$ref": "#/$defs/TagDefinition"
               },
-              "type": "array"
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Organizational grouping of decisions by pipeline stage",
-          "title": "Decision Groups"
+          "description": "Descriptions for decision tags used in this analysis",
+          "title": "Tag Definitions"
         },
         "insights": {
           "additionalProperties": {
@@ -487,6 +487,22 @@
           "description": "Why this decision exists",
           "title": "Rationale"
         },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tags for grouping and categorizing this decision",
+          "title": "Tags"
+        },
         "when": {
           "anyOf": [
             {
@@ -528,44 +544,6 @@
         "options"
       ],
       "title": "Decision",
-      "type": "object"
-    },
-    "DecisionGroup": {
-      "additionalProperties": false,
-      "description": "Organizational grouping of decisions by pipeline stage.\n\nContains decisions for this pipeline stage.",
-      "properties": {
-        "label": {
-          "description": "Human-readable name for the group",
-          "title": "Label",
-          "type": "string"
-        },
-        "description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "What this stage of the pipeline does",
-          "title": "Description"
-        },
-        "decisions": {
-          "additionalProperties": {
-            "$ref": "#/$defs/Decision"
-          },
-          "description": "Map of decision IDs to decision specifications",
-          "title": "Decisions",
-          "type": "object"
-        }
-      },
-      "required": [
-        "label",
-        "decisions"
-      ],
-      "title": "DecisionGroup",
       "type": "object"
     },
     "Evidence": {
@@ -1345,6 +1323,27 @@
         "label"
       ],
       "title": "TableSelector",
+      "type": "object"
+    },
+    "TagDefinition": {
+      "additionalProperties": false,
+      "description": "Definition for a decision tag, providing description and optional ordering.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What this tag/group represents",
+          "title": "Description"
+        }
+      },
+      "title": "TagDefinition",
       "type": "object"
     },
     "TextQuoteSelector": {

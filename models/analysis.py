@@ -164,6 +164,9 @@ class Decision(BaseModel):
 
     label: str = Field(description="Human-readable name for the decision")
     rationale: str | None = Field(default=None, description="Why this decision exists")
+    tags: list[str] | None = Field(
+        default=None, description="Tags for grouping and categorizing this decision"
+    )
     when: str | None = Field(
         default=None,
         pattern=r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$",
@@ -182,17 +185,12 @@ class Decision(BaseModel):
         return self
 
 
-class DecisionGroup(BaseModel):
-    """Organizational grouping of decisions by pipeline stage.
-
-    Contains decisions for this pipeline stage.
-    """
+class TagDefinition(BaseModel):
+    """Definition for a decision tag, providing description and optional ordering."""
 
     model_config = ConfigDict(extra="forbid")
 
-    label: str = Field(description="Human-readable name for the group")
-    description: str | None = Field(default=None, description="What this stage of the pipeline does")
-    decisions: dict[str, Decision] = Field(description="Map of decision IDs to decision specifications")
+    description: str | None = Field(default=None, description="What this tag/group represents")
 
 
 class Analysis(BaseModel):
@@ -248,9 +246,9 @@ class Analysis(BaseModel):
         default_factory=dict,
         description="Map of decision IDs to decision specifications",
     )
-    decision_groups: list[DecisionGroup] | None = Field(
+    tag_definitions: dict[str, TagDefinition] | None = Field(
         default=None,
-        description="Organizational grouping of decisions by pipeline stage",
+        description="Descriptions for decision tags used in this analysis",
     )
     insights: dict[str, Insight] = Field(
         default_factory=dict,
@@ -273,16 +271,6 @@ class Analysis(BaseModel):
         description="Map of sub-analysis IDs to nested analyses",
     )
 
-    @model_validator(mode="after")
-    def validate_decisions_or_groups(self) -> Analysis:
-        """Ensure decisions are specified via either flat 'decisions' or 'decision_groups', not both."""
-        has_flat = bool(self.decisions)
-        has_groups = bool(self.decision_groups)
-        if has_flat and has_groups:
-            raise ValueError(
-                "Use either 'decisions' (flat) or 'decision_groups' (grouped), not both"
-            )
-        return self
 
 
 # Resolve forward references to Insight from models.insight.

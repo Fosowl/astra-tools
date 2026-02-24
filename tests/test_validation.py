@@ -191,20 +191,19 @@ class TestRecipeValidation:
         assert errors == []
 
 
-class TestDecisionGroupValidation:
-    """Tests for decision group validation."""
+class TestDecisionTagsValidation:
+    """Tests for decision tags and tag_definitions."""
 
-    def test_valid_decision_groups(self, valid_dir: Path):
+    def test_valid_decision_tags(self, valid_dir: Path):
         errors = validate_analysis_file(valid_dir / "full_v2.yaml")
         assert errors == []
 
-    def test_duplicate_group_decision(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "decision_group_duplicate.yaml")
-        assert any(e.code == "DUPLICATE_GROUP_DECISION" for e in errors)
-
-    def test_decisions_and_groups(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "decisions_and_groups.yaml")
-        assert any(e.code == "DECISIONS_AND_GROUPS" for e in errors)
+    def test_tag_definitions_present(self, valid_dir: Path):
+        data = load_yaml(valid_dir / "full_v2.yaml")
+        assert "tag_definitions" in data
+        assert "data_preparation" in data["tag_definitions"]
+        # Decisions reference tags
+        assert data["decisions"]["preprocessing"]["tags"] == ["data_preparation"]
 
 
 class TestConditionalDecisionValidation:

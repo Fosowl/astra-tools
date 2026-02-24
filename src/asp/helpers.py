@@ -16,12 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
-    """Collect decisions from flat 'decisions' or 'decision_groups'."""
+    """Collect decisions from a node."""
     decisions: dict[str, Any] = dict(node.get("decisions") or {})
-    for group in node.get("decision_groups") or []:
-        group_decisions = group.get("decisions") or {}
-        if isinstance(group_decisions, dict):
-            decisions.update(group_decisions)
     return decisions
 
 
