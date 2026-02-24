@@ -459,7 +459,9 @@ def _display_decisions(decisions: dict[str, Any], indent: str = "") -> None:
     """Display decisions as Rich trees."""
     for decision_id, decision in decisions.items():
         tree = Tree(f"{indent}[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
-        tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
+        tags = decision.get("tags") or []
+        if tags:
+            tree.add(f"[dim]Tags:[/dim] {', '.join(tags)}")
         if decision.get("rationale"):
             tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
 
@@ -614,7 +616,9 @@ def _viz_ascii_node(parent_tree: Tree, node: dict[str, Any]) -> None:
     """Recursively add decisions to an ASCII tree."""
     decisions = _collect_node_decisions(node)
     for decision_id, decision in decisions.items():
-        branch = parent_tree.add(f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')})")
+        tags = decision.get("tags") or []
+        tag_str = f" [{', '.join(tags)}]" if tags else ""
+        branch = parent_tree.add(f"[cyan]{decision_id}[/cyan]{tag_str}")
 
         options = decision.get("options", {})
         default = decision.get("default")
