@@ -64,6 +64,57 @@ class Input(BaseModel):
     )
 
 
+class Resources(BaseModel):
+    """Compute resource requirements for a recipe."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cpus: int | None = Field(default=None, ge=1, description="Number of CPUs")
+    memory: str | None = Field(
+        default=None, description="Memory requirement (e.g., '8GB', '512MB')"
+    )
+    gpus: int | None = Field(default=None, ge=1, description="Number of GPUs")
+    time_limit: str | None = Field(
+        default=None, description="Maximum wall time (e.g., '2h', '30m')"
+    )
+
+
+class ContainerBuildSpec(BaseModel):
+    """Specification for building a container image from a Containerfile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    build: str = Field(description="Path to Containerfile relative to project root")
+    context: str | None = Field(default=None, description="Build context directory")
+    args: dict[str, str] | None = Field(default=None, description="Docker build arguments")
+
+
+class Recipe(BaseModel):
+    """A build rule that produces an output.
+
+    Recipes are the execution contract: run this command (optionally in a
+    container) to produce the parent output. Dependencies on other outputs
+    are declared via ``inputs``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    command: str = Field(description="Command to execute (e.g., 'python src/train.py')")
+    inputs: list[str] | None = Field(
+        default=None,
+        description="Output IDs that must be materialized before this recipe runs",
+    )
+    container: str | ContainerBuildSpec | None = Field(
+        default=None,
+        description="Container image override (defaults to node-level container). "
+        "Can be a string (pre-built image) or a build spec with 'build' key.",
+    )
+    resources: Resources | None = Field(
+        default=None,
+        description="Compute resource requirements",
+    )
+
+
 class Output(BaseModel):
     """An expected output from the analysis.
 
@@ -90,46 +141,10 @@ class Output(BaseModel):
         "(e.g., 'sub_analysis.output_id')",
     )
 
-
-class Resources(BaseModel):
-    """Compute resource requirements for a recipe."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    cpus: int | None = Field(default=None, ge=1, description="Number of CPUs")
-    memory: str | None = Field(default=None, description="Memory requirement (e.g., '8GB', '512MB')")
-    gpus: int | None = Field(default=None, ge=1, description="Number of GPUs")
-    time_limit: str | None = Field(
-        default=None, description="Maximum wall time (e.g., '2h', '30m')"
-    )
-
-
-class Recipe(BaseModel):
-    """A build rule that produces one or more outputs.
-
-    Recipes are the execution contract: run this command (optionally in a
-    container) to produce the declared outputs.  Dependencies between
-    recipes within the same analysis node form a DAG.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    command: str = Field(description="Command to execute (e.g., 'python src/train.py')")
-    outputs: list[str] = Field(
-        min_length=1,
-        description="Output IDs this recipe produces (must match declared outputs)",
-    )
-    container: str | None = Field(
+    # Execution: how to produce this output
+    recipe: Recipe | None = Field(
         default=None,
-        description="Container image override (defaults to node-level container)",
-    )
-    depends_on: list[str] | None = Field(
-        default=None,
-        description="Recipe IDs that must complete before this recipe runs",
-    )
-    resources: Resources | None = Field(
-        default=None,
-        description="Compute resource requirements",
+        description="Inline recipe describing how to produce this output",
     )
 
 
@@ -244,15 +259,11 @@ class Analysis(BaseModel):
     )
 
     # Execution
-    container: str | None = Field(
+    container: str | ContainerBuildSpec | None = Field(
         default=None,
-        description="Default container image for recipes in this node",
+        description="Default container image for recipes in this node. "
+        "Can be a string (pre-built image) or a build spec with 'build' key.",
     )
-    recipes: dict[str, Recipe] | None = Field(
-        default=None,
-        description="Map of recipe IDs to build rules that produce outputs",
-    )
-
     # Self-similar nesting
     analyses: dict[str, Analysis] | None = Field(
         default=None,

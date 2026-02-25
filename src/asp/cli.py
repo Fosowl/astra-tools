@@ -152,10 +152,15 @@ outputs:
   - id: main_result
     type: metric
     description: "TODO: Describe your primary output metric"
+    recipe:
+      command: python src/main.py
 
   - id: conclusion
     type: report
     description: "Summary of analysis findings"
+    recipe:
+      command: python src/main.py
+      inputs: [main_result]
 
 decisions:
   example_method:
@@ -169,11 +174,6 @@ decisions:
       option_b:
         label: "Option B"
         description: "TODO: Describe option B"
-
-recipes:
-  run:
-    command: python src/main.py
-    outputs: [main_result, conclusion]
 """
     (directory / "asp.yaml").write_text(asp_yaml)
 
@@ -430,10 +430,21 @@ def info(
         table = Table(show_header=True)
         table.add_column("ID")
         table.add_column("Type")
+        table.add_column("Recipe")
         table.add_column("Description")
 
         for out in output_list:
-            table.add_row(out.get("id", ""), out.get("type", ""), out.get("description", ""))
+            recipe = out.get("recipe")
+            if recipe:
+                recipe_str = recipe.get("command", "yes")
+            else:
+                recipe_str = "[dim]-[/dim]"
+            table.add_row(
+                out.get("id", ""),
+                out.get("type", ""),
+                recipe_str,
+                out.get("description", ""),
+            )
         console.print(table)
 
     # Decisions (recursive tree)
@@ -448,7 +459,9 @@ def _display_decisions(decisions: dict[str, Any], indent: str = "") -> None:
     """Display decisions as Rich trees."""
     for decision_id, decision in decisions.items():
         tree = Tree(f"{indent}[cyan]{decision_id}[/cyan]: {decision.get('label', '')}")
-        tree.add(f"[dim]Type:[/dim] {decision.get('type', '')}")
+        tags = decision.get("tags") or []
+        if tags:
+            tree.add(f"[dim]Tags:[/dim] {', '.join(tags)}")
         if decision.get("rationale"):
             tree.add(f"[dim]Rationale:[/dim] {decision['rationale']}")
 
@@ -603,7 +616,9 @@ def _viz_ascii_node(parent_tree: Tree, node: dict[str, Any]) -> None:
     """Recursively add decisions to an ASCII tree."""
     decisions = _collect_node_decisions(node)
     for decision_id, decision in decisions.items():
-        branch = parent_tree.add(f"[cyan]{decision_id}[/cyan] ({decision.get('type', '')})")
+        tags = decision.get("tags") or []
+        tag_str = f" [{', '.join(tags)}]" if tags else ""
+        branch = parent_tree.add(f"[cyan]{decision_id}[/cyan]{tag_str}")
 
         options = decision.get("options", {})
         default = decision.get("default")

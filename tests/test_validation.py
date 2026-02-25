@@ -163,31 +163,144 @@ class TestSubAnalysisRequirements:
 
 
 class TestRecipeValidation:
-    """Tests for recipe semantic validation."""
+    """Tests for output-to-output recipe validation."""
 
-    def test_valid_recipes(self, valid_dir: Path):
-        errors = validate_analysis_file(valid_dir / "full.yaml")
-        assert errors == []
+    def test_recipe_inputs_must_reference_declared_outputs(self):
+        """Recipe inputs must reference outputs declared in the same analysis."""
+        data = {
+            "version": "1.0",
+            "name": "test",
+            "inputs": [],
+            "outputs": [
+                {
+                    "id": "result",
+                    "type": "metric",
+                    "recipe": {
+                        "command": "python run.py",
+                        "inputs": ["nonexistent"],
+                    },
+                },
+            ],
+        }
+        errors = validate_analysis(data)
+        codes = [e.code for e in errors]
+        assert "INVALID_RECIPE_INPUT" in codes
 
-    def test_orphan_recipe_output(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "recipe_orphan_output.yaml")
-        assert any(e.code == "ORPHAN_RECIPE_OUTPUT" for e in errors)
+    def test_recipe_output_dependency_cycle(self):
+        """Cycle in output dependencies should be caught."""
+        data = {
+            "version": "1.0",
+            "name": "test",
+            "inputs": [],
+            "outputs": [
+                {"id": "a", "type": "data", "recipe": {"command": "run_a", "inputs": ["b"]}},
+                {"id": "b", "type": "data", "recipe": {"command": "run_b", "inputs": ["a"]}},
+            ],
+        }
+        errors = validate_analysis(data)
+        codes = [e.code for e in errors]
+        assert "RECIPE_CYCLE" in codes
 
-    def test_duplicate_recipe_output(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "recipe_duplicate_output.yaml")
-        assert any(e.code == "DUPLICATE_RECIPE_OUTPUT" for e in errors)
+    def test_valid_recipe_on_output(self):
+        """Valid inline recipe should pass validation."""
+        data = {
+            "version": "1.0",
+            "name": "test",
+            "inputs": [],
+            "outputs": [
+                {"id": "cleaned", "type": "data", "recipe": {"command": "python clean.py"}},
+                {
+                    "id": "result",
+                    "type": "metric",
+                    "recipe": {
+                        "command": "python analyze.py",
+                        "inputs": ["cleaned"],
+                    },
+                },
+            ],
+        }
+        errors = validate_analysis(data)
+        assert len(errors) == 0
 
-    def test_invalid_recipe_dependency(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "recipe_invalid_dep.yaml")
-        assert any(e.code == "INVALID_RECIPE_DEP" for e in errors)
+    def test_valid_recipe_no_inputs(self):
+        """Recipe with no inputs should pass validation."""
+        data = {
+            "version": "1.0",
+            "name": "test",
+            "inputs": [],
+            "outputs": [
+                {
+                    "id": "result",
+                    "type": "metric",
+                    "recipe": {
+                        "command": "python run.py",
+                    },
+                },
+            ],
+        }
+        errors = validate_analysis(data)
+        assert len(errors) == 0
 
-    def test_recipe_cycle(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "recipe_cycle.yaml")
-        assert any(e.code == "RECIPE_CYCLE" for e in errors)
+    def test_self_referencing_recipe_input(self):
+        """Recipe input referencing its own output should create a cycle."""
+        data = {
+            "version": "1.0",
+            "name": "test",
+            "inputs": [],
+            "outputs": [
+                {"id": "a", "type": "data", "recipe": {"command": "run_a", "inputs": ["a"]}},
+            ],
+        }
+        errors = validate_analysis(data)
+        codes = [e.code for e in errors]
+        assert "RECIPE_CYCLE" in codes
 
-    def test_nested_recipes(self, valid_dir: Path):
-        errors = validate_analysis_file(valid_dir / "nested.yaml")
-        assert errors == []
+
+class TestRecipeHelpers:
+    """Tests for recipe helper functions."""
+
+    def test_get_output_dependencies(self):
+        """get_output_dependencies should return output-to-output DAG."""
+        from asp.helpers import get_output_dependencies
+
+        data = {
+            "outputs": [
+                {"id": "clean", "type": "data", "recipe": {"command": "clean.py"}},
+                {
+                    "id": "train",
+                    "type": "data",
+                    "recipe": {
+                        "command": "train.py",
+                        "inputs": ["clean"],
+                    },
+                },
+                {
+                    "id": "eval",
+                    "type": "metric",
+                    "recipe": {
+                        "command": "eval.py",
+                        "inputs": ["train"],
+                    },
+                },
+                {"id": "external", "type": "data"},  # no recipe
+            ],
+        }
+        deps = get_output_dependencies(data)
+        assert deps == {"clean": [], "train": ["clean"], "eval": ["train"], "external": []}
+
+    def test_get_outputs_with_recipes(self):
+        """get_outputs_with_recipes should return only outputs that have recipes."""
+        from asp.helpers import get_outputs_with_recipes
+
+        data = {
+            "outputs": [
+                {"id": "a", "type": "data", "recipe": {"command": "run_a"}},
+                {"id": "b", "type": "data"},
+            ],
+        }
+        result = get_outputs_with_recipes(data)
+        assert len(result) == 1
+        assert result[0]["id"] == "a"
 
 
 class TestDecisionTagsValidation:

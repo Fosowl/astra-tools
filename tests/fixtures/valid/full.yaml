@@ -18,24 +18,46 @@ inputs:
     ref_version: "v1.0"
     description: "Reference study for evidence"
 outputs:
-  - id: accuracy
-    type: metric
-    description: "Model accuracy"
-  - id: f1_score
-    type: metric
-    description: "F1 score"
-  - id: plot
-    type: figure
-    description: "Results plot"
-  - id: summary
-    type: table
-    description: "Results summary"
   - id: trained_output
     type: data
     description: "Trained model artifact"
+    recipe:
+      command: python src/preprocess.py
+
+  - id: accuracy
+    type: metric
+    description: "Model accuracy"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
+
+  - id: f1_score
+    type: metric
+    description: "F1 score"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
+
+  - id: plot
+    type: figure
+    description: "Results plot"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
+
+  - id: summary
+    type: table
+    description: "Results summary"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
+
   - id: conclusion
     type: report
     description: "Analysis conclusion"
+    recipe:
+      command: python src/evaluate.py
+      inputs: [trained_output]
 
 decisions:
   preprocessing:
@@ -91,12 +113,3 @@ decisions:
         label: "42"
       seed_123:
         label: "123"
-
-recipes:
-  preprocess:
-    command: python src/preprocess.py
-    outputs: [trained_output]
-  evaluate:
-    command: python src/evaluate.py
-    outputs: [accuracy, f1_score, plot, summary, conclusion]
-    depends_on: [preprocess]

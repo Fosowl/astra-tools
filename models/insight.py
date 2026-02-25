@@ -5,7 +5,7 @@ content in scientific papers AND analysis-generated artifacts.
 
 Evidence can come from two sources:
 - **Literature**: Referenced by DOI with W3C selectors into PDFs
-- **Analysis artifacts**: Referenced by output ID with a producing recipe
+- **Analysis artifacts**: Referenced by output ID (string)
 
 W3C Web Annotation compliance:
 - TextQuoteSelector: https://www.w3.org/TR/annotation-model/#text-quote-selector
@@ -104,11 +104,9 @@ class Evidence(BaseModel):
       pointing into the PDF. For arXiv papers, use DOI format
       ``10.48550/arXiv.{id}`` and set ``version``.
 
-    - **Analysis artifact** (``artifact``): An output produced by a recipe
-      in this analysis. The ``artifact`` field is an ``Output`` object —
-      the same type used to declare outputs in the analysis — so artifact
-      evidence is structurally identical to declared outputs. The optional
-      ``checksum`` ensures artifact integrity.
+    - **Analysis artifact** (``artifact``): An output produced by this
+      analysis, referenced by its output ID (the ``id`` field in
+      ``outputs``). The optional ``checksum`` ensures artifact integrity.
 
     Exactly one of ``doi`` or ``artifact`` must be set.
     At least one content selector (quote, figure, or table) is required.
@@ -126,7 +124,7 @@ class Evidence(BaseModel):
                 {
                     "required": ["artifact"],
                     "properties": {
-                        "artifact": {"type": "object"},
+                        "artifact": {"type": "string"},
                     },
                 },
             ]
@@ -141,9 +139,9 @@ class Evidence(BaseModel):
         pattern=r"^10\.\d{4,}/.*$",
         description="DOI of the source paper (e.g., '10.48550/arXiv.1706.03762')",
     )
-    artifact: Output | None = Field(
+    artifact: str | None = Field(
         default=None,
-        description="The analysis output that constitutes evidence — same type as declared outputs",
+        description="Output ID referencing a declared output in this analysis",
     )
 
     # Literature-specific
@@ -241,7 +239,7 @@ class Insight(BaseModel):
     Represents a discrete unit of scientific knowledge with full
     traceability to source material. Evidence can come from literature
     (papers referenced by DOI) or from analysis artifacts (outputs
-    produced by recipes), both using W3C-compliant selectors.
+    referenced by ID), both using W3C-compliant selectors.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -303,9 +301,9 @@ class InsightCollection(BaseModel):
         return self.insights.get(insight_id)
 
 
-# Resolve forward references to Output and Checksum from models.analysis.
+# Resolve forward references to Checksum from models.analysis.
 # Imported here (at module bottom) to avoid circular imports at module load time.
-from models.analysis import Checksum, Output  # noqa: E402
+from models.analysis import Checksum  # noqa: E402
 
 Evidence.model_rebuild()
 Insight.model_rebuild()

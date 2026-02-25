@@ -159,28 +159,15 @@
           "type": "string"
         },
         {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Default container image for recipes in this node",
-      "title": "Container"
-    },
-    "recipes": {
-      "anyOf": [
-        {
-          "additionalProperties": {
-            "$ref": "#/$defs/Recipe"
-          },
-          "type": "object"
+          "$ref": "#/$defs/ContainerBuildSpec"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Map of recipe IDs to build rules that produce outputs",
-      "title": "Recipes"
+      "description": "Default container image for recipes in this node. Can be a string (pre-built image) or a build spec with 'build' key.",
+      "title": "Container"
     },
     "analyses": {
       "anyOf": [
@@ -363,28 +350,15 @@
               "type": "string"
             },
             {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Default container image for recipes in this node",
-          "title": "Container"
-        },
-        "recipes": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "$ref": "#/$defs/Recipe"
-              },
-              "type": "object"
+              "$ref": "#/$defs/ContainerBuildSpec"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Map of recipe IDs to build rules that produce outputs",
-          "title": "Recipes"
+          "description": "Default container image for recipes in this node. Can be a string (pre-built image) or a build spec with 'build' key.",
+          "title": "Container"
         },
         "analyses": {
           "anyOf": [
@@ -431,6 +405,51 @@
         "value"
       ],
       "title": "Checksum",
+      "type": "object"
+    },
+    "ContainerBuildSpec": {
+      "additionalProperties": false,
+      "description": "Specification for building a container image from a Containerfile.",
+      "properties": {
+        "build": {
+          "description": "Path to Containerfile relative to project root",
+          "title": "Build",
+          "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Build context directory",
+          "title": "Context"
+        },
+        "args": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Docker build arguments",
+          "title": "Args"
+        }
+      },
+      "required": [
+        "build"
+      ],
+      "title": "ContainerBuildSpec",
       "type": "object"
     },
     "Decision": {
@@ -516,7 +535,7 @@
     },
     "Evidence": {
       "additionalProperties": false,
-      "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by a recipe\n  in this analysis. The ``artifact`` field is an ``Output`` object \u2014\n  the same type used to declare outputs in the analysis \u2014 so artifact\n  evidence is structurally identical to declared outputs. The optional\n  ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
+      "description": "Evidence from a source with W3C-compliant selectors.\n\nEvidence can reference two kinds of sources:\n\n- **Literature** (``doi``): A paper referenced by DOI, with W3C selectors\n  pointing into the PDF. For arXiv papers, use DOI format\n  ``10.48550/arXiv.{id}`` and set ``version``.\n\n- **Analysis artifact** (``artifact``): An output produced by this\n  analysis, referenced by its output ID (the ``id`` field in\n  ``outputs``). The optional ``checksum`` ensures artifact integrity.\n\nExactly one of ``doi`` or ``artifact`` must be set.\nAt least one content selector (quote, figure, or table) is required.",
       "oneOf": [
         {
           "properties": {
@@ -531,7 +550,7 @@
         {
           "properties": {
             "artifact": {
-              "type": "object"
+              "type": "string"
             }
           },
           "required": [
@@ -563,14 +582,15 @@
         "artifact": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Output"
+              "type": "string"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "The analysis output that constitutes evidence \u2014 same type as declared outputs"
+          "description": "Output ID referencing a declared output in this analysis",
+          "title": "Artifact"
         },
         "version": {
           "anyOf": [
@@ -884,7 +904,7 @@
     },
     "Insight": {
       "additionalProperties": false,
-      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge with full\ntraceability to source material. Evidence can come from literature\n(papers referenced by DOI) or from analysis artifacts (outputs\nproduced by recipes), both using W3C-compliant selectors.",
+      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge with full\ntraceability to source material. Evidence can come from literature\n(papers referenced by DOI) or from analysis artifacts (outputs\nreferenced by ID), both using W3C-compliant selectors.",
       "properties": {
         "id": {
           "description": "Unique identifier",
@@ -1106,6 +1126,18 @@
           "default": null,
           "description": "Sub-analysis output that produces this (e.g., 'sub_analysis.output_id')",
           "title": "From"
+        },
+        "recipe": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Recipe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Inline recipe describing how to produce this output"
         }
       },
       "required": [
@@ -1117,36 +1149,14 @@
     },
     "Recipe": {
       "additionalProperties": false,
-      "description": "A build rule that produces one or more outputs.\n\nRecipes are the execution contract: run this command (optionally in a\ncontainer) to produce the declared outputs.  Dependencies between\nrecipes within the same analysis node form a DAG.",
+      "description": "A build rule that produces an output.\n\nRecipes are the execution contract: run this command (optionally in a\ncontainer) to produce the parent output. Dependencies on other outputs\nare declared via ``inputs``.",
       "properties": {
         "command": {
           "description": "Command to execute (e.g., 'python src/train.py')",
           "title": "Command",
           "type": "string"
         },
-        "outputs": {
-          "description": "Output IDs this recipe produces (must match declared outputs)",
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Outputs",
-          "type": "array"
-        },
-        "container": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Container image override (defaults to node-level container)",
-          "title": "Container"
-        },
-        "depends_on": {
+        "inputs": {
           "anyOf": [
             {
               "items": {
@@ -1159,8 +1169,24 @@
             }
           ],
           "default": null,
-          "description": "Recipe IDs that must complete before this recipe runs",
-          "title": "Depends On"
+          "description": "Output IDs that must be materialized before this recipe runs",
+          "title": "Inputs"
+        },
+        "container": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ContainerBuildSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Container image override (defaults to node-level container). Can be a string (pre-built image) or a build spec with 'build' key.",
+          "title": "Container"
         },
         "resources": {
           "anyOf": [
@@ -1176,8 +1202,7 @@
         }
       },
       "required": [
-        "command",
-        "outputs"
+        "command"
       ],
       "title": "Recipe",
       "type": "object"
