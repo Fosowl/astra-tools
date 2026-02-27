@@ -27,7 +27,7 @@ analyses:
   build_mocks:
     parent_decisions: [cosmology_model]
     success_criteria:
-      - "Mock catalog matches observed magnitude distribution"
+      - claim: "Mock catalog matches observed magnitude distribution"
     inputs:
       - id: survey_data
         type: data

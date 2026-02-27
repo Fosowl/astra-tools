@@ -93,7 +93,7 @@
       "anyOf": [
         {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/SuccessCriterion"
           },
           "type": "array"
         },
@@ -102,7 +102,7 @@
         }
       ],
       "default": null,
-      "description": "Concrete criteria for determining if this analysis succeeded.",
+      "description": "Concrete criteria for determining if this analysis succeeded. Each criterion is a structured object with a claim and optional output reference.",
       "title": "Success Criteria"
     },
     "inputs": {
@@ -284,7 +284,7 @@
           "anyOf": [
             {
               "items": {
-                "type": "string"
+                "$ref": "#/$defs/SuccessCriterion"
               },
               "type": "array"
             },
@@ -293,7 +293,7 @@
             }
           ],
           "default": null,
-          "description": "Concrete criteria for determining if this analysis succeeded.",
+          "description": "Concrete criteria for determining if this analysis succeeded. Each criterion is a structured object with a claim and optional output reference.",
           "title": "Success Criteria"
         },
         "inputs": {
@@ -1267,6 +1267,48 @@
         }
       },
       "title": "Resources",
+      "type": "object"
+    },
+    "SuccessCriterion": {
+      "additionalProperties": false,
+      "description": "A structured criterion linking a claim to an output and condition.",
+      "properties": {
+        "claim": {
+          "description": "Human-readable statement of the criterion",
+          "title": "Claim",
+          "type": "string"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ID of the output to check against",
+          "title": "Output"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Condition to evaluate, e.g. 'value > 0.95'",
+          "title": "Condition"
+        }
+      },
+      "required": [
+        "claim"
+      ],
+      "title": "SuccessCriterion",
       "type": "object"
     },
     "TableSelector": {

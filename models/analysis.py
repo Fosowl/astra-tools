@@ -200,6 +200,29 @@ class Decision(BaseModel):
         return self
 
 
+class SuccessCriterion(BaseModel):
+    """A structured criterion linking a claim to an output and condition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim: str = Field(description="Human-readable statement of the criterion")
+    output: str | None = Field(
+        default=None,
+        description="ID of the output to check against",
+    )
+    condition: str | None = Field(
+        default=None,
+        description="Condition to evaluate, e.g. 'value > 0.95'",
+    )
+
+    @model_validator(mode="after")
+    def validate_condition_requires_output(self) -> SuccessCriterion:
+        """Ensure condition is only set when output is also set."""
+        if self.condition is not None and self.output is None:
+            raise ValueError("'condition' requires 'output' to be set")
+        return self
+
+
 class Analysis(BaseModel):
     """A self-similar analysis specification.
 
@@ -237,9 +260,10 @@ class Analysis(BaseModel):
     description: str | None = Field(
         default=None, description="Detailed description of this analysis"
     )
-    success_criteria: list[str] | None = Field(
+    success_criteria: list[SuccessCriterion] | None = Field(
         default=None,
-        description="Concrete criteria for determining if this analysis succeeded.",
+        description="Concrete criteria for determining if this analysis succeeded. "
+        "Each criterion is a structured object with a claim and optional output reference.",
     )
     inputs: list[Input] | None = Field(
         default=None,
