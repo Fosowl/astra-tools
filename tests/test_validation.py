@@ -374,9 +374,7 @@ class TestSuccessCriteriaValidation:
 
     def test_condition_without_output(self, invalid_dir: Path):
         """Condition set without output should fail semantic validation."""
-        errors = validate_analysis_file(
-            invalid_dir / "success_criteria_condition_no_output.yaml"
-        )
+        errors = validate_analysis_file(invalid_dir / "success_criteria_condition_no_output.yaml")
         assert any(e.code == "CRITERION_CONDITION_NO_OUTPUT" for e in errors)
 
     def test_bad_output_reference(self, invalid_dir: Path):
