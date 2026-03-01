@@ -381,9 +381,7 @@ class TestSuccessCriteriaValidation:
 
     def test_bad_output_reference(self, invalid_dir: Path):
         """Criterion referencing non-existent output should fail semantic validation."""
-        errors = validate_analysis_file(
-            invalid_dir / "success_criteria_bad_output.yaml"
-        )
+        errors = validate_analysis_file(invalid_dir / "success_criteria_bad_output.yaml")
         assert any(e.code == "INVALID_CRITERION_OUTPUT" for e in errors)
 
 
