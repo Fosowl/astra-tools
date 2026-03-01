@@ -359,6 +359,30 @@ class TestUniverseNewFeaturesValidation:
         assert any(e.code == "INACTIVE_DECISION" for e in errors)
 
 
+class TestSuccessCriteriaValidation:
+    """Tests for structured success criteria."""
+
+    def test_valid_success_criteria(self, valid_dir: Path):
+        """Structured criteria with valid output refs should pass."""
+        errors = validate_analysis_file(valid_dir / "success_criteria.yaml")
+        assert errors == []
+
+    def test_valid_success_criteria_schema(self, valid_dir: Path):
+        """Structured success criteria should pass schema validation."""
+        errors = validate_analysis_schema(valid_dir / "success_criteria.yaml")
+        assert errors == []
+
+    def test_condition_without_output(self, invalid_dir: Path):
+        """Condition set without output should fail semantic validation."""
+        errors = validate_analysis_file(invalid_dir / "success_criteria_condition_no_output.yaml")
+        assert any(e.code == "CRITERION_CONDITION_NO_OUTPUT" for e in errors)
+
+    def test_bad_output_reference(self, invalid_dir: Path):
+        """Criterion referencing non-existent output should fail semantic validation."""
+        errors = validate_analysis_file(invalid_dir / "success_criteria_bad_output.yaml")
+        assert any(e.code == "INVALID_CRITERION_OUTPUT" for e in errors)
+
+
 class TestSemanticError:
     """Tests for SemanticError class."""
 
