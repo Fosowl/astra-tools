@@ -93,8 +93,7 @@ def init(directory: Path, no_git: bool) -> None:
             f"(astra.yaml exists)."
         )
         console.print(
-            "Use [cyan]astra validate[/cyan] to check it,"
-            " or delete astra.yaml to re-init."
+            "Use [cyan]astra validate[/cyan] to check it, or delete astra.yaml to re-init."
         )
         raise SystemExit(1)
 
