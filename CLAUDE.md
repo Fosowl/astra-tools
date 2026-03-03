@@ -11,14 +11,14 @@ ASTRA (Agentic Schema for Transparent Research Analysis) is the **core specifica
 **Architecture**:
 - **ASTRA** (this repo) = pure specification: schema, validation, insights, verification, helpers, minimal CLI
 - **Prism** (separate repo) = agentic layer: Claude Code skills, project scaffolding, remote/HPC config
-- **Spectrum** (future) = UI layer
+- **Prism-UI** (separate repo) = visual UI: VS Code extension for viewing/editing ASTRA analyses
 
 ## Repository Structure
 
 ```
 ASTRA/
 ├── spec/                          # THE SPECIFICATION (versioned)
-│   └── draft/                     # Working version (becomes 1.0/ at release)
+│   └── draft/                     # Working version (copied to X.Y/ at release)
 │       ├── analysis.schema.json
 │       ├── universe.schema.json
 │       └── insights.schema.json
@@ -43,7 +43,7 @@ ASTRA/
 │   │   └── semantic.py            # Semantic validation
 │   ├── papers/                    # Paper downloading and caching
 │   └── verification/              # PDF processing and insight verification
-│   # Note: asp/spec/ created at build time with bundled schemas
+│   # Note: astra/spec/ created at build time with bundled schemas
 │
 ├── tools/                         # Build scripts (dev only)
 │   └── generate_schemas.py        # models/ → spec/draft/
@@ -56,7 +56,7 @@ ASTRA/
 
 ### Key Design Principles
 
-1. **JSON schemas are the contract** - Released versions (e.g., `spec/1.0/`) are immutable
+1. **JSON schemas are the contract** - Released versions (e.g., `spec/0.0/`) are immutable
 2. **Pydantic models are the source** - `models/` generates schemas, NOT installed
 3. **Schemas not in source tree** - `spec/draft/` bundled at build time, loaded directly in dev
 4. **Validation is dict-based** - No Pydantic models in validation path
@@ -66,7 +66,7 @@ ASTRA/
 
 1. **Specification** (`spec/`)
    - Versioned JSON schemas defining the ASTRA format
-   - `spec/v1/` is immutable once released
+   - Released versions (`spec/0.0.6/`, `spec/0.0/`) are immutable
    - `spec/draft/` is the working version
 
 2. **Schema Generation** (`models/`)
@@ -83,7 +83,7 @@ ASTRA/
    - Built with Click and Rich for terminal UI
    - Commands: init, validate, info, universe, viz, schema, paper
    - Uses `find_analysis_file()` to locate `astra.yaml`
-   - `init` creates a minimal scaffold (astra.yaml, universes/, src/, .gitignore)
+   - `init` creates a minimal scaffold (astra.yaml, universes/, src/, outputs/, .gitignore)
 
 5. **Helpers** (`src/astra/helpers.py`)
    - Dict-based utilities: `load_yaml`, `get_decision`, `get_default_universe`
@@ -95,12 +95,12 @@ ASTRA/
 
 ### Key Concepts
 
-- **Analysis**: A self-similar node with inputs, outputs, decisions, insights, recipes, and optional sub-analyses. Every level has the same structure.
+- **Analysis**: A self-similar node with inputs, outputs (with optional inline recipes), decisions, insights, and optional sub-analyses. Every level has the same structure.
 - **Decision**: A choice point with multiple options (e.g., "which scaling method?"). Decisions live directly on the analysis node.
 - **Universe**: One complete set of decisions — one option per decision point. The universe mirrors the analysis tree structure.
 - **Multiverse**: The space of all valid decision combinations
 - **Insight**: Scientific knowledge from papers, with precise evidence (W3C selectors)
-- **Recipe**: A build rule that produces one or more outputs (command, container, resources)
+- **Recipe**: An inline build rule on an output (command, optional inputs/container/resources)
 - **Constraints**: `incompatible_with` and `requires` relationships between decision options (scoped within an analysis node)
 - **Sub-analysis**: A nested analysis under `analyses:` with its own inputs, outputs, and decisions. Inputs can reference parent inputs (`from: input_id`) or sibling outputs (`from: sibling.output_id`).
 
@@ -270,9 +270,9 @@ Release process:
 4. Tag the release (e.g., `git tag v1.0.0`)
 5. The X.Y.Z schemas are **immutable** after release
 
-The `version` field in astra.yaml must match a released spec version:
+The `version` field in astra.yaml declares which spec version the file targets:
 ```yaml
-version: "1.0.0"  # Must match a spec/X.Y.Z/ directory
+version: "1.0"  # Semver format validated by regex, not checked against spec/ directories
 ```
 
 ## Configuration
@@ -282,7 +282,7 @@ version: "1.0.0"  # Must match a spec/X.Y.Z/ directory
 - Ruff: line-length = 100, target-version = "py311"
 - MyPy: strict mode enabled
 - Versioning: Uses hatch-vcs (version from git tags)
-- Schema bundling: `spec/draft/` bundled into `asp/spec/` at build time
+- Schema bundling: `spec/draft/` bundled into `astra/spec/` at build time
 
 ### Dependencies
 - Core: click, pyyaml, jsonschema, pydantic, rich, pypdf, httpx, rapidfuzz
