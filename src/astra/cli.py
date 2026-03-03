@@ -92,7 +92,10 @@ def init(directory: Path, no_git: bool) -> None:
             f"[red]Error:[/red] [cyan]{directory}[/cyan] is already an ASTRA project "
             f"(astra.yaml exists)."
         )
-        console.print("Use [cyan]astra validate[/cyan] to check it, or delete astra.yaml to re-init.")
+        console.print(
+            "Use [cyan]astra validate[/cyan] to check it,"
+            " or delete astra.yaml to re-init."
+        )
         raise SystemExit(1)
 
     # Create project directory
