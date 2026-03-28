@@ -139,18 +139,19 @@ class TestNestedAnalysisValidation:
 
 
 class TestSubAnalysisRequirements:
-    """Tests for sub-analysis required fields and parent_decisions."""
+    """Tests for sub-analysis required fields and decision from: references."""
 
     def test_sub_missing_outputs(self, invalid_dir: Path):
         errors = validate_analysis_file(invalid_dir / "sub_missing_outputs.yaml")
         assert any(e.code == "MISSING_SUB_FIELD" and "outputs" in e.message for e in errors)
 
-    def test_invalid_parent_decision(self, invalid_dir: Path):
+    def test_invalid_decision_from_ref(self, invalid_dir: Path):
+        """Decision with from: referencing non-existent parent decision."""
         errors = validate_analysis_file(invalid_dir / "invalid_parent_decision.yaml")
-        assert any(e.code == "INVALID_PARENT_DECISION" for e in errors)
+        assert any(e.code == "INVALID_DECISION_FROM_REF" for e in errors)
 
     def test_cross_level_constraint_in_analysis(self, valid_dir: Path):
-        """parent_decisions allows constraints referencing parent decisions."""
+        """Decision from: allows constraints referencing parent decisions."""
         errors = validate_analysis_file(valid_dir / "nested.yaml")
         assert errors == []
 
@@ -315,18 +316,6 @@ class TestDecisionTagsValidation:
         assert data["decisions"]["preprocessing"]["tags"] == ["data_preparation"]
 
 
-class TestConditionalDecisionValidation:
-    """Tests for conditional decision (when) validation."""
-
-    def test_valid_when(self, valid_dir: Path):
-        errors = validate_analysis_file(valid_dir / "full_v2.yaml")
-        assert errors == []
-
-    def test_invalid_when_ref(self, invalid_dir: Path):
-        errors = validate_analysis_file(invalid_dir / "invalid_when_ref.yaml")
-        assert any(e.code == "INVALID_WHEN_REF" for e in errors)
-
-
 class TestExcludedOptionValidation:
     """Tests for excluded option validation."""
 
@@ -351,12 +340,6 @@ class TestUniverseNewFeaturesValidation:
         universe_data = load_yaml(invalid_dir / "universe_excluded_option.yaml")
         errors = validate_universe(universe_data, analysis_data)
         assert any(e.code == "EXCLUDED_OPTION_SELECTED" for e in errors)
-
-    def test_inactive_decision_in_universe(self, invalid_dir: Path, valid_dir: Path):
-        analysis_data = load_yaml(valid_dir / "full_v2.yaml")
-        universe_data = load_yaml(invalid_dir / "universe_inactive_decision.yaml")
-        errors = validate_universe(universe_data, analysis_data)
-        assert any(e.code == "INACTIVE_DECISION" for e in errors)
 
 
 class TestSuccessCriteriaValidation:
@@ -396,3 +379,14 @@ class TestSemanticError:
         error = SemanticError("TEST_CODE", "Test message")
         assert "[TEST_CODE]" in str(error)
         assert "Test message" in str(error)
+
+
+class TestConditionalOutputsUniverse:
+    """Tests for universe validation with conditional outputs."""
+
+    def test_valid_universe_with_conditional_outputs(self, valid_dir: Path):
+        """Universe should validate against analysis with conditional outputs."""
+        analysis_data = load_yaml(valid_dir / "conditional_outputs.yaml")
+        universe_data = load_yaml(valid_dir / "conditional_outputs_universe.yaml")
+        errors = validate_universe(universe_data, analysis_data)
+        assert errors == []
