@@ -278,7 +278,7 @@
     },
     "Insight": {
       "additionalProperties": false,
-      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge with full\ntraceability to source material. Evidence can come from literature\n(papers referenced by DOI) or from analysis artifacts (outputs\nreferenced by ID), both using W3C-compliant selectors.",
+      "description": "A unit of scientific knowledge backed by evidence.\n\nUsed for both ``prior_insights`` (informing decisions) and ``findings``\n(conclusions from the analysis) on an analysis node. The placement\ndetermines direction; the model is the same in both cases.\n\nEvidence can reference literature (by DOI) or analysis output artifacts\n(by output ID via ``Evidence.artifact``). At least one evidence item\nis required.",
       "properties": {
         "id": {
           "description": "Unique identifier",
@@ -299,7 +299,7 @@
           "type": "string"
         },
         "evidence": {
-          "description": "Supporting evidence",
+          "description": "Supporting evidence (papers or analysis artifacts)",
           "items": {
             "$ref": "#/$defs/Evidence"
           },

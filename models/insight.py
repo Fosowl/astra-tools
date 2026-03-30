@@ -199,9 +199,10 @@ class Evidence(BaseModel):
         if has_artifact and self.version is not None:
             raise ValueError("'version' is only valid for literature evidence, not artifacts")
 
-        if not (self.quote or self.figure or self.table):
+        if has_doi and not (self.quote or self.figure or self.table):
             raise ValueError(
-                "Evidence must have at least one content selector: quote, figure, or table"
+                "Literature evidence must have at least one content selector: "
+                "quote, figure, or table"
             )
         return self
 
@@ -235,12 +236,15 @@ class Evidence(BaseModel):
 
 
 class Insight(BaseModel):
-    """A scientific insight with provenance and supporting evidence.
+    """A unit of scientific knowledge backed by evidence.
 
-    Represents a discrete unit of scientific knowledge with full
-    traceability to source material. Evidence can come from literature
-    (papers referenced by DOI) or from analysis artifacts (outputs
-    referenced by ID), both using W3C-compliant selectors.
+    Used for both ``prior_insights`` (informing decisions) and ``findings``
+    (conclusions from the analysis) on an analysis node. The placement
+    determines direction; the model is the same in both cases.
+
+    Evidence can reference literature (by DOI) or analysis output artifacts
+    (by output ID via ``Evidence.artifact``). At least one evidence item
+    is required.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -249,7 +253,11 @@ class Insight(BaseModel):
     id: str = Field(min_length=1, description="Unique identifier")
     claim: str = Field(min_length=1, description="What we learned (1-2 sentences)")
     created_at: datetime = Field(description="Creation timestamp (ISO 8601)")
-    evidence: list[Evidence] = Field(min_length=1, description="Supporting evidence")
+
+    # Evidence supporting this insight
+    evidence: list[Evidence] = Field(
+        min_length=1, description="Supporting evidence (papers or analysis artifacts)"
+    )
 
     # Optional classification
     derived: bool = Field(default=False, description="True if synthesized/inferred")

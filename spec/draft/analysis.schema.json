@@ -145,12 +145,20 @@
       "title": "Decisions",
       "type": "object"
     },
-    "insights": {
+    "prior_insights": {
       "additionalProperties": {
         "$ref": "#/$defs/Insight"
       },
-      "description": "Map of insight IDs to insight specifications",
-      "title": "Insights",
+      "description": "Map of prior insight IDs to insight specifications (inform decisions)",
+      "title": "Prior Insights",
+      "type": "object"
+    },
+    "findings": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Insight"
+      },
+      "description": "Map of finding IDs to insight specifications (conclusions from outputs)",
+      "title": "Findings",
       "type": "object"
     },
     "container": {
@@ -349,12 +357,20 @@
           "title": "Decisions",
           "type": "object"
         },
-        "insights": {
+        "prior_insights": {
           "additionalProperties": {
             "$ref": "#/$defs/Insight"
           },
-          "description": "Map of insight IDs to insight specifications",
-          "title": "Insights",
+          "description": "Map of prior insight IDs to insight specifications (inform decisions)",
+          "title": "Prior Insights",
+          "type": "object"
+        },
+        "findings": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Insight"
+          },
+          "description": "Map of finding IDs to insight specifications (conclusions from outputs)",
+          "title": "Findings",
           "type": "object"
         },
         "container": {
@@ -536,6 +552,25 @@
           "default": null,
           "description": "Tags for grouping and categorizing this decision",
           "title": "Tags"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Condition(s): 'decision_id.option_id' or '~decision_id.option_id' \u2014 this decision only exists when all conditions are met. Prefix with ~ for negation. Lists are AND'd together.",
+          "title": "When"
         },
         "default": {
           "anyOf": [
@@ -941,7 +976,7 @@
     },
     "Insight": {
       "additionalProperties": false,
-      "description": "A scientific insight with provenance and supporting evidence.\n\nRepresents a discrete unit of scientific knowledge with full\ntraceability to source material. Evidence can come from literature\n(papers referenced by DOI) or from analysis artifacts (outputs\nreferenced by ID), both using W3C-compliant selectors.",
+      "description": "A unit of scientific knowledge backed by evidence.\n\nUsed for both ``prior_insights`` (informing decisions) and ``findings``\n(conclusions from the analysis) on an analysis node. The placement\ndetermines direction; the model is the same in both cases.\n\nEvidence can reference literature (by DOI) or analysis output artifacts\n(by output ID via ``Evidence.artifact``). At least one evidence item\nis required.",
       "properties": {
         "id": {
           "description": "Unique identifier",
@@ -962,7 +997,7 @@
           "type": "string"
         },
         "evidence": {
-          "description": "Supporting evidence",
+          "description": "Supporting evidence (papers or analysis artifacts)",
           "items": {
             "$ref": "#/$defs/Evidence"
           },
@@ -1163,6 +1198,25 @@
           "default": null,
           "description": "Sub-analysis output that produces this (e.g., 'sub_analysis.output_id')",
           "title": "From"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Condition(s): 'decision_id.option_id' or '~decision_id.option_id' \u2014 this output only exists when all conditions are met. Prefix with ~ for negation. Lists are AND'd together.",
+          "title": "When"
         },
         "recipe": {
           "anyOf": [

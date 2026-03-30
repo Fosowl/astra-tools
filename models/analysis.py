@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+# Pattern for when condition strings: optional ~ prefix, then decision_id.option_id
+WHEN_PATTERN = re.compile(r"^~?[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
 
 
 class Checksum(BaseModel):
@@ -37,20 +41,14 @@ class Input(BaseModel):
     description: str | None = Field(default=None, description="Description of the input")
 
     # Data inputs
-    source: str | None = Field(
-        default=None, description="URI or path to the data source"
-    )
+    source: str | None = Field(default=None, description="URI or path to the data source")
     checksum: Checksum | None = Field(
         default=None, description="Checksum for data integrity verification"
     )
 
     # Analysis inputs
-    ref: str | None = Field(
-        default=None, description="Reference to another ASTRA analysis"
-    )
-    ref_version: str | None = Field(
-        default=None, description="Version of the referenced analysis"
-    )
+    ref: str | None = Field(default=None, description="Reference to another ASTRA analysis")
+    ref_version: str | None = Field(default=None, description="Version of the referenced analysis")
     use_outputs: list[str] | None = Field(
         default=None, description="Specific outputs to use from referenced analysis"
     )
@@ -137,8 +135,15 @@ class Output(BaseModel):
     from_: str | None = Field(
         default=None,
         alias="from",
-        description="Sub-analysis output that produces this "
-        "(e.g., 'sub_analysis.output_id')",
+        description="Sub-analysis output that produces this (e.g., 'sub_analysis.output_id')",
+    )
+
+    # Conditional: when this output is active
+    when: str | list[str] | None = Field(
+        default=None,
+        description="Condition(s): 'decision_id.option_id' or '~decision_id.option_id' — "
+        "this output only exists when all conditions are met. "
+        "Prefix with ~ for negation. Lists are AND'd together.",
     )
 
     # Execution: how to produce this output
@@ -146,6 +151,19 @@ class Output(BaseModel):
         default=None,
         description="Inline recipe describing how to produce this output",
     )
+
+    @model_validator(mode="after")
+    def validate_when_format(self) -> Output:
+        """Validate that each when condition matches the expected pattern."""
+        if self.when is not None:
+            conditions = [self.when] if isinstance(self.when, str) else self.when
+            for cond in conditions:
+                if not WHEN_PATTERN.match(cond):
+                    raise ValueError(
+                        f"Invalid 'when' condition '{cond}': must match '[~]decision_id.option_id'"
+                    )
+        return self
+
 
 class Option(BaseModel):
     """An option for a decision."""
@@ -168,9 +186,7 @@ class Option(BaseModel):
     excluded: bool = Field(
         default=False, description="Whether this option was considered and rejected"
     )
-    excluded_reason: str | None = Field(
-        default=None, description="Why this option was excluded"
-    )
+    excluded_reason: str | None = Field(default=None, description="Why this option was excluded")
 
 
 class Decision(BaseModel):
@@ -199,6 +215,12 @@ class Decision(BaseModel):
     rationale: str | None = Field(default=None, description="Why this decision exists")
     tags: list[str] | None = Field(
         default=None, description="Tags for grouping and categorizing this decision"
+    )
+    when: str | list[str] | None = Field(
+        default=None,
+        description="Condition(s): 'decision_id.option_id' or '~decision_id.option_id' — "
+        "this decision only exists when all conditions are met. "
+        "Prefix with ~ for negation. Lists are AND'd together.",
     )
     default: str | None = Field(
         default=None, description="Default option ID for baseline universes"
@@ -234,6 +256,13 @@ class Decision(BaseModel):
 
         if self.default is not None and self.default not in self.options:
             raise ValueError(f"Default option '{self.default}' not found in options")
+        if self.when is not None:
+            conditions = [self.when] if isinstance(self.when, str) else self.when
+            for cond in conditions:
+                if not WHEN_PATTERN.match(cond):
+                    raise ValueError(
+                        f"Invalid 'when' condition '{cond}': must match '[~]decision_id.option_id'"
+                    )
         return self
 
 
@@ -314,9 +343,13 @@ class Analysis(BaseModel):
         default_factory=dict,
         description="Map of decision IDs to decision specifications",
     )
-    insights: dict[str, Insight] = Field(
+    prior_insights: dict[str, Insight] = Field(
         default_factory=dict,
-        description="Map of insight IDs to insight specifications",
+        description="Map of prior insight IDs to insight specifications (inform decisions)",
+    )
+    findings: dict[str, Insight] = Field(
+        default_factory=dict,
+        description="Map of finding IDs to insight specifications (conclusions from outputs)",
     )
 
     # Execution
@@ -345,7 +378,7 @@ class Analysis(BaseModel):
         """Validate that path is mutually exclusive with inline content."""
         if self.path is not None:
             inline_fields = [self.inputs, self.outputs]
-            inline_dicts = [self.decisions, self.insights]
+            inline_dicts = [self.decisions, self.prior_insights, self.findings]
             has_inline = (
                 any(f is not None for f in inline_fields)
                 or any(d for d in inline_dicts)
@@ -355,11 +388,10 @@ class Analysis(BaseModel):
             if has_inline:
                 raise ValueError(
                     "A sub-analysis with 'path' must not have inline content "
-                    "(inputs, outputs, decisions, insights, analyses, success_criteria). "
-                    "Content is loaded from the external astra.yaml."
+                    "(inputs, outputs, decisions, prior_insights, findings, analyses, "
+                    "success_criteria). Content is loaded from the external astra.yaml."
                 )
         return self
-
 
 
 # Resolve forward references to Insight from models.insight.

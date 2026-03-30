@@ -15,6 +15,37 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+def is_condition_met(
+    when: str | list[str] | None,
+    universe_decisions: dict[str, str],
+) -> bool:
+    """Check if a when condition is met given universe decisions.
+
+    Args:
+        when: A string, list of strings, or None. Each string is
+            ``decision_id.option_id`` or ``~decision_id.option_id`` (negation).
+            Multiple items are AND'd together.
+        universe_decisions: Dict mapping decision_id to selected option_id.
+
+    Returns:
+        True if the condition is met (or when is None), False otherwise.
+    """
+    if when is None:
+        return True
+    conditions = [when] if isinstance(when, str) else when
+    for cond in conditions:
+        negate = cond.startswith("~")
+        ref = cond.lstrip("~")
+        decision_id, option_id = ref.split(".")
+        selected = universe_decisions.get(decision_id)
+        match = selected == option_id
+        if negate:
+            match = not match
+        if not match:
+            return False  # AND logic: all must be true
+    return True
+
+
 def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
     """Collect locally-defined decisions from a node.
 
@@ -207,18 +238,32 @@ def _search_node_decision(node: dict[str, Any], decision_id: str) -> dict[str, A
     return None
 
 
-def get_insight(data: dict[str, Any], insight_id: str) -> dict[str, Any] | None:
-    """Get an insight by ID from analysis data.
+def get_prior_insight(data: dict[str, Any], insight_id: str) -> dict[str, Any] | None:
+    """Get a prior insight by ID from analysis data.
 
     Args:
         data: Analysis data as a dict.
-        insight_id: The insight ID to find.
+        insight_id: The prior insight ID to find.
 
     Returns:
-        The insight dict if found, None otherwise.
+        The prior insight dict if found, None otherwise.
     """
-    insights: dict[str, dict[str, Any]] = data.get("insights", {})
-    return insights.get(insight_id)
+    prior_insights: dict[str, dict[str, Any]] = data.get("prior_insights", {})
+    return prior_insights.get(insight_id)
+
+
+def get_finding(data: dict[str, Any], finding_id: str) -> dict[str, Any] | None:
+    """Get a finding by ID from analysis data.
+
+    Args:
+        data: Analysis data as a dict.
+        finding_id: The finding ID to find.
+
+    Returns:
+        The finding dict if found, None otherwise.
+    """
+    findings: dict[str, dict[str, Any]] = data.get("findings", {})
+    return findings.get(finding_id)
 
 
 def get_default_universe(data: dict[str, Any]) -> dict[str, Any]:
@@ -240,9 +285,29 @@ def _get_node_defaults(node: dict[str, Any]) -> dict[str, Any]:
     all_decisions = _collect_node_decisions(node)
 
     for decision_id, decision in all_decisions.items():
+        if decision.get("when"):
+            continue  # Conditional decisions handled in second pass
         default = decision.get("default")
         if default is not None:
             decisions[decision_id] = default
+
+    # Second pass: fixed-point loop for conditional decisions whose conditions are met.
+    # Iterate until no new defaults are added, so that ordering in the YAML doesn't matter
+    # (a conditional decision can depend on another conditional decision resolved earlier).
+    changed = True
+    while changed:
+        changed = False
+        for decision_id, decision in all_decisions.items():
+            if decision_id in decisions:
+                continue  # Already resolved
+            when = decision.get("when")
+            if not when:
+                continue
+            if is_condition_met(when, decisions):
+                default = decision.get("default")
+                if default is not None:
+                    decisions[decision_id] = default
+                    changed = True
 
     if decisions:
         result["decisions"] = decisions
@@ -331,16 +396,28 @@ def _collect_node_decision_ids(node: dict[str, Any], result: set[str]) -> None:
         _collect_node_decision_ids(sub_node, result)
 
 
-def get_insight_ids(data: dict[str, Any]) -> set[str]:
-    """Get all insight IDs from analysis data.
+def get_prior_insight_ids(data: dict[str, Any]) -> set[str]:
+    """Get all prior insight IDs from analysis data.
 
     Args:
         data: Analysis data as a dict.
 
     Returns:
-        Set of insight IDs.
+        Set of prior insight IDs.
     """
-    return set(data.get("insights", {}).keys())
+    return set(data.get("prior_insights", {}).keys())
+
+
+def get_finding_ids(data: dict[str, Any]) -> set[str]:
+    """Get all finding IDs from analysis data.
+
+    Args:
+        data: Analysis data as a dict.
+
+    Returns:
+        Set of finding IDs.
+    """
+    return set(data.get("findings", {}).keys())
 
 
 def get_inputs(data: dict[str, Any]) -> list[dict[str, Any]]:
