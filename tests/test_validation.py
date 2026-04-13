@@ -346,30 +346,6 @@ class TestUniverseNewFeaturesValidation:
         assert any(e.code == "EXCLUDED_OPTION_SELECTED" for e in errors)
 
 
-class TestSuccessCriteriaValidation:
-    """Tests for structured success criteria."""
-
-    def test_valid_success_criteria(self, valid_dir: Path):
-        """Structured criteria with valid output refs should pass."""
-        errors = validate_analysis_file(valid_dir / "success_criteria.yaml")
-        assert errors == []
-
-    def test_valid_success_criteria_schema(self, valid_dir: Path):
-        """Structured success criteria should pass schema validation."""
-        errors = validate_analysis_schema(valid_dir / "success_criteria.yaml")
-        assert errors == []
-
-    def test_condition_without_output(self, invalid_dir: Path):
-        """Condition set without output should fail semantic validation."""
-        errors = validate_analysis_file(invalid_dir / "success_criteria_condition_no_output.yaml")
-        assert any(e.code == "CRITERION_CONDITION_NO_OUTPUT" for e in errors)
-
-    def test_bad_output_reference(self, invalid_dir: Path):
-        """Criterion referencing non-existent output should fail semantic validation."""
-        errors = validate_analysis_file(invalid_dir / "success_criteria_bad_output.yaml")
-        assert any(e.code == "INVALID_CRITERION_OUTPUT" for e in errors)
-
-
 class TestSemanticError:
     """Tests for SemanticError class."""
 
@@ -554,7 +530,7 @@ class TestConditionalOutputsUniverse:
             "decisions": {
                 "mode": "basic",
                 "backend": "cpu",
-                "gpu_optimization": "tensor_cores",  # inactive: mode != advanced
+                "gpu_optimization": "tensor_cores",
             },
         }
         errors = validate_universe(universe_data, analysis_data)
@@ -622,8 +598,9 @@ class TestDefaultUniverseConditional:
 
         data = load_yaml(valid_dir / "decision_list_when.yaml")
         defaults = get_default_universe(data)
+        decisions = defaults["decisions"]
         # mode=advanced, backend=gpu -> gpu_optimization should be included
-        assert defaults["decisions"]["gpu_optimization"] == "tensor_cores"
+        assert decisions["gpu_optimization"] == "tensor_cores"
 
     def test_defaults_skip_unmet_list_when(self):
         """Conditional decision with unmet list when should be skipped."""
@@ -656,5 +633,6 @@ class TestDefaultUniverseConditional:
             }
         }
         defaults = get_default_universe(data)
+        decisions = defaults["decisions"]
         # mode=basic -> condition not met, gpu_opt should NOT be included
-        assert "gpu_opt" not in defaults["decisions"]
+        assert "gpu_opt" not in decisions

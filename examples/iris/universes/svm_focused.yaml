@@ -1,5 +1,3 @@
-$schema: "https://astra-spec.org/v1/universe.schema.json"
-
 id: svm_focused
 description: "Configuration optimized for SVM (requires standard scaling)"
 

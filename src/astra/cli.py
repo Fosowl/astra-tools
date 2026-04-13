@@ -24,9 +24,6 @@ from astra.helpers import (
     save_yaml,
 )
 from astra.validation.schema import (
-    get_analysis_schema,
-    get_insights_schema,
-    get_universe_schema,
     validate_analysis_schema,
     validate_universe_schema,
 )
@@ -696,7 +693,7 @@ def _viz_mermaid_node(lines: list[str], node: dict[str, Any], node_prefix: str) 
 
 @main.group()
 def schema() -> None:
-    """JSON Schema commands."""
+    """Schema commands."""
     pass
 
 
@@ -709,37 +706,36 @@ def schema() -> None:
     help="Output directory (default: schemas/)",
 )
 def schema_export(output: Path) -> None:
-    """Export JSON schemas to files."""
+    """Export LinkML schemas to files."""
+    import shutil
+
+    from astra.datamodel import SCHEMA_DIRECTORY
+
     output.mkdir(parents=True, exist_ok=True)
-
-    schemas = {
-        "analysis.schema.json": get_analysis_schema(),
-        "universe.schema.json": get_universe_schema(),
-        "insights.schema.json": get_insights_schema(),
-    }
-
-    for name, schema_data in schemas.items():
-        with open(output / name, "w") as f:
-            json.dump(schema_data, f, indent=2)
-            f.write("\n")
+    exported = []
+    for schema_file in sorted(SCHEMA_DIRECTORY.glob("*.yaml")):
+        dest = output / schema_file.name
+        shutil.copy2(schema_file, dest)
+        exported.append(schema_file.name)
 
     console.print(f"[green]✓[/green] Exported schemas to [cyan]{output}/[/cyan]")
-    console.print(f"  • {output}/analysis.schema.json")
-    console.print(f"  • {output}/universe.schema.json")
-    console.print(f"  • {output}/insights.schema.json")
+    for name in exported:
+        console.print(f"  • {output}/{name}")
 
 
 @schema.command("show")
 @click.argument("schema_type", type=click.Choice(["analysis", "universe", "insights"]))
 def schema_show(schema_type: str) -> None:
-    """Print a JSON schema to stdout."""
-    schema_getters = {
-        "analysis": get_analysis_schema,
-        "universe": get_universe_schema,
-        "insights": get_insights_schema,
+    """Print a LinkML schema to stdout."""
+    from astra.datamodel import SCHEMA_DIRECTORY
+
+    name_map = {
+        "analysis": "analysis.yaml",
+        "universe": "universe.yaml",
+        "insights": "insight.yaml",
     }
-    schema_data = schema_getters[schema_type]()
-    console.print(json.dumps(schema_data, indent=2))
+    schema_path = SCHEMA_DIRECTORY / name_map[schema_type]
+    console.print(schema_path.read_text())
 
 
 # =============================================================================
