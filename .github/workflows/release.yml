@@ -1,16 +1,10 @@
 ---
 name: Publish Python Package
 
-# Publishes with trusted publishing to
-# - PyPI on releases created in GitHub UI if status is published.
-#   For draft status, nothing happens.
-# - TestPyPI on new tags "v1.2.3" or "v1.2.3.something" on main branch
+# Publishes with trusted publishing to PyPI on releases created in GitHub UI.
+# For draft status, nothing happens.
 
 on:  # yamllint disable-line rule:truthy
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+.?*'
-      - 'v[0-9]+.[0-9]+.[0-9]+rc[0-9]'
   release:
     types: [published]
 
@@ -92,15 +86,7 @@ jobs:
           name: distribution-files
           path: dist
 
-      - name: Publish package to Test PyPI
-        if: github.event_name == 'push'
-        uses: pypa/gh-action-pypi-publish@v1.14.0
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          verbose: true
-
       - name: Publish package to PyPI
-        if: github.event_name == 'release'
         uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           verbose: true
