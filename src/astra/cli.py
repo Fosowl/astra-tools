@@ -136,7 +136,7 @@ def _create_boilerplate_astra_yaml(directory: Path) -> None:
     name = directory.name if directory != Path(".") else "My Analysis"
 
     astra_yaml = f"""# ASTRA Analysis Specification
-# Documentation: https://github.com/LightconeResearch/ASTRA
+# Documentation: https://pypi.org/project/astra-spec/
 
 version: "1.0"
 name: "{name}"

@@ -1,27 +1,16 @@
 [project]
 name = "astra"
 dynamic = ["version"]
-description = "Python CLI and SDK for working with ASTRA analysis specifications"
-readme = "README.md"
+description = "ASTRA CLI."
 license = { text = "BSD-3-Clause" }
 requires-python = ">=3.11"
 authors = [
     { name = "Francois Lanusse", email = "francois.lanusse@cnrs.fr" },
     { name = "Liam Parker", email = "lhparker@berkeley.edu" },
 ]
-keywords = ["science", "analysis", "specification", "workflow", "reproducibility"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering",
-]
 
 dependencies = [
-    "astra-spec @ git+https://github.com/LightconeResearch/astra-spec",
+    "astra-spec",
     "click>=8.0",
     "pydantic>=2.0",
     "pyyaml>=6.0",
@@ -47,9 +36,6 @@ astra = "astra.cli:main"
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
 [tool.hatch.version]
 source = "vcs"
 
@@ -57,7 +43,11 @@ source = "vcs"
 packages = ["src/astra"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/astra"]
+include = [
+    "/src/astra",
+    "/pyproject.toml",
+    "/LICENSE",
+]
 
 [tool.ruff]
 target-version = "py311"
