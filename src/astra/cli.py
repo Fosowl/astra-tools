@@ -60,7 +60,7 @@ def _require_analysis(analysis: Path | None, start_path: Path | None = None) -> 
 
 
 @click.group()
-@click.version_option()
+@click.version_option(package_name="astra-tools")
 def main() -> None:
     """ASTRA - Agentic Schema for Transparent Research Analysis CLI."""
     pass
