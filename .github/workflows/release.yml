@@ -1,41 +1,52 @@
-name: Release
+---
+name: Publish Python Package
 
-on:
+# Publishes with trusted publishing to
+# - PyPI on releases created in GitHub UI if status is published.
+#   For draft status, nothing happens.
+# - TestPyPI on new tags "v1.2.3" or "v1.2.3.something" on main branch
+
+on:  # yamllint disable-line rule:truthy
   push:
     tags:
-      - "v*"
+      - 'v[0-9]+.[0-9]+.[0-9]+.?*'
+      - 'v[0-9]+.[0-9]+.[0-9]+rc[0-9]'
+  release:
+    types: [published]
+
+permissions: {}
 
 jobs:
   build:
+    name: Build Python distributions
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Needed for hatch-vcs versioning
+          persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.0.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+          enable-cache: true
 
-      - name: Configure git for private deps
-        run: git config --global url."https://x-access-token:${{ secrets.ASTRA_SPEC_READ }}@github.com/".insteadOf "https://github.com/"
+      - name: Build source and wheel archives
+        run: uv build
 
-      - name: Install build dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install build
-
-      - name: Build package
-        run: python -m build
-
-      - name: Upload artifacts
+      - name: Store built distribution
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: distribution-files
           path: dist/
 
   test:
+    name: Test built package
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -51,13 +62,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Configure git for private deps
-        run: git config --global url."https://x-access-token:${{ secrets.ASTRA_SPEC_READ }}@github.com/".insteadOf "https://github.com/"
-
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: distribution-files
           path: dist/
 
       - name: Install from wheel
@@ -67,3 +75,32 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v
+
+  pypi-publish:
+    name: Publish to PyPI
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-release
+      url: https://pypi.org/p/astra
+    permissions:
+      id-token: write  # mandatory for trusted publishing
+    steps:
+      - name: Download built distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: distribution-files
+          path: dist
+
+      - name: Publish package to Test PyPI
+        if: github.event_name == 'push'
+        uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          verbose: true
+
+      - name: Publish package to PyPI
+        if: github.event_name == 'release'
+        uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          verbose: true
