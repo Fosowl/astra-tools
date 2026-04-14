@@ -1,5 +1,5 @@
 [project]
-name = "astra"
+name = "astra-tools"
 dynamic = ["version"]
 description = "ASTRA CLI."
 license = { text = "BSD-3-Clause" }
