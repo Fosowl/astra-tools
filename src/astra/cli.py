@@ -23,11 +23,16 @@ from astra.helpers import (
     load_yaml,
     save_yaml,
 )
-from astra.validation.schema import (
-    validate_analysis_schema,
-    validate_universe_schema,
+from astra.validation.narrative import (
+    check_narrative_coverage,
+    validate_narrative_anchors,
+    validate_narrative_sections,
 )
-from astra.validation.semantic import validate_analysis_file, validate_universe_file
+from astra.validation.schema import (
+    validate_analysis_data,
+    validate_universe_data,
+)
+from astra.validation.semantic import validate_analysis, validate_universe_file
 
 console = Console()
 
@@ -139,8 +144,23 @@ def _create_boilerplate_astra_yaml(directory: Path) -> None:
 
 version: "1.0"
 name: "{name}"
-description: |
-  TODO: Describe the goal of this analysis.
+narrative:
+  summary: |
+    TODO: One-paragraph overview of the analysis — its question,
+    scope, and what the reader should take away.
+  findings: |
+    TODO: Prose that frames the analysis's findings. Reference
+    structured findings with `#findings.<id>` anchors once they
+    exist.
+  methods: |
+    TODO: Methodology write-up. Reference decisions and any
+    sub-analyses; this scaffold mentions the
+    [example method decision](#decisions.example_method).
+  inputs: |
+    TODO: Prose that frames the analysis's inputs.
+  outputs: |
+    TODO: Prose that frames the expected outputs; this scaffold
+    mentions the [main result output](#outputs.main_result).
 
 inputs:
   - id: primary_data
@@ -259,11 +279,14 @@ def validate(file: Path, analysis: Path | None, verify_evidence: bool, skip_evid
 
     console.print(f"Validating [cyan]{file}[/cyan]...")
 
+    # Load once — all downstream checks take data dicts.
+    data = load_yaml(file)
+
     # Schema validation
     if is_universe:
-        schema_errors = validate_universe_schema(file)
+        schema_errors = validate_universe_data(data)
     else:
-        schema_errors = validate_analysis_schema(file)
+        schema_errors = validate_analysis_data(data)
 
     if schema_errors:
         console.print("\n[red]Schema validation errors:[/red]")
@@ -278,7 +301,7 @@ def validate(file: Path, analysis: Path | None, verify_evidence: bool, skip_evid
         assert analysis is not None
         semantic_errors = validate_universe_file(file, analysis)
     else:
-        semantic_errors = validate_analysis_file(file)
+        semantic_errors = validate_analysis(data, base_path=file.parent)
 
     if semantic_errors:
         console.print("\n[red]Semantic validation errors:[/red]")
@@ -288,9 +311,36 @@ def validate(file: Path, analysis: Path | None, verify_evidence: bool, skip_evid
 
     console.print("[green]✓[/green] Semantic validation passed")
 
+    # Narrative validation (analysis files only)
+    if not is_universe:
+        narrative_errors = validate_narrative_anchors(data, base_path=file.parent)
+        if narrative_errors:
+            console.print("\n[red]Narrative anchor errors:[/red]")
+            for narrative_err in narrative_errors:
+                console.print(f"  • {narrative_err}")
+            raise SystemExit(1)
+
+        console.print("[green]✓[/green] Narrative anchors resolved")
+
+        section_errors = validate_narrative_sections(data, base_path=file.parent)
+        if section_errors:
+            console.print("\n[red]Narrative section errors:[/red]")
+            for section_err in section_errors:
+                console.print(f"  • {section_err}")
+            raise SystemExit(1)
+
+        console.print("[green]✓[/green] Narrative sections present")
+
+        narrative_warnings = check_narrative_coverage(data, base_path=file.parent)
+        if narrative_warnings:
+            console.print("\n[yellow]Narrative coverage warnings:[/yellow]")
+            for w in narrative_warnings:
+                console.print(f"  • [yellow]{w}[/yellow]")
+        else:
+            console.print("[green]✓[/green] Narrative coverage complete")
+
     # Evidence verification (for analysis files with prior insights)
     if not is_universe and not skip_evidence:
-        data = load_yaml(file)
         prior_insights = data.get("prior_insights", {})
 
         if prior_insights:
@@ -395,8 +445,13 @@ def info(
     # Header
     console.print(f"\n[bold]{data.get('name', 'Unknown')}[/bold]")
     console.print(f"Version: {data.get('version', 'Unknown')}")
-    if data.get("description"):
-        console.print(f"\n{data['description']}")
+    narrative = data.get("narrative") or {}
+    for section in ("summary", "findings", "methods", "inputs", "outputs"):
+        content = narrative.get(section)
+        if isinstance(content, str) and content.strip():
+            console.print()
+            console.print(f"[bold]{section.title()}[/bold]")
+            console.print(content)
 
     # Summary stats
     input_list = get_inputs(data)

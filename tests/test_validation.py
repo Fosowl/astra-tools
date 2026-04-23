@@ -80,6 +80,14 @@ class TestSemanticValidation:
         errors = validate_analysis_file(invalid_dir / "invalid_constraint_ref.yaml")
         assert any(e.code == "INVALID_CONSTRAINT_REF" for e in errors)
 
+    def test_path_field_conflict(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "path_field_conflict.yaml")
+        conflicts = [e for e in errors if e.code == "PATH_FIELD_CONFLICT"]
+        assert len(conflicts) == 1
+        assert "preprocessing" in conflicts[0].message
+        assert "name" in conflicts[0].message
+        assert "narrative" in conflicts[0].message
+
 
 class TestUniverseValidation:
     """Tests for universe validation."""
@@ -149,10 +157,10 @@ class TestSubAnalysisRequirements:
         errors = validate_analysis_file(invalid_dir / "sub_missing_outputs.yaml")
         assert any(e.code == "MISSING_SUB_FIELD" and "outputs" in e.message for e in errors)
 
-    def test_invalid_decision_from_ref(self, invalid_dir: Path):
+    def test_invalid_decision_from(self, invalid_dir: Path):
         """Decision with from: referencing non-existent parent decision."""
         errors = validate_analysis_file(invalid_dir / "invalid_parent_decision.yaml")
-        assert any(e.code == "INVALID_DECISION_FROM_REF" for e in errors)
+        assert any(e.code == "INVALID_DECISION_FROM" for e in errors)
 
     def test_cross_level_constraint_in_analysis(self, valid_dir: Path):
         """Decision from: allows constraints referencing parent decisions."""

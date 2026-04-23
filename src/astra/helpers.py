@@ -55,7 +55,7 @@ def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
     decisions: dict[str, Any] = {}
     for decision_id, decision in (node.get("decisions") or {}).items():
         if isinstance(decision, dict) and decision.get("from"):
-            continue  # Skip from: references
+            continue  # Skip parent-decision references
         decisions[decision_id] = decision
     return decisions
 
@@ -63,10 +63,11 @@ def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
 def resolve_analysis_tree(data: dict[str, Any], base_path: Path) -> dict[str, Any]:
     """Resolve external sub-analysis references in an analysis tree.
 
-    Walks the ``analyses`` dict. For any sub-analysis with a ``path`` field,
-    loads ``<path>/astra.yaml`` and merges its content into the tree.
-    Metadata fields (``name``, ``description``) from the parent reference
-    are preserved as overrides.
+    Walks the ``analyses`` dict. For any sub-analysis with a ``path``
+    field, loads ``<path>/astra.yaml`` as that sub-analysis's full
+    content. Sub-analyses are either external (a ``path:``) or inline
+    (content fields at the parent), never both — semantic validation
+    enforces this via ``PATH_FIELD_CONFLICT``.
 
     Args:
         data: The analysis data as a dict.
@@ -90,10 +91,6 @@ def resolve_analysis_tree(data: dict[str, Any], base_path: Path) -> dict[str, An
             sub_yaml_path = resolved_dir / "astra.yaml"
             if sub_yaml_path.exists():
                 sub_data = load_yaml(sub_yaml_path)
-                # Preserve metadata overrides from parent reference
-                for key in ("name", "description"):
-                    if analysis_node.get(key):
-                        sub_data[key] = analysis_node[key]
                 # Keep the path field for reference
                 sub_data["path"] = sub_path
                 # Recursively resolve nested sub-analyses
@@ -134,7 +131,7 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
     """
     with open(path) as f:
         data: dict[str, Any] = yaml.safe_load(f)
-        return data
+    return data
 
 
 def save_yaml(data: dict[str, Any], path: str | Path) -> None:
