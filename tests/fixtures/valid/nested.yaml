@@ -27,19 +27,19 @@ analyses:
   build_mocks:
     inputs:
       - id: survey_data
-        type: data
-        from: survey_catalog
+        from: ../survey_catalog
     outputs:
       - id: mock_catalog
         type: data
+        inputs: [survey_data]
         recipe:
-          command: python src/generate_mocks.py
+          command: python src/generate_mocks.py {inputs.survey_data}
       - id: mock_sample_plot
         type: figure
         description: "Sample mock catalog visualization"
+        inputs: [mock_catalog]
         recipe:
-          command: python src/generate_mocks.py
-          inputs: [mock_catalog]
+          command: python src/generate_mocks.py {inputs.mock_catalog}
     decisions:
       cosmology_model:
         from: ../cosmology_model
@@ -56,13 +56,13 @@ analyses:
   train_network:
     inputs:
       - id: training_data
-        type: data
-        from: build_mocks.mock_catalog
+        from: ../build_mocks.mock_catalog
     outputs:
       - id: trained_model
         type: data
+        inputs: [training_data]
         recipe:
-          command: python src/train.py
+          command: python src/train.py {inputs.training_data}
           resources:
             gpus: 1
             memory: "32GB"
@@ -80,8 +80,7 @@ analyses:
     description: "Validate trained model against observed data."
     inputs:
       - id: model
-        type: data
-        from: train_network.trained_model
+        from: ../train_network.trained_model
     outputs:
       - id: validation_report
         type: report

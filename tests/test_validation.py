@@ -175,11 +175,42 @@ class TestSubAnalysisRequirements:
         assert any(e.code == "INCOMPATIBLE_OPTIONS" for e in errors)
 
 
-class TestRecipeValidation:
-    """Tests for output-to-output recipe validation."""
+class TestFromPathGrammar:
+    """Tests for the unified `from:` path grammar across Input/Output/Decision."""
 
-    def test_recipe_inputs_must_reference_declared_outputs(self):
-        """Recipe inputs must reference outputs declared in the same analysis."""
+    def test_valid_multilevel_from(self, valid_dir: Path):
+        """Multi-level `../../id` and `child.sub.id` should resolve correctly."""
+        errors = validate_analysis_file(valid_dir / "multilevel_from.yaml")
+        assert errors == []
+
+    def test_input_from_downward_rejected(self, invalid_dir: Path):
+        """Input.from must escape upward — bare `child.out` form is rejected."""
+        errors = validate_analysis_file(invalid_dir / "input_from_downward.yaml")
+        # Pydantic rejects this at schema level; semantic just needs to not crash.
+        # The schema-level error surfaces via the schema validator, not semantic.
+        # We check semantic doesn't accept it — but since the YAML may not even
+        # parse through pydantic, we instead check semantic flags it too.
+        codes = [e.code for e in errors]
+        assert "INVALID_FROM" in codes or "INVALID_OUTPUT_FROM" in codes
+
+    def test_output_from_upward_rejected(self, invalid_dir: Path):
+        """Output.from must descend; upward references rejected."""
+        errors = validate_analysis_file(invalid_dir / "output_from_upward.yaml")
+        codes = [e.code for e in errors]
+        assert "INVALID_OUTPUT_FROM" in codes
+
+    def test_output_from_unknown_child(self, invalid_dir: Path):
+        """Output.from points at a sub-analysis that doesn't exist."""
+        errors = validate_analysis_file(invalid_dir / "output_from_unknown_child.yaml")
+        codes = [e.code for e in errors]
+        assert "INVALID_OUTPUT_FROM" in codes
+
+
+class TestOutputDependencyValidation:
+    """Tests for Output.inputs/decisions and dependency-graph validation."""
+
+    def test_output_input_must_reference_declared_id(self):
+        """Output.inputs must reference an analysis input or sibling output."""
         data = {
             "version": "1.0",
             "name": "test",
@@ -188,34 +219,31 @@ class TestRecipeValidation:
                 {
                     "id": "result",
                     "type": "metric",
-                    "recipe": {
-                        "command": "python run.py",
-                        "inputs": ["nonexistent"],
-                    },
+                    "inputs": ["nonexistent"],
                 },
             ],
         }
         errors = validate_analysis(data)
         codes = [e.code for e in errors]
-        assert "INVALID_RECIPE_INPUT" in codes
+        assert "INVALID_OUTPUT_INPUT" in codes
 
-    def test_recipe_output_dependency_cycle(self):
+    def test_output_dependency_cycle(self):
         """Cycle in output dependencies should be caught."""
         data = {
             "version": "1.0",
             "name": "test",
             "inputs": [],
             "outputs": [
-                {"id": "a", "type": "data", "recipe": {"command": "run_a", "inputs": ["b"]}},
-                {"id": "b", "type": "data", "recipe": {"command": "run_b", "inputs": ["a"]}},
+                {"id": "a", "type": "data", "inputs": ["b"]},
+                {"id": "b", "type": "data", "inputs": ["a"]},
             ],
         }
         errors = validate_analysis(data)
         codes = [e.code for e in errors]
-        assert "RECIPE_CYCLE" in codes
+        assert "OUTPUT_CYCLE" in codes
 
-    def test_valid_recipe_on_output(self):
-        """Valid inline recipe should pass validation."""
+    def test_valid_output_chain(self):
+        """Output that references a sibling output should pass validation."""
         data = {
             "version": "1.0",
             "name": "test",
@@ -225,18 +253,34 @@ class TestRecipeValidation:
                 {
                     "id": "result",
                     "type": "metric",
-                    "recipe": {
-                        "command": "python analyze.py",
-                        "inputs": ["cleaned"],
-                    },
+                    "inputs": ["cleaned"],
+                    "recipe": {"command": "python analyze.py {inputs.cleaned}"},
                 },
             ],
         }
         errors = validate_analysis(data)
-        assert len(errors) == 0
+        assert errors == []
 
-    def test_valid_recipe_no_inputs(self):
-        """Recipe with no inputs should pass validation."""
+    def test_output_input_can_reference_analysis_input(self):
+        """Output.inputs can resolve to an analysis-level Input."""
+        data = {
+            "version": "1.0",
+            "name": "test",
+            "inputs": [{"id": "raw", "type": "data", "source": "x.csv"}],
+            "outputs": [
+                {
+                    "id": "cleaned",
+                    "type": "data",
+                    "inputs": ["raw"],
+                    "recipe": {"command": "python clean.py {inputs.raw}"},
+                },
+            ],
+        }
+        errors = validate_analysis(data)
+        assert errors == []
+
+    def test_valid_output_no_inputs(self):
+        """Output with no inputs/decisions should pass validation."""
         data = {
             "version": "1.0",
             "name": "test",
@@ -245,35 +289,170 @@ class TestRecipeValidation:
                 {
                     "id": "result",
                     "type": "metric",
-                    "recipe": {
-                        "command": "python run.py",
-                    },
+                    "recipe": {"command": "python run.py"},
                 },
             ],
         }
         errors = validate_analysis(data)
-        assert len(errors) == 0
+        assert errors == []
 
-    def test_self_referencing_recipe_input(self):
-        """Recipe input referencing its own output should create a cycle."""
+    def test_self_referencing_output_input(self):
+        """Output input referencing its own ID should create a cycle."""
         data = {
             "version": "1.0",
             "name": "test",
             "inputs": [],
             "outputs": [
-                {"id": "a", "type": "data", "recipe": {"command": "run_a", "inputs": ["a"]}},
+                {"id": "a", "type": "data", "inputs": ["a"]},
             ],
         }
         errors = validate_analysis(data)
         codes = [e.code for e in errors]
-        assert "RECIPE_CYCLE" in codes
+        assert "OUTPUT_CYCLE" in codes
+
+    def test_output_decision_must_be_in_scope(self):
+        """Output.decisions must reference a decision in scope."""
+        data = {
+            "version": "1.0",
+            "name": "test",
+            "inputs": [],
+            "outputs": [
+                {"id": "result", "type": "metric", "decisions": ["nonexistent"]},
+            ],
+            "decisions": {
+                "real_decision": {
+                    "label": "Real",
+                    "default": "a",
+                    "options": {"a": {"label": "A"}},
+                },
+            },
+        }
+        errors = validate_analysis(data)
+        codes = [e.code for e in errors]
+        assert "INVALID_OUTPUT_DECISION" in codes
+
+
+class TestCommandTemplateValidation:
+    """Tests for the Recipe.command ``{...}`` placeholder grammar."""
+
+    def _make(self, output: dict, decisions: dict | None = None) -> dict:
+        return {
+            "version": "1.0",
+            "name": "test",
+            "inputs": [{"id": "raw", "type": "data", "source": "x"}],
+            "outputs": [output],
+            "decisions": decisions or {},
+        }
+
+    def test_valid_template(self):
+        out = {
+            "id": "r",
+            "type": "metric",
+            "inputs": ["raw"],
+            "decisions": ["m"],
+            "recipe": {
+                "command": "python run.py --in {inputs.raw} --m {decisions.m} --out {output}"
+            },
+        }
+        decisions = {
+            "m": {"label": "M", "default": "a", "options": {"a": {"label": "A"}}},
+        }
+        errors = validate_analysis(self._make(out, decisions))
+        assert errors == []
+
+    def test_undeclared_input_reference(self):
+        out = {
+            "id": "r",
+            "type": "metric",
+            "recipe": {"command": "python run.py {inputs.missing}"},
+        }
+        errors = validate_analysis(self._make(out))
+        codes = [e.code for e in errors]
+        assert "UNDECLARED_TEMPLATE_REF" in codes
+
+    def test_undeclared_decision_reference(self):
+        out = {
+            "id": "r",
+            "type": "metric",
+            "recipe": {"command": "python run.py --m {decisions.missing}"},
+        }
+        errors = validate_analysis(self._make(out))
+        codes = [e.code for e in errors]
+        assert "UNDECLARED_TEMPLATE_REF" in codes
+
+    def test_declared_but_unreferenced_input_is_fine(self):
+        # The spec grants the runner free choice of delivery mechanism for
+        # declared inputs ("via flags, env vars, or a sidecar"), so a recipe
+        # whose command doesn't substitute every declared input is valid —
+        # the runner may deliver them by sidecar instead of template.
+        out = {
+            "id": "r",
+            "type": "metric",
+            "inputs": ["raw"],
+            "recipe": {"command": "python run.py"},
+        }
+        errors = validate_analysis(self._make(out))
+        assert errors == []
+
+    def test_declared_but_unreferenced_decision_is_fine(self):
+        # Same as above for decisions.
+        out = {
+            "id": "r",
+            "type": "metric",
+            "decisions": ["m"],
+            "recipe": {"command": "python run.py"},
+        }
+        decisions = {
+            "m": {"label": "M", "default": "a", "options": {"a": {"label": "A"}}},
+        }
+        errors = validate_analysis(self._make(out, decisions))
+        assert errors == []
+
+    def test_inputs_glob_is_valid_template(self):
+        out = {
+            "id": "r",
+            "type": "metric",
+            "inputs": ["raw"],
+            "recipe": {"command": "python run.py {inputs}"},
+        }
+        errors = validate_analysis(self._make(out))
+        assert errors == []
+
+    def test_literal_braces_are_allowed(self):
+        out = {
+            "id": "r",
+            "type": "metric",
+            "recipe": {"command": "echo '{{not a placeholder}}'"},
+        }
+        errors = validate_analysis(self._make(out))
+        assert errors == []
+
+    def test_unknown_placeholder_form(self):
+        out = {
+            "id": "r",
+            "type": "metric",
+            "recipe": {"command": "python run.py {bogus}"},
+        }
+        errors = validate_analysis(self._make(out))
+        codes = [e.code for e in errors]
+        assert "INVALID_COMMAND_TEMPLATE" in codes
+
+    def test_unterminated_brace(self):
+        out = {
+            "id": "r",
+            "type": "metric",
+            "recipe": {"command": "python run.py {output"},
+        }
+        errors = validate_analysis(self._make(out))
+        codes = [e.code for e in errors]
+        assert "INVALID_COMMAND_TEMPLATE" in codes
 
 
 class TestRecipeHelpers:
     """Tests for recipe helper functions."""
 
     def test_get_output_dependencies(self):
-        """get_output_dependencies should return output-to-output DAG."""
+        """get_output_dependencies should mirror Output.inputs declarations."""
         from astra.helpers import get_output_dependencies
 
         data = {
@@ -282,20 +461,16 @@ class TestRecipeHelpers:
                 {
                     "id": "train",
                     "type": "data",
-                    "recipe": {
-                        "command": "train.py",
-                        "inputs": ["clean"],
-                    },
+                    "inputs": ["clean"],
+                    "recipe": {"command": "train.py {inputs.clean}"},
                 },
                 {
                     "id": "eval",
                     "type": "metric",
-                    "recipe": {
-                        "command": "eval.py",
-                        "inputs": ["train"],
-                    },
+                    "inputs": ["train"],
+                    "recipe": {"command": "eval.py {inputs.train}"},
                 },
-                {"id": "external", "type": "data"},  # no recipe
+                {"id": "external", "type": "data"},  # no inputs declared
             ],
         }
         deps = get_output_dependencies(data)
