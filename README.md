@@ -1,4 +1,4 @@
-# ASTRA - Agentic Schema for Transparent Research Analysis
+# ASTRA tools - Agentic Schema for Transparent Research Analysis
 
 [![CI](https://github.com/LightconeResearch/ASTRA/actions/workflows/ci.yml/badge.svg)](https://github.com/LightconeResearch/ASTRA/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -7,116 +7,44 @@
 
 Python CLI and SDK for working with ASTRA analysis specifications.
 
-## What is ASTRA?
+> For an overview of ASTRA, the specification, concepts, and design rationale, see the main repository: **[astra-spec](https://github.com/LightconeResearch/astra-spec)**.
 
-ASTRA is a declarative specification format for scientific analyses. This package provides the **tooling layer** -- validation, CLI, paper management, and evidence verification.
+This repository provides the tooling layer: validation, CLI, paper management, and evidence verification.
 
-The specification itself is defined in [astra-spec](https://github.com/LightconeResearch/astra-spec) using LinkML schemas.
+## Install
 
+Install the `astra` CLI globally from PyPI with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install astra-tools
 ```
-astra-spec            =  LinkML schemas, generated data models
-ASTRA (this package)  =  Validation, CLI, helpers, evidence verification
-```
 
-ASTRA is agnostic to the agentic layer used to execute analyses. The CLI and SDK provide the spec, validation, and helpers; any agent or downstream tool can consume them.
-
-## Key Concepts
-
-**Universe**: A complete set of decisions -- one option selected for each decision point. Running a universe produces the declared outputs.
-
-**Multiverse**: The space of all valid decision combinations. Its purpose is transparency and traceability, not exhaustive search.
-
-**Self-similar structure**: Every analysis node has the same shape (inputs, outputs, decisions). Simple analyses are flat; complex analyses nest sub-analyses under `analyses:`.
-
-**Evidence-based decisions**: Link decisions to supporting evidence from papers, with quote verification.
-
-**Composability**: Use outputs from one analysis as inputs to another.
+`astra` is then available on your `PATH`. For development (editable install with test/lint deps), clone the repo and run `uv sync --extra dev`, then invoke commands via `uv run` (e.g. `uv run pytest`).
 
 ## Quick Start
 
 ```bash
-# Create a minimal analysis scaffold
 astra init my-analysis
 cd my-analysis
-
-# Edit astra.yaml to define your analysis
-# Then validate it
 astra validate astra.yaml
 ```
 
-## Quick Example
+See [examples/iris/](examples/iris/) for a complete working example.
 
-See [examples/iris/](examples/iris/) for a complete working example (Iris classification with decisions for scaling and model selection).
+## CLI
 
-## CLI Commands
+Run `astra --help` for the full command list. Key commands:
 
-```bash
-# Project setup
-astra init my-analysis               # Create minimal scaffold
-astra init my-analysis --no-git      # Skip git initialization
+- `astra init` – scaffold a new analysis project
+- `astra validate` – validate a spec or universe (add `--verify-evidence` to check quotes)
+- `astra info` / `astra viz` – inspect the analysis and decision space
+- `astra universe generate|check` – manage universes
+- `astra schema export|show` – work with JSON schemas
+- `astra paper ...` – download, cache, and verify quotes against papers
 
-# Validation
-astra validate astra.yaml              # Validate analysis specification
-astra validate universes/baseline.yaml  # Validate universe against spec
-astra validate astra.yaml --verify-evidence  # Verify evidence quotes
+## Links
 
-# Exploration
-astra info                           # Show analysis summary
-astra info --decisions               # Show decision details
-astra info --inputs                  # Show input details
-astra info --outputs                 # Show output details
-astra viz                            # Visualize decision space (ASCII)
-astra viz --format mermaid           # Mermaid diagram
-
-# Universe management
-astra universe generate --name baseline  # Generate universe from defaults
-astra universe check universes/foo.yaml  # Check universe constraints
-
-# Schema utilities
-astra schema export                  # Export JSON schemas
-astra schema show analysis           # Print schema to stdout
-
-# Paper management
-astra paper add <doi>                # Download and cache a paper
-astra paper add <doi> --pdf local.pdf  # Cache from local PDF
-astra paper list                     # List cached papers
-astra paper show <doi>               # Show paper details
-astra paper path <doi>               # Print PDF path (for piping)
-astra paper remove <doi>             # Remove a paper from cache
-astra paper fetch-metadata <doi>     # Fetch metadata from DOI.org
-astra paper fetch-metadata --all     # Fetch metadata for all cached papers
-astra paper verify-quote <doi> -q "text"  # Verify a quote
-astra paper verify-quotes <doi>      # Verify multiple quotes (JSON stdin)
-```
-
-## Project Structure
-
-An ASTRA project created with `astra init` has this minimal structure:
-
-```
-my-analysis/
-├── astra.yaml              # Analysis specification (source of truth)
-├── .gitignore            # Git ignore rules
-├── src/                  # Analysis code
-├── outputs/              # Analysis outputs
-└── universes/            # Universe definitions (decision selections)
-    └── baseline.yaml
-```
-
-## Design Principles
-
-1. **Declarative** - Spec says WHAT, not HOW
-2. **ASTRA is source of truth** - Implementations are derived from ASTRA
-3. **Self-similar** - Every level has the same structure; sub-analyses are valid analyses
-4. **Transparent** - All decisions and alternatives documented
-5. **Composable** - Analyses build on each other
-6. **Evidence-linked** - Decisions cite supporting evidence
-7. **Reproducible** - Precise provenance and verification
-
-## Documentation
-
-- [ASTRA Specification](https://github.com/LightconeResearch/astra-spec) - LinkML schema and format reference
-- [Design Document](DESIGN.md) - Architecture, rationale, and design decisions
+- [astra-spec](https://github.com/LightconeResearch/astra-spec) – specification, schemas, and primary documentation
 
 ## License
 
