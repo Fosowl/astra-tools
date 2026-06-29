@@ -1,12 +1,9 @@
 # Full analysis with v2 features: decision tags,
 # conditional decisions, excluded options, and evidence snapshots.
 $schema: "https://astra-spec.org/v1/schema.json"
-version: "0.0.10"
+version: "0.0.11"
 name: "Full Analysis v2"
-narrative:
-  summary: "A comprehensive test analysis with all v2 features"
-authors:
-  - "Test Author"
+description: "A comprehensive test analysis with all v2 features"
 tags:
   - test
   - example
