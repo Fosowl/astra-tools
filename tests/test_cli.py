@@ -499,3 +499,233 @@ class TestBatchQuoteVerification:
         assert "Verify multiple quotes" in result.output
         assert "stdin" in result.output
         assert "JSON" in result.output
+
+
+class TestSpecCommand:
+    """Tests for the `spec` schema-reference renderer.
+
+    Output is a pure transformation of the installed astra-spec schema, so
+    these assert structural invariants and a few load-bearing concepts rather
+    than exact prose.
+    """
+
+    def test_summary_groups_by_schema(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec"])
+        assert result.exit_code == 0
+        out = result.output
+        assert "concept vocabulary" in out
+        # The three schema layers appear as group headers, in display order.
+        for label in ("ANALYSIS", "UNIVERSE", "INSIGHT"):
+            assert label in out
+        assert out.index("ANALYSIS") < out.index("UNIVERSE") < out.index("INSIGHT")
+
+    def test_summary_footer_points_at_term_and_full(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec"])
+        assert result.exit_code == 0
+        assert "astra spec <term>" in result.output
+        assert "astra spec --full" in result.output
+
+    def test_summary_lists_core_concepts(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec"])
+        for term in ("Analysis", "Decision", "Universe", "Insight"):
+            assert term in result.output
+
+    def test_term_renders_class_in_full(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec", "analysis"])
+        assert result.exit_code == 0
+        out = result.output
+        assert out.startswith("# Analysis")
+        assert "Fields:" in out
+        # Slot ranges that are classes render as `astra spec <term>` links.
+        assert "-> astra spec input" in out
+
+    def test_term_lookup_is_case_insensitive(self, runner: CliRunner):
+        lower = runner.invoke(main, ["spec", "analysis"])
+        upper = runner.invoke(main, ["spec", "ANALYSIS"])
+        assert lower.exit_code == upper.exit_code == 0
+        assert lower.output == upper.output
+        assert upper.output.startswith("# Analysis")
+
+    def test_term_collapses_parallel_forbid_rules(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec", "decision"])
+        assert result.exit_code == 0
+        out = result.output
+        assert "Rules:" in out
+        # Rules sharing a title stem collapse to one line listing the suffixes.
+        forbid_lines = [ln for ln in out.splitlines() if "From alias forbids:" in ln]
+        assert len(forbid_lines) == 1
+        assert forbid_lines[0].count(",") >= 1
+
+    def test_enum_renders_values_and_used_by(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec", "inputtype"])
+        assert result.exit_code == 0
+        out = result.output
+        assert "(enum)" in out
+        assert "Values:" in out
+        assert "data" in out
+        assert "Used by:" in out
+
+    def test_unknown_term_exits_1_and_lists_terms(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec", "not_a_real_term"])
+        assert result.exit_code == 1
+        assert "Unknown term" in result.output
+        assert "Valid terms" in result.output
+        # A genuine term is offered among the valid ones.
+        assert "Analysis" in result.output
+
+    def test_full_concatenates_every_entry(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec", "--full"])
+        assert result.exit_code == 0
+        out = result.output
+        # Sanity: substantial, spanning far more than any single entry.
+        assert len(out.splitlines()) > 300
+        for heading in ("# Analysis", "# Decision", "# Universe"):
+            assert heading in out
+        # Enums are inlined into the fields that use them, not standalone entries.
+        assert "# InputType" not in out
+        assert "data | analysis" in out
+
+    def test_cross_references_link_related_terms(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec", "decision"])
+        out = result.output
+        assert "References:" in out
+        assert "Option (astra spec option)" in out
+        assert "Used by:" in out
+        assert "Analysis (astra spec analysis)" in out
+
+    def test_self_recursive_edge_is_marked_not_dropped(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec", "analysis"])
+        out = result.output
+        # Analysis contains sub-Analyses; the self edge is flagged, not silent.
+        assert "Analysis (self-recursive)" in out
+        assert "Used by:" in out
+
+    def test_term_collapses_forbid_rules_with_underscored_slots(self, runner: CliRunner):
+        # Input's forbidden slots include multi-token names (ref_version,
+        # use_outputs). All from_alias_forbids_* rules must collapse to ONE
+        # line, with the underscored names intact as suffixes -- not orphaned
+        # onto standalone "From alias forbids ref version" lines.
+        result = runner.invoke(main, ["spec", "input"])
+        assert result.exit_code == 0
+        lines = result.output.splitlines()
+        forbid_lines = [ln for ln in lines if "From alias forbids:" in ln]
+        assert len(forbid_lines) == 1
+        collapsed = forbid_lines[0]
+        for slot in ("type", "label", "description", "source", "ref", "ref_version", "use_outputs"):
+            assert slot in collapsed
+        # No forbid slot fragments onto its own humanized rule line.
+        assert not any("From alias forbids ref version" in ln for ln in lines)
+        assert not any("From alias forbids use outputs" in ln for ln in lines)
+
+    def test_class_description_rendered_verbatim(self, runner: CliRunner):
+        # A class description renders VERBATIM with newlines preserved -- in
+        # deliberate contrast to first-sentence-flattened field descriptions.
+        # Decision carries an indented reference-grammar block that only
+        # survives if the line breaks are kept.
+        result = runner.invoke(main, ["spec", "decision"])
+        assert result.exit_code == 0
+        lines = result.output.splitlines()
+        assert "Reference grammar:" in lines  # its own line, not folded in
+        grammar_idx = lines.index("Reference grammar:")
+        # The indented example lines follow on their own separate lines.
+        block = lines[grammar_idx : grammar_idx + 4]
+        assert any(ln.startswith("  from: ../id") for ln in block)
+        assert any(ln.startswith("  from: ../../id") for ln in block)
+
+    def test_field_table_derives_flags_and_pattern(self, runner: CliRunner):
+        # Requiredness, multivalued/inlined flags, and pattern are induced from
+        # the slots. Decision exercises all three.
+        result = runner.invoke(main, ["spec", "decision"])
+        out = result.output
+        lines = out.splitlines()
+
+        def field_line(name: str) -> str:
+            return next(ln for ln in lines if ln.strip().startswith(name + " "))
+
+        # `options` is a multivalued, inlined map of Option.
+        opts = field_line("options")
+        assert "multivalued" in opts and "inlined" in opts
+        # `when` is multivalued but not inlined.
+        when = field_line("when")
+        assert "multivalued" in when and "inlined" not in when
+        # `from` carries a pattern, emitted on its own indented line.
+        assert any(ln.strip().startswith("pattern: ^(\\.\\./)") for ln in lines)
+
+    def test_field_table_honors_slot_usage_overrides(self, runner: CliRunner):
+        # Input.from and Output.from are the same slot with per-class
+        # slot_usage overrides; they must render distinct patterns. This holds
+        # only because the renderer reads class_induced_slots, not plain slots.
+        input_from = runner.invoke(main, ["spec", "input"]).output
+        output_from = runner.invoke(main, ["spec", "output"]).output
+        input_pattern = r"^(\.\./)+[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$"
+        output_pattern = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
+        assert input_pattern in input_from
+        assert output_pattern in output_from
+        # The override is real: neither class shows the other's pattern.
+        assert input_pattern not in output_from
+        assert output_pattern not in input_from
+
+    def test_field_table_renders_requiredness(self, runner: CliRunner):
+        # Requiredness is a contract-named field-table property. Option pins both
+        # tokens in one class: `label` is explicitly required and `id` is required
+        # by LinkML identifier semantics, while the rest are optional. Inverting the
+        # ternary (required<->optional) must fail this.
+        result = runner.invoke(main, ["spec", "option"])
+        assert result.exit_code == 0
+        lines = result.output.splitlines()
+
+        def field_line(name: str) -> str:
+            return next(ln for ln in lines if ln.strip().startswith(name + " "))
+
+        # `id` is `identifier: true`; class_induced_slots resolves it to required.
+        for required_field in ("label", "id"):
+            ln = field_line(required_field)
+            assert "required" in ln and "optional" not in ln
+        for optional_field in ("description", "excluded"):
+            ln = field_line(optional_field)
+            assert "optional" in ln and "required" not in ln
+
+    def test_field_table_flattens_field_descriptions_to_first_sentence(self, runner: CliRunner):
+        # First-sentence flattening is an accepted judgment call and load-bearing:
+        # Recipe.command carries a multi-paragraph template description that would
+        # dump into the table verbatim if `_first_sentence` were dropped. Only the
+        # opening sentence survives; the later-paragraph body does not.
+        result = runner.invoke(main, ["spec", "recipe"])
+        assert result.exit_code == 0
+        out = result.output
+        assert "POSIX shell command to execute" in out
+        # Tokens exclusive to later paragraphs of the command description; their
+        # presence would mean the field description was rendered verbatim.
+        assert "{inputs.<id>}" not in out
+        assert "placeholders" not in out
+        assert "Runners substitute" not in out
+
+    def test_full_includes_every_schema_group(self, runner: CliRunner):
+        # --full completeness is the whole point of the command. Pin at least one
+        # heading from each of the three schema buckets so a regression dropping a
+        # whole group (e.g. the insight per-schema loop) is caught, not just the
+        # already-guarded analysis/universe ones.
+        result = runner.invoke(main, ["spec", "--full"])
+        assert result.exit_code == 0
+        out = result.output
+        for heading in (
+            "# Analysis",  # analysis group
+            "# Universe",  # universe group
+            "# Evidence",  # insight group
+            "# Insight",
+            "# InsightCollection",
+            "# TextQuoteSelector",
+        ):
+            assert heading in out, f"{heading} missing from --full"
+
+    def test_full_with_term_is_rejected(self, runner: CliRunner):
+        # --full and a positional TERM are mutually exclusive; passing both
+        # errors rather than silently dumping the whole reference.
+        result = runner.invoke(main, ["spec", "analysis", "--full"])
+        assert result.exit_code != 0
+        assert "--full" in result.output
+
+    def test_spec_help(self, runner: CliRunner):
+        result = runner.invoke(main, ["spec", "--help"])
+        assert result.exit_code == 0
+        assert "reference" in result.output.lower()

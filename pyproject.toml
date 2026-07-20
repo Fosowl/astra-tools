@@ -41,6 +41,7 @@ classifiers = [
 
 dependencies = [
     "astra-spec>=0.0.11",
+    "linkml-runtime>=1.8",
     "click>=8.0",
     "pydantic>=2.0",
     "pyyaml>=6.0",
@@ -105,6 +106,12 @@ module = [
     "astra.datamodel.*",
 ]
 follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "linkml_runtime.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

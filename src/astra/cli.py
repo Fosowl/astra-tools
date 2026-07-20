@@ -10,6 +10,7 @@ from typing import Any
 
 import click
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich.tree import Tree
 
@@ -723,6 +724,36 @@ def _viz_mermaid_node(lines: list[str], node: dict[str, Any], node_prefix: str) 
 
     if has_content and node_prefix != "root":
         lines.append("    end")
+
+
+@main.command()
+@click.argument("term", required=False)
+@click.option("--full", is_flag=True, help="Dump the entire reference (VERY long).")
+def spec(term: str | None, full: bool) -> None:
+    """Render the ASTRA schema as agent-friendly reference text.
+
+    No args prints a concept summary; TERM prints one entry (case-insensitive);
+    --full concatenates every entry (VERY long).
+    """
+    from astra import spec_render
+
+    if full and term:
+        raise click.UsageError("--full dumps every entry; drop TERM or drop --full.")
+    if full:
+        click.echo(spec_render.render_full(), nl=False)
+        return
+    if term:
+        rendered = spec_render.render_term(term)
+        if not rendered:
+            # Escape the user-supplied term: unescaped bracket syntax would be
+            # parsed as Rich markup, crashing with MarkupError (e.g. `[/red]`)
+            # or silently swallowing `[foo]`-style fragments.
+            console.print(f"[red]Unknown term:[/red] {escape(term)}")
+            console.print("Valid terms: " + ", ".join(spec_render.list_terms()))
+            raise SystemExit(1)
+        click.echo(rendered, nl=False)
+        return
+    click.echo(spec_render.render_summary())
 
 
 @main.group()
