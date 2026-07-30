@@ -90,6 +90,15 @@ _AGENT_ONLY_FIELDS = ("model", "harness", "version")
 _ATTRIBUTION_SLOTS_OPTION = ("proposed_by", "excluded_by")
 _ATTRIBUTION_SLOTS_SELECTION = ("selected_by", "reviewed_by")
 
+# Option fields that record an exclusion and are only meaningful on an option
+# actually marked excluded. Each carries its own code so a caller can tell
+# which field was left orphaned rather than just that one was.
+_EXCLUSION_RECORD_SLOTS = (
+    ("excluded_by", "ORPHAN_EXCLUDED_BY"),
+    ("excluded_at", "ORPHAN_EXCLUDED_AT"),
+    ("exclusion_rationale", "ORPHAN_EXCLUSION_RATIONALE"),
+)
+
 
 def _collect_actors_in_scope(
     ancestor_chain: list[dict[str, Any]],
@@ -767,21 +776,23 @@ def _validate_decisions(
                 )
 
             # Actor attribution (RFC-0003): references must resolve, roles
-            # must be legal for the actor's type, and excluded_by pairs
-            # with excluded: true.
+            # must be legal for the actor's type, and every field recording
+            # an exclusion pairs with excluded: true.
             for slot in _ATTRIBUTION_SLOTS_OPTION:
                 value = option.get(slot)
                 if value is None:
                     continue
                 errors.extend(_validate_attribution(value, actors_in_scope, slot, option_path))
-            if option.get("excluded_by") is not None and not is_excluded:
-                errors.append(
-                    SemanticError(
-                        "ORPHAN_EXCLUDED_BY",
-                        f"Option '{option_id}' has 'excluded_by' but is not marked excluded",
-                        option_path,
-                    )
-                )
+            if not is_excluded:
+                for slot, code in _EXCLUSION_RECORD_SLOTS:
+                    if option.get(slot) is not None:
+                        errors.append(
+                            SemanticError(
+                                code,
+                                f"Option '{option_id}' has '{slot}' but is not marked excluded",
+                                option_path,
+                            )
+                        )
 
         # Check default is not an excluded option
         if default is not None and default in options:

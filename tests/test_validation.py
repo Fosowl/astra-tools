@@ -873,6 +873,14 @@ class TestActorAttribution:
         errors = validate_analysis_file(invalid_dir / "excluded_by_not_excluded.yaml")
         assert any(e.code == "ORPHAN_EXCLUDED_BY" for e in errors)
 
+    def test_excluded_at_not_excluded(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "excluded_at_not_excluded.yaml")
+        assert any(e.code == "ORPHAN_EXCLUDED_AT" for e in errors)
+
+    def test_exclusion_rationale_not_excluded(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "exclusion_rationale_not_excluded.yaml")
+        assert any(e.code == "ORPHAN_EXCLUSION_RATIONALE" for e in errors)
+
     def test_agent_human_only_role(self, invalid_dir: Path):
         errors = validate_analysis_file(invalid_dir / "agent_human_only_role.yaml")
         assert any(e.code == "ROLE_TYPE_MISMATCH" for e in errors)
