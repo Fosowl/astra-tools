@@ -17,10 +17,12 @@ tags:
 actors:
   jane:
     type: human
+    name: "Jane Doe"
     identifiers:
       orcid: "0009-0000-0000-0000"
   assistant:
     type: agent
+    name: "Claude Opus 5 (claude-code)"
     model: claude-opus-5
     harness: claude-code
     version: "2026-07"
@@ -131,13 +133,14 @@ decisions:
         proposed_by: {actor: assistant, role: methodology}
         excluded: true
         excluded_reason: >-
-          Data leakage: fitting before the train/test split lets test-set
-          statistics contaminate the training features.
+          Held-out accuracy fell from 0.97 to 0.94 after refitting the
+          scaler on the training split alone.
         excluded_by: {actor: jane, role: validation}
-        excluded_at: 2026-05-09
+        excluded_at: 2026-07-28
         exclusion_rationale: >-
-          Ruled out on the pre-registered no-leakage principle rather than on
-          the measured score, which stayed within tolerance on this dataset.
+          Data leakage. Fitting before the train/test split let test-set
+          statistics contaminate the training features, so the higher
+          number was never a real gain.
 
   model:
     label: Classification Model

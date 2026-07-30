@@ -924,7 +924,7 @@ class TestActorAttribution:
             "name": "Nested actors",
             "inputs": [{"id": "data", "type": "data"}],
             "outputs": [{"id": "result", "type": "metric"}],
-            "actors": {"jane": {"type": "human"}},
+            "actors": {"jane": {"type": "human", "name": "Jane Doe"}},
             "analyses": {
                 "sub": {
                     "inputs": [{"id": "x", "type": "data"}],
@@ -939,3 +939,16 @@ class TestActorAttribution:
             },
         }
         assert validate_analysis(analysis_data) == []
+
+    def test_human_without_identity(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "human_no_identity.yaml")
+        assert any(e.code == "MISSING_HUMAN_IDENTITY" for e in errors)
+
+    def test_role_table_covers_schema_enum(self):
+        """Guardrail: the allow-table and the schema's Role enum cannot drift."""
+        from astra.datamodel.astra_pydantic import Role
+
+        from astra.validation.semantic import ROLE_ALLOWED_TYPES
+
+        assert set(ROLE_ALLOWED_TYPES) == {role.value for role in Role}
+        assert all(types for types in ROLE_ALLOWED_TYPES.values())

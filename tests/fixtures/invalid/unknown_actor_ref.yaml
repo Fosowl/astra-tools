@@ -10,6 +10,7 @@ outputs:
 actors:
   jane:
     type: human
+    name: "Jane Doe"
 decisions:
   method:
     label: "Method"
