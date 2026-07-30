@@ -32,3 +32,7 @@ decisions:
         excluded: true
         excluded_reason: "Data leakage."
         excluded_by: {actor: jane, role: validation}
+        excluded_at: "2026-05-09"
+        exclusion_rationale: >-
+          Test-set statistics contaminate the training features, so the
+          held-out score stops measuring generalization.
