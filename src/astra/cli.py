@@ -518,11 +518,15 @@ def info(
 
 
 def _attribution_label(value: Any) -> str:
-    """Render an attribution value (actor id or {actor, role}) for display."""
+    """Render an attribution value (actor id or {actor, role}) for display.
+
+    Uses parentheses for the role — square brackets would be interpreted
+    as Rich console markup.
+    """
     if isinstance(value, dict):
         actor = value.get("actor", "?")
         role = value.get("role")
-        return f"{actor} [{role}]" if role else str(actor)
+        return f"{actor} ({role})" if role else str(actor)
     return str(value)
 
 
