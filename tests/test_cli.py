@@ -94,6 +94,23 @@ class TestInfoCommand:
         assert "Outputs:" in result.output
         assert "accuracy" in result.output
 
+    def test_info_renders_full_exclusion_record(
+        self, runner: CliRunner, actors_attribution_path: Path
+    ):
+        """An excluded option shows who, when, the evidence, and the judgment.
+
+        Regression guard: excluded_at, excluded_reason and exclusion_rationale
+        were validated but never displayed, so the record was invisible to
+        anyone reading the analysis through the CLI.
+        """
+        result = runner.invoke(main, ["info", "-f", str(actors_attribution_path), "--decisions"])
+        assert result.exit_code == 0
+        output = " ".join(result.output.split())
+        assert "excluded by jane (validation)" in output
+        assert "on 2026-05-09" in output
+        assert "Reason: Data leakage." in output
+        assert "Rationale: Test-set statistics contaminate" in output
+
     def test_info_no_file(self, runner: CliRunner, tmp_path: Path):
         # Run in a directory without astra.yaml
         result = runner.invoke(main, ["info"], catch_exceptions=False)

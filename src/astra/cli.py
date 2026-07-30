@@ -553,9 +553,15 @@ def _display_decisions(decisions: dict[str, Any], indent: str = "") -> None:
                 for slot, verb in (("proposed_by", "proposed by"), ("excluded_by", "excluded by"))
                 if option.get(slot) is not None
             ]
+            if option.get("excluded_at"):
+                attributions.append(f"on {option['excluded_at']}")
             if attributions:
                 option_text += f" [dim]({'; '.join(attributions)})[/dim]"
-            options_branch.add(option_text)
+            leaf = options_branch.add(option_text)
+            detail_slots = (("Reason:", "excluded_reason"), ("Rationale:", "exclusion_rationale"))
+            for label, slot in detail_slots:
+                if option.get(slot):
+                    leaf.add(f"[dim]{label}[/dim] {option[slot]}")
 
         console.print(tree)
         console.print()

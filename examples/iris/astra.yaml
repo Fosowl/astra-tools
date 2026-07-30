@@ -134,6 +134,10 @@ decisions:
           Data leakage: fitting before the train/test split lets test-set
           statistics contaminate the training features.
         excluded_by: {actor: jane, role: validation}
+        excluded_at: 2026-05-09
+        exclusion_rationale: >-
+          Ruled out on the pre-registered no-leakage principle rather than on
+          the measured score, which stayed within tolerance on this dataset.
 
   model:
     label: Classification Model

@@ -74,6 +74,12 @@ def svm_universe_path() -> Path:
 
 
 @pytest.fixture
+def actors_attribution_path() -> Path:
+    """Return path to the analysis carrying a full exclusion record."""
+    return VALID_DIR / "actors_attribution.yaml"
+
+
+@pytest.fixture
 def minimal_analysis_data() -> dict[str, Any]:
     """Return minimal analysis data as dict."""
     return {
