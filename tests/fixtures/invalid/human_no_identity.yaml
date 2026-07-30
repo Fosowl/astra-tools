@@ -1,4 +1,4 @@
-# A human actor declaring agent-only fields.
+# A human actor with neither name nor identifiers.
 version: "0.0.13"
 name: "Test"
 inputs:
@@ -10,5 +10,3 @@ outputs:
 actors:
   jane:
     type: human
-    name: "Jane Doe"
-    model: claude-opus-5

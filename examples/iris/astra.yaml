@@ -17,10 +17,12 @@ tags:
 actors:
   jane:
     type: human
+    name: "Jane Doe"
     identifiers:
       orcid: "0009-0000-0000-0000"
   assistant:
     type: agent
+    name: "Claude Opus 5 (claude-code)"
     model: claude-opus-5
     harness: claude-code
     version: "2026-07"

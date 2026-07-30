@@ -457,6 +457,7 @@ def info(
         console.print("\n[bold]Actors:[/bold]")
         table = Table(show_header=True)
         table.add_column("ID")
+        table.add_column("Name")
         table.add_column("Type")
         table.add_column("Details")
         for actor_id, actor in actors.items():
@@ -468,7 +469,12 @@ def info(
             else:
                 ids = actor.get("identifiers") or {}
                 details = ", ".join(f"{scheme}: {value}" for scheme, value in ids.items() if value)
-            table.add_row(actor_id, str(actor.get("type", "")), details)
+            table.add_row(
+                actor_id,
+                str(actor.get("name", "")),
+                str(actor.get("type", "")),
+                details,
+            )
         console.print(table)
 
     # Show all by default if no flags

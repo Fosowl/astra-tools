@@ -11,7 +11,7 @@ import string
 from pathlib import Path
 from typing import Any
 
-from astra.datamodel.astra_pydantic import AgentRole, HumanRole
+from astra.datamodel.astra_pydantic import Role
 
 from astra.helpers import (
     _collect_node_decisions,
@@ -67,22 +67,25 @@ _ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 # Actor attribution (RFC-0003)
 # ---------------------------------------------------------------------------
 #
-# The schema declares the vocabulary (Actor, Attribution, the role enums);
-# everything conditional or cross-referential is enforced here: registry
-# membership of attribution references, role legality for the referenced
-# actor's type, excluded_by/excluded consistency, and the human/agent field
-# split (generated Pydantic does not compile LinkML rules).
+# The schema declares the vocabulary (Actor, Attribution, the single closed
+# Role enum); everything conditional or cross-referential is enforced here:
+# registry membership of attribution references, role legality for the
+# referenced actor's type, excluded_by/excluded consistency, the human/agent
+# field split, and human identifiability (generated Pydantic does not
+# compile LinkML rules).
 #
-# ROLE_ALLOWED_TYPES is the single source of truth for the type split,
-# derived from the schema's own enums so the two lists cannot drift apart.
+# ROLE_ALLOWED_TYPES is the single source of truth for the actor-type split
+# (RFC-0003 reference implementation shape): keyed by the schema's own Role
+# enum so the table and the vocabulary cannot drift apart — see the
+# role-table guardrail test.
+
+_HUMAN_ONLY_ROLES = frozenset({"conceptualization", "supervision"})
 
 ROLE_ALLOWED_TYPES: dict[str, frozenset[str]] = {
-    role.value: frozenset(
-        actor_type
-        for actor_type, enum_cls in (("human", HumanRole), ("agent", AgentRole))
-        if any(member.value == role.value for member in enum_cls)
+    role.value: (
+        frozenset({"human"}) if role.value in _HUMAN_ONLY_ROLES else frozenset({"human", "agent"})
     )
-    for role in (*HumanRole, *AgentRole)
+    for role in Role
 }
 
 _AGENT_ONLY_FIELDS = ("model", "harness", "version")
@@ -165,6 +168,20 @@ def _validate_actor_registry(
                         actor_path,
                     )
                 )
+
+        # A human must be identifiable by at least one of name/identifiers.
+        # An identity can only be supplied by the user — never inferred or
+        # invented (an ORCID names a real person), so the error asks for it.
+        if actor_type == "human" and not actor.get("name") and identifiers is None:
+            errors.append(
+                SemanticError(
+                    "MISSING_HUMAN_IDENTITY",
+                    f"Human actor '{actor_id}' has neither 'name' nor "
+                    f"'identifiers'; ask the user for at least one — never "
+                    f"infer or invent an identifier",
+                    actor_path,
+                )
+            )
 
     return errors
 
