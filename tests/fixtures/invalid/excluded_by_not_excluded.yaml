@@ -1,0 +1,19 @@
+# excluded_by on an option that is not marked excluded.
+version: "0.0.13"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+actors:
+  jane:
+    type: human
+decisions:
+  method:
+    label: "Method"
+    options:
+      a:
+        label: "A"
+        excluded_by: jane

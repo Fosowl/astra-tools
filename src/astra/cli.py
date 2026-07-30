@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -23,6 +24,7 @@ from astra.helpers import (
     get_outputs,
     load_yaml,
     save_yaml,
+    selection_option,
 )
 from astra.validation.schema import (
     check_spec_version,
@@ -132,6 +134,11 @@ def _create_boilerplate_astra_yaml(directory: Path) -> None:
     """Create boilerplate astra.yaml with TODOs."""
     name = directory.name if directory != Path(".") else "My Analysis"
     spec_version = installed_spec_version() or "1.0"
+    # Dev/editable installs report versions like 0.0.12.post2.dev0+abc123;
+    # the schema's version pattern only accepts X.Y[.Z], so keep the base.
+    base = re.match(r"\d+\.\d+(?:\.\d+)?", spec_version)
+    if base:
+        spec_version = base.group(0)
 
     astra_yaml = f"""# ASTRA Analysis Specification
 
@@ -444,6 +451,26 @@ def info(
         f"Decisions: {len(decision_dict)}[/dim]"
     )
 
+    # Actors (RFC-0003)
+    actors = data.get("actors") or {}
+    if actors:
+        console.print("\n[bold]Actors:[/bold]")
+        table = Table(show_header=True)
+        table.add_column("ID")
+        table.add_column("Type")
+        table.add_column("Details")
+        for actor_id, actor in actors.items():
+            if not isinstance(actor, dict):
+                continue
+            if actor.get("type") == "agent":
+                parts = [str(actor.get(k)) for k in ("model", "harness", "version") if actor.get(k)]
+                details = " / ".join(parts)
+            else:
+                ids = actor.get("identifiers") or {}
+                details = ", ".join(f"{scheme}: {value}" for scheme, value in ids.items() if value)
+            table.add_row(actor_id, str(actor.get("type", "")), details)
+        console.print(table)
+
     # Show all by default if no flags
     show_all = not (decisions or inputs or outputs)
 
@@ -490,6 +517,15 @@ def info(
         _display_analysis_decisions(decision_tree.get("analyses", {}))
 
 
+def _attribution_label(value: Any) -> str:
+    """Render an attribution value (actor id or {actor, role}) for display."""
+    if isinstance(value, dict):
+        actor = value.get("actor", "?")
+        role = value.get("role")
+        return f"{actor} [{role}]" if role else str(actor)
+    return str(value)
+
+
 def _display_decisions(decisions: dict[str, Any], indent: str = "") -> None:
     """Display decisions as Rich trees."""
     for decision_id, decision in decisions.items():
@@ -508,6 +544,13 @@ def _display_decisions(decisions: dict[str, Any], indent: str = "") -> None:
             option_text = f"{option_id}: {option.get('label', '')}{default_marker}"
             if option.get("description"):
                 option_text += f" - [dim]{option['description']}[/dim]"
+            attributions = [
+                f"{verb} {_attribution_label(option[slot])}"
+                for slot, verb in (("proposed_by", "proposed by"), ("excluded_by", "excluded by"))
+                if option.get(slot) is not None
+            ]
+            if attributions:
+                option_text += f" [dim]({'; '.join(attributions)})[/dim]"
             options_branch.add(option_text)
 
         console.print(tree)
@@ -585,9 +628,19 @@ def _check_missing_defaults(node: dict[str, Any], missing: list[str], prefix: st
 
 
 def _print_universe_decisions(uni: dict[str, Any], indent: str = "  ") -> None:
-    """Recursively print universe decisions."""
-    for d_id, opt_id in (uni.get("decisions") or {}).items():
-        console.print(f"{indent}{d_id}: {opt_id}")
+    """Recursively print universe decisions (both selection forms)."""
+    for d_id, selection in (uni.get("decisions") or {}).items():
+        opt_id = selection_option(selection)
+        line = f"{indent}{d_id}: {opt_id}"
+        if isinstance(selection, dict):
+            attributions = [
+                f"{verb} {_attribution_label(selection[slot])}"
+                for slot, verb in (("selected_by", "selected by"), ("reviewed_by", "reviewed by"))
+                if selection.get(slot) is not None
+            ]
+            if attributions:
+                line += f" [dim]({'; '.join(attributions)})[/dim]"
+        console.print(line)
     for analysis_id, sub in (uni.get("analyses") or {}).items():
         console.print(f"{indent}[magenta]{analysis_id}:[/magenta]")
         _print_universe_decisions(sub, indent + "  ")

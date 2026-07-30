@@ -1,0 +1,13 @@
+# A human actor with a present but empty identifiers record.
+version: "0.0.13"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+actors:
+  jane:
+    type: human
+    identifiers: {}

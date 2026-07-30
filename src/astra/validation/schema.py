@@ -25,7 +25,7 @@ def _inject_ids_inplace(data: dict[str, Any]) -> None:
 
     Injects dict keys as ``id`` fields (ASTRA YAML uses keyed dicts).
     """
-    for field in ("decisions", "analyses", "prior_insights", "findings"):
+    for field in ("decisions", "analyses", "prior_insights", "findings", "actors"):
         mapping = data.get(field)
         if not isinstance(mapping, dict):
             continue
@@ -85,7 +85,16 @@ def validate_universe_schema(path: str | Path) -> list[str]:
 
 
 def _inject_universe_ids_inplace(node: dict[str, Any]) -> None:
-    """Inject dict keys as ``id`` fields on universe sub-analysis nodes."""
+    """Inject dict keys as identifier fields on universe nodes.
+
+    Sub-analysis nodes get their key as ``id``; object-form decision
+    selections (RFC-0003) get their key as ``decision_id``.
+    """
+    decisions = node.get("decisions")
+    if isinstance(decisions, dict):
+        for key, value in decisions.items():
+            if isinstance(value, dict):
+                value.setdefault("decision_id", key)
     analyses = node.get("analyses")
     if not isinstance(analyses, dict):
         return

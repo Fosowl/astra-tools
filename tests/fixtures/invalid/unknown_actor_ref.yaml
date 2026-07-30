@@ -1,0 +1,19 @@
+# Attribution references an actor that is not in the registry.
+version: "0.0.13"
+name: "Test"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+actors:
+  jane:
+    type: human
+decisions:
+  method:
+    label: "Method"
+    options:
+      a:
+        label: "A"
+        proposed_by: bob

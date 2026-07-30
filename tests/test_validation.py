@@ -849,3 +849,85 @@ class TestDefaultUniverseConditional:
         decisions = defaults["decisions"]
         # mode=basic -> condition not met, gpu_opt should NOT be included
         assert "gpu_opt" not in decisions
+
+
+class TestActorAttribution:
+    """Tests for the actor attribution layer (RFC-0003)."""
+
+    def test_valid_actors_analysis(self, valid_dir: Path):
+        path = valid_dir / "actors_attribution.yaml"
+        assert validate_analysis_schema(path) == []
+        assert validate_analysis_file(path) == []
+
+    def test_valid_attributed_universe(self, valid_dir: Path):
+        universe_path = valid_dir / "actors_universe.yaml"
+        assert validate_universe_schema(universe_path) == []
+        errors = validate_universe_file(universe_path, valid_dir / "actors_attribution.yaml")
+        assert errors == []
+
+    def test_unknown_actor_ref(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "unknown_actor_ref.yaml")
+        assert any(e.code == "UNKNOWN_ACTOR" for e in errors)
+
+    def test_excluded_by_not_excluded(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "excluded_by_not_excluded.yaml")
+        assert any(e.code == "ORPHAN_EXCLUDED_BY" for e in errors)
+
+    def test_agent_human_only_role(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "agent_human_only_role.yaml")
+        assert any(e.code == "ROLE_TYPE_MISMATCH" for e in errors)
+
+    def test_human_with_agent_fields(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "human_with_agent_fields.yaml")
+        assert any(e.code == "ACTOR_FIELD_MISMATCH" for e in errors)
+
+    def test_empty_identifiers(self, invalid_dir: Path):
+        errors = validate_analysis_file(invalid_dir / "empty_identifiers.yaml")
+        assert any(e.code == "EMPTY_IDENTIFIERS" for e in errors)
+
+    def test_universe_unknown_actor(self, valid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "actors_attribution.yaml")
+        universe_data = {
+            "id": "bad",
+            "decisions": {
+                "scaling": {"option_id": "after_split", "selected_by": "nobody"},
+            },
+        }
+        errors = validate_universe(universe_data, analysis_data)
+        assert any(e.code == "UNKNOWN_ACTOR" for e in errors)
+
+    def test_universe_selection_missing_option_id(self, valid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "actors_attribution.yaml")
+        universe_data = {
+            "id": "bad",
+            "decisions": {"scaling": {"selected_by": "jane"}},
+        }
+        errors = validate_universe(universe_data, analysis_data)
+        assert any(e.code == "MISSING_OPTION_ID" for e in errors)
+
+    def test_universe_shorthand_still_valid(self, valid_dir: Path):
+        analysis_data = load_yaml(valid_dir / "actors_attribution.yaml")
+        universe_data = {"id": "plain", "decisions": {"scaling": "after_split"}}
+        assert validate_universe(universe_data, analysis_data) == []
+
+    def test_sub_analysis_inherits_root_actors(self):
+        analysis_data = {
+            "version": "0.0.13",
+            "name": "Nested actors",
+            "inputs": [{"id": "data", "type": "data"}],
+            "outputs": [{"id": "result", "type": "metric"}],
+            "actors": {"jane": {"type": "human"}},
+            "analyses": {
+                "sub": {
+                    "inputs": [{"id": "x", "type": "data"}],
+                    "outputs": [{"id": "y", "type": "metric"}],
+                    "decisions": {
+                        "method": {
+                            "label": "Method",
+                            "options": {"a": {"label": "A", "proposed_by": "jane"}},
+                        }
+                    },
+                }
+            },
+        }
+        assert validate_analysis(analysis_data) == []

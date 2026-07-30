@@ -1,0 +1,34 @@
+# Actor registry with option attribution in both forms (RFC-0003):
+# the {actor, role} object and the bare actor-id shorthand.
+version: "0.0.13"
+name: "Actors attribution"
+inputs:
+  - id: data
+    type: data
+outputs:
+  - id: result
+    type: metric
+actors:
+  jane:
+    type: human
+    identifiers:
+      orcid: "0009-0000-0000-0000"
+  assistant:
+    type: agent
+    model: claude-opus-5
+    harness: claude-code
+    version: "2026-07"
+decisions:
+  scaling:
+    label: "Feature scaling"
+    default: after_split
+    options:
+      after_split:
+        label: "Fit on the training split only"
+        proposed_by: jane
+      before_split:
+        label: "Fit on the full dataset before the split"
+        proposed_by: {actor: assistant, role: methodology}
+        excluded: true
+        excluded_reason: "Data leakage."
+        excluded_by: {actor: jane, role: validation}

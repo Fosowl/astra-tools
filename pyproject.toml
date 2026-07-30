@@ -69,6 +69,13 @@ Repository = "https://github.com/LightconeResearch/astra-tools"
 Issues = "https://github.com/LightconeResearch/astra-tools/issues"
 Specification = "https://github.com/LightconeResearch/astra-spec"
 
+[tool.uv.sources]
+# Fork development: resolve astra-spec from the sibling checkout (actor
+# attribution layer, RFC-0003) instead of PyPI. Applies to uv-managed
+# environments of this project only; consumers installing this package
+# from git still resolve astra-spec from the index.
+astra-spec = { path = "../astra-spec", editable = true }
+
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"

@@ -46,6 +46,35 @@ def is_condition_met(
     return True
 
 
+def selection_option(selection: Any) -> str | None:
+    """Return the option id from a universe selection value.
+
+    A selection is either the scalar shorthand (``decision_id: option_id``)
+    or an object form carrying ``option_id`` plus optional attribution
+    fields (``selected_by`` / ``reviewed_by``, RFC-0003).
+    """
+    if isinstance(selection, str):
+        return selection
+    if isinstance(selection, dict):
+        option_id = selection.get("option_id")
+        return option_id if isinstance(option_id, str) else None
+    return None
+
+
+def normalize_universe_decisions(decisions: dict[str, Any]) -> dict[str, str]:
+    """Normalize a universe ``decisions`` map to plain decision_id -> option_id.
+
+    Accepts both selection forms (scalar shorthand and attribution object);
+    selections whose option cannot be determined are dropped.
+    """
+    normalized: dict[str, str] = {}
+    for decision_id, selection in decisions.items():
+        option_id = selection_option(selection)
+        if option_id is not None:
+            normalized[decision_id] = option_id
+    return normalized
+
+
 def _collect_node_decisions(node: dict[str, Any]) -> dict[str, Any]:
     """Collect locally-defined decisions from a node.
 

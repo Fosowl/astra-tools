@@ -11,12 +11,15 @@ import string
 from pathlib import Path
 from typing import Any
 
+from astra.datamodel.astra_pydantic import AgentRole, HumanRole
+
 from astra.helpers import (
     _collect_node_decisions,
     get_input_ids,
     get_output_ids,
     is_condition_met,
     load_yaml,
+    normalize_universe_decisions,
     resolve_analysis_tree,
 )
 
@@ -58,6 +61,159 @@ class SemanticError:
 # time; the helper here is for resolution against the actual analysis tree.
 
 _ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+# ---------------------------------------------------------------------------
+# Actor attribution (RFC-0003)
+# ---------------------------------------------------------------------------
+#
+# The schema declares the vocabulary (Actor, Attribution, the role enums);
+# everything conditional or cross-referential is enforced here: registry
+# membership of attribution references, role legality for the referenced
+# actor's type, excluded_by/excluded consistency, and the human/agent field
+# split (generated Pydantic does not compile LinkML rules).
+#
+# ROLE_ALLOWED_TYPES is the single source of truth for the type split,
+# derived from the schema's own enums so the two lists cannot drift apart.
+
+ROLE_ALLOWED_TYPES: dict[str, frozenset[str]] = {
+    role.value: frozenset(
+        actor_type
+        for actor_type, enum_cls in (("human", HumanRole), ("agent", AgentRole))
+        if any(member.value == role.value for member in enum_cls)
+    )
+    for role in (*HumanRole, *AgentRole)
+}
+
+_AGENT_ONLY_FIELDS = ("model", "harness", "version")
+
+_ATTRIBUTION_SLOTS_OPTION = ("proposed_by", "excluded_by")
+_ATTRIBUTION_SLOTS_SELECTION = ("selected_by", "reviewed_by")
+
+
+def _collect_actors_in_scope(
+    ancestor_chain: list[dict[str, Any]],
+    node: dict[str, Any],
+) -> dict[str, Any]:
+    """Actors visible at a node: ancestors' registries overlaid by the node's own."""
+    actors: dict[str, Any] = {}
+    for ancestor in ancestor_chain:
+        actors.update(ancestor.get("actors") or {})
+    actors.update(node.get("actors") or {})
+    return actors
+
+
+def _validate_actor_registry(
+    actors: dict[str, Any],
+    path_prefix: str,
+) -> list[SemanticError]:
+    """Validate one node's ``actors`` registry (human/agent field consistency)."""
+    errors: list[SemanticError] = []
+    actors_path = f"{path_prefix}.actors" if path_prefix else "actors"
+    for actor_id, actor in actors.items():
+        if not isinstance(actor, dict):
+            continue
+        actor_path = f"{actors_path}.{actor_id}"
+        actor_type = actor.get("type")
+        identifiers = actor.get("identifiers")
+
+        if actor_type == "human":
+            declared = [f for f in _AGENT_ONLY_FIELDS if actor.get(f) is not None]
+            if declared:
+                errors.append(
+                    SemanticError(
+                        "ACTOR_FIELD_MISMATCH",
+                        f"Human actor '{actor_id}' declares agent-only "
+                        f"field(s): {', '.join(declared)}",
+                        actor_path,
+                    )
+                )
+        elif actor_type == "agent":
+            if identifiers is not None:
+                errors.append(
+                    SemanticError(
+                        "ACTOR_FIELD_MISMATCH",
+                        f"Agent actor '{actor_id}' declares 'identifiers' (human-only field)",
+                        actor_path,
+                    )
+                )
+            if not actor.get("model"):
+                errors.append(
+                    SemanticError(
+                        "MISSING_AGENT_MODEL",
+                        f"Agent actor '{actor_id}' must declare a 'model'",
+                        actor_path,
+                    )
+                )
+
+        if actor_type == "human" and isinstance(identifiers, dict):
+            if not any(v is not None for v in identifiers.values()):
+                errors.append(
+                    SemanticError(
+                        "EMPTY_IDENTIFIERS",
+                        f"Actor '{actor_id}' has an 'identifiers' record with "
+                        f"no identifier; at least one is required when present",
+                        actor_path,
+                    )
+                )
+
+    return errors
+
+
+def _validate_attribution(
+    value: Any,
+    actors_in_scope: dict[str, Any],
+    slot: str,
+    path: str,
+) -> list[SemanticError]:
+    """Validate one attribution value: a bare actor id or {actor, role}."""
+    errors: list[SemanticError] = []
+
+    actor_id: Any
+    role: Any
+    if isinstance(value, str):
+        actor_id, role = value, None
+    elif isinstance(value, dict):
+        actor_id, role = value.get("actor"), value.get("role")
+    else:
+        return errors
+
+    if actor_id not in actors_in_scope:
+        known = ", ".join(sorted(actors_in_scope)) or "(none declared)"
+        errors.append(
+            SemanticError(
+                "UNKNOWN_ACTOR",
+                f"'{slot}' references unknown actor '{actor_id}' (actors in scope: {known})",
+                path,
+            )
+        )
+        return errors
+
+    if role is not None:
+        allowed_types = ROLE_ALLOWED_TYPES.get(role)
+        if allowed_types is None:
+            errors.append(
+                SemanticError(
+                    "INVALID_ROLE",
+                    f"'{slot}' uses unknown role '{role}'",
+                    path,
+                )
+            )
+        else:
+            actor = actors_in_scope.get(actor_id) or {}
+            actor_type = actor.get("type") if isinstance(actor, dict) else None
+            if actor_type in ("human", "agent") and actor_type not in allowed_types:
+                errors.append(
+                    SemanticError(
+                        "ROLE_TYPE_MISMATCH",
+                        f"'{slot}' assigns role '{role}' to {actor_type} actor "
+                        f"'{actor_id}', but '{role}' is "
+                        f"{'human' if 'human' in allowed_types else 'agent'}-only",
+                        path,
+                    )
+                )
+
+    return errors
 
 
 def _parse_from_path(ref: str) -> tuple[int, list[str]] | None:
@@ -195,8 +351,19 @@ def validate_analysis(data: dict[str, Any], base_path: Path | None = None) -> li
     # Collect all decisions (only locally-defined ones at root)
     root_decisions = _collect_node_decisions(data)
 
-    # Validate all decisions
-    errors.extend(_validate_decisions(root_decisions, prior_insights, "", ancestor_chain=[]))
+    # Validate the actor registry, then all decisions (with actors in scope
+    # for attribution references)
+    root_actors = _collect_actors_in_scope([], data)
+    errors.extend(_validate_actor_registry(data.get("actors") or {}, ""))
+    errors.extend(
+        _validate_decisions(
+            root_decisions,
+            prior_insights,
+            "",
+            ancestor_chain=[],
+            actors_in_scope=root_actors,
+        )
+    )
 
     # Validate evidence artifact references in prior_insights and findings
     errors.extend(
@@ -349,6 +516,7 @@ def _validate_analysis_node(
     # as `../id`, `../../id`, ... (matching `Input.from` / `Decision.from`
     # convention) — `_validate_decisions` parses those via the ancestor chain.
     node_prior_insights = node.get("prior_insights") or {}
+    errors.extend(_validate_actor_registry(node.get("actors") or {}, node_path))
     errors.extend(
         _validate_decisions(
             node_decisions,
@@ -356,6 +524,7 @@ def _validate_analysis_node(
             node_path,
             constraint_scope,
             ancestor_chain=ancestor_chain,
+            actors_in_scope=_collect_actors_in_scope(ancestor_chain, node),
         )
     )
 
@@ -465,6 +634,7 @@ def _validate_decisions(
     path_prefix: str,
     constraint_scope: dict[str, Any] | None = None,
     ancestor_chain: list[dict[str, Any]] | None = None,
+    actors_in_scope: dict[str, Any] | None = None,
 ) -> list[SemanticError]:
     """Validate a set of decisions at a given node.
 
@@ -476,12 +646,16 @@ def _validate_decisions(
         ancestor_chain: Root-first chain of ancestor scopes for resolving
             ``../id``-form ``Option.insights`` refs against ancestor
             ``prior_insights``. Empty/None at the root.
+        actors_in_scope: Actor registries visible at this node (ancestors
+            overlaid by the node's own), for attribution references.
     """
     errors: list[SemanticError] = []
     if constraint_scope is None:
         constraint_scope = decisions
     if ancestor_chain is None:
         ancestor_chain = []
+    if actors_in_scope is None:
+        actors_in_scope = {}
 
     decisions_prefix = f"{path_prefix}.decisions" if path_prefix else "decisions"
     for decision_id, decision in decisions.items():
@@ -588,6 +762,23 @@ def _validate_decisions(
                     SemanticError(
                         "ORPHAN_EXCLUDED_REASON",
                         f"Option '{option_id}' has 'excluded_reason' but is not marked excluded",
+                        option_path,
+                    )
+                )
+
+            # Actor attribution (RFC-0003): references must resolve, roles
+            # must be legal for the actor's type, and excluded_by pairs
+            # with excluded: true.
+            for slot in _ATTRIBUTION_SLOTS_OPTION:
+                value = option.get(slot)
+                if value is None:
+                    continue
+                errors.extend(_validate_attribution(value, actors_in_scope, slot, option_path))
+            if option.get("excluded_by") is not None and not is_excluded:
+                errors.append(
+                    SemanticError(
+                        "ORPHAN_EXCLUDED_BY",
+                        f"Option '{option_id}' has 'excluded_by' but is not marked excluded",
                         option_path,
                     )
                 )
@@ -1130,6 +1321,7 @@ def validate_universe(
         analysis_data,
         path_prefix="",
         ancestor_universe_chain=[],
+        actors_in_scope=_collect_actors_in_scope([], analysis_data),
     )
 
 
@@ -1138,6 +1330,7 @@ def _validate_universe_node(
     analysis_node: dict[str, Any],
     path_prefix: str,
     ancestor_universe_chain: list[dict[str, str]],
+    actors_in_scope: dict[str, Any] | None = None,
 ) -> list[SemanticError]:
     """Recursively validate a universe node against an analysis node.
 
@@ -1146,14 +1339,38 @@ def _validate_universe_node(
     skipped (they inherit their value from the parent universe).
     """
     errors: list[SemanticError] = []
+    if actors_in_scope is None:
+        actors_in_scope = {}
 
     # Validate decisions at this level
     analysis_decisions = _collect_node_decisions(analysis_node)
     # Also get all decisions including `from` references for detecting what the
     # universe should/shouldn't contain
     all_analysis_decisions = analysis_node.get("decisions") or {}
-    universe_decisions = universe_node.get("decisions") or {}
+    raw_universe_decisions = universe_node.get("decisions") or {}
     decisions_path = f"{path_prefix}.decisions" if path_prefix else "decisions"
+
+    # Selections come in two forms (RFC-0003): the scalar shorthand and an
+    # object carrying attribution. Normalize to a plain map for all
+    # coverage/constraint logic, and validate attributions separately.
+    universe_decisions = normalize_universe_decisions(raw_universe_decisions)
+    for decision_id, selection in raw_universe_decisions.items():
+        selection_path = f"{decisions_path}.{decision_id}"
+        if not isinstance(selection, dict):
+            continue
+        if not isinstance(selection.get("option_id"), str):
+            errors.append(
+                SemanticError(
+                    "MISSING_OPTION_ID",
+                    f"Selection for decision '{decision_id}' has no 'option_id'",
+                    selection_path,
+                )
+            )
+        for slot in _ATTRIBUTION_SLOTS_SELECTION:
+            value = selection.get(slot)
+            if value is None:
+                continue
+            errors.extend(_validate_attribution(value, actors_in_scope, slot, selection_path))
 
     # Identify `from` reference decisions (resolved from parent, not set in universe)
     from_decision_ids = set()
@@ -1305,6 +1522,10 @@ def _validate_universe_node(
                 sub_analysis_node,
                 path_prefix=f"{analyses_prefix}.{analysis_id}",
                 ancestor_universe_chain=ancestor_universe_chain + [universe_decisions],
+                actors_in_scope={
+                    **actors_in_scope,
+                    **(sub_analysis_node.get("actors") or {}),
+                },
             )
         )
 
