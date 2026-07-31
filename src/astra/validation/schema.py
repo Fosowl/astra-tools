@@ -88,7 +88,7 @@ def _inject_universe_ids_inplace(node: dict[str, Any]) -> None:
     """Inject dict keys as identifier fields on universe nodes.
 
     Sub-analysis nodes get their key as ``id``; object-form decision
-    selections (RFC-0003) get their key as ``decision_id``.
+    selections (RFC-0004) get their key as ``decision_id``.
     """
     decisions = node.get("decisions")
     if isinstance(decisions, dict):

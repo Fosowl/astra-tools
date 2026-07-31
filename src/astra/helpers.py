@@ -51,7 +51,7 @@ def selection_option(selection: Any) -> str | None:
 
     A selection is either the scalar shorthand (``decision_id: option_id``)
     or an object form carrying ``option_id`` plus optional attribution
-    fields (``selected_by`` / ``reviewed_by``, RFC-0003).
+    fields (``selected_by`` / ``reviewed_by``, RFC-0004).
     """
     if isinstance(selection, str):
         return selection

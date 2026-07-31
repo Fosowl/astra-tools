@@ -852,7 +852,7 @@ class TestDefaultUniverseConditional:
 
 
 class TestActorAttribution:
-    """Tests for the actor attribution layer (RFC-0003)."""
+    """Tests for the actor attribution layer (RFC-0004)."""
 
     def test_valid_actors_analysis(self, valid_dir: Path):
         path = valid_dir / "actors_attribution.yaml"

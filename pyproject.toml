@@ -71,7 +71,7 @@ Specification = "https://github.com/LightconeResearch/astra-spec"
 
 [tool.uv.sources]
 # Fork development: resolve astra-spec from the sibling checkout (actor
-# attribution layer, RFC-0003) instead of PyPI. Applies to uv-managed
+# attribution layer, RFC-0004) instead of PyPI. Applies to uv-managed
 # environments of this project only; consumers installing this package
 # from git still resolve astra-spec from the index.
 astra-spec = { path = "../astra-spec", editable = true }

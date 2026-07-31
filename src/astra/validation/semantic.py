@@ -64,7 +64,7 @@ _ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 # ---------------------------------------------------------------------------
-# Actor attribution (RFC-0003)
+# Actor attribution (RFC-0004)
 # ---------------------------------------------------------------------------
 #
 # The schema declares the vocabulary (Actor, Attribution, the single closed
@@ -75,7 +75,7 @@ _ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 # compile LinkML rules).
 #
 # ROLE_ALLOWED_TYPES is the single source of truth for the actor-type split
-# (RFC-0003 reference implementation shape): keyed by the schema's own Role
+# (RFC-0004 reference implementation shape): keyed by the schema's own Role
 # enum so the table and the vocabulary cannot drift apart — see the
 # role-table guardrail test.
 
@@ -792,7 +792,7 @@ def _validate_decisions(
                     )
                 )
 
-            # Actor attribution (RFC-0003): references must resolve, roles
+            # Actor attribution (RFC-0004): references must resolve, roles
             # must be legal for the actor's type, and every field recording
             # an exclusion pairs with excluded: true.
             for slot in _ATTRIBUTION_SLOTS_OPTION:
@@ -1378,7 +1378,7 @@ def _validate_universe_node(
     raw_universe_decisions = universe_node.get("decisions") or {}
     decisions_path = f"{path_prefix}.decisions" if path_prefix else "decisions"
 
-    # Selections come in two forms (RFC-0003): the scalar shorthand and an
+    # Selections come in two forms (RFC-0004): the scalar shorthand and an
     # object carrying attribution. Normalize to a plain map for all
     # coverage/constraint logic, and validate attributions separately.
     universe_decisions = normalize_universe_decisions(raw_universe_decisions)

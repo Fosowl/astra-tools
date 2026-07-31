@@ -451,7 +451,7 @@ def info(
         f"Decisions: {len(decision_dict)}[/dim]"
     )
 
-    # Actors (RFC-0003)
+    # Actors (RFC-0004)
     actors = data.get("actors") or {}
     if actors:
         console.print("\n[bold]Actors:[/bold]")

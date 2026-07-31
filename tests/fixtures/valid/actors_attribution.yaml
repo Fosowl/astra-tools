@@ -1,4 +1,4 @@
-# Actor registry with option attribution in both forms (RFC-0003):
+# Actor registry with option attribution in both forms (RFC-0004):
 # the {actor, role} object and the bare actor-id shorthand.
 version: "0.0.13"
 name: "Actors attribution"
